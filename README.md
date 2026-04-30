@@ -1,9 +1,9 @@
-# 就活管理
+# 就活管理アプリ
 
 就活中に散らばりがちな企業情報を、ひとつの場所で整理するためのアプリです。
 応募企業ごとの選考状況、志望度、ログイン情報、質問メモをまとめて管理できます。
 
-## アプリ概要
+## 概要
 
 企業一覧を見ながら、応募先の進捗や面接準備を手早く確認できるようにした個人向けの就活管理アプリです。  
 インターンと本選考を切り替えながら、必要な情報を迷わず見返せる構成にしています。
@@ -19,15 +19,24 @@
 
 ## 主な画面
 
-- 企業一覧画面
-  - 応募種別ごとに企業を一覧表示
-  - ステータスごとに整理された企業情報を確認
-  - 検索しながら目的の企業をすばやく表示
-- 企業追加 / 編集画面
-  - 企業名、URL、業界、職種、ログイン情報、タグ、メモを編集
-  - スワイプダウンで自然に閉じられるモーダル
-- 質問メモ画面
-  - 面接で想定される質問と回答メモを保存
+### 企業一覧画面
+<div style="display: flex; gap: 10px;">
+  <img src="https://github.com/user-attachments/assets/bd1b7853-75ff-43cb-b260-b3597ebcc4e9" width="32%" />
+  <img src="https://github.com/user-attachments/assets/f8c5dd89-011d-46b4-a146-0d7ee773cb6d" width="32%" />
+  <img src="https://github.com/user-attachments/assets/0c976720-1dac-416a-a04c-b4c427203de4" width="32%" />
+</div>
+
+- 応募種別（インターン / 本選考など）ごとに企業を一覧表示  
+- ステータス（選考中 / 内定 / 落選など）で整理  
+- 検索機能により目的の企業へ即アクセス  
+
+---
+
+### 企業追加 / 質問メモ画面
+<div style="display: flex; gap: 10px;">
+  <img src="https://github.com/user-attachments/assets/06972784-0f21-48b4-8028-3e6b1ba5dd5a" width="32%" />
+  <img src="https://github.com/user-attachments/assets/59b8bcac-e75d-4c18-8756-535536b5756f" width="32%" />
+</div>
 
 ## セットアップ方法
 
