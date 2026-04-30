@@ -1,0 +1,41 @@
+{
+  "expo": {
+    "name": "就活管理",
+    "slug": "syuukatu-home",
+    "scheme": "syuukatu",
+    "version": "1.0.0",
+    "newArchEnabled": true,
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#F7F8F5"
+      }
+    },
+    "plugins": [
+      "expo-secure-store",
+      "expo-font",
+      [
+        "expo-localization",
+        {
+          "supportedLocales": {
+            "ios": [
+              "ja",
+              "en"
+            ],
+            "android": [
+              "ja",
+              "en"
+            ]
+          }
+        }
+      ]
+    ]
+  }
+}

@@ -1,0 +1,90 @@
+import { Company } from '../features/home/types';
+
+const now = new Date().toISOString();
+
+export const mockCompanies: Company[] = [
+  {
+    id: 'mock-1',
+    type: 'internship',
+    companyName: 'ミライテック',
+    aspiration: 'high',
+    status: 'エントリー済み',
+    loginId: 'student@example.com',
+    password: 'sample-pass-01',
+    myPageUrl: 'https://example.com/mypage',
+    industry: 'IT',
+    role: 'プロダクト企画',
+    tags: ['夏インターン', '第一志望群'],
+    memo: '説明会の雰囲気が良い。次はESの具体性を上げる。',
+    favorite: true,
+    createdAt: now,
+    updatedAt: now
+  },
+  {
+    id: 'mock-2',
+    type: 'internship',
+    companyName: '東都メディア',
+    aspiration: 'middle',
+    status: '適性検査',
+    loginId: 'media_user',
+    password: 'sample-pass-02',
+    myPageUrl: 'https://example.com/media',
+    industry: '広告',
+    role: '総合職',
+    tags: ['SPI'],
+    memo: 'Webテストは玉手箱形式の可能性あり。',
+    favorite: false,
+    createdAt: now,
+    updatedAt: now
+  },
+  {
+    id: 'mock-3',
+    type: 'fullTime',
+    companyName: '北辰商事',
+    aspiration: 'high',
+    status: 'ES提出済み',
+    loginId: 'hokushin_2027',
+    password: 'sample-pass-03',
+    myPageUrl: 'https://example.com/hokushin',
+    industry: '商社',
+    role: '総合職',
+    tags: ['OB訪問済み'],
+    memo: '面談で聞いた海外事業の話を志望理由に反映済み。',
+    favorite: true,
+    createdAt: now,
+    updatedAt: now
+  },
+  {
+    id: 'mock-4',
+    type: 'fullTime',
+    companyName: 'グリーンバンク',
+    aspiration: 'middle',
+    status: '1次面接',
+    loginId: 'greenbank-id',
+    password: 'sample-pass-04',
+    myPageUrl: 'https://example.com/greenbank',
+    industry: '金融',
+    role: '法人営業',
+    tags: ['面接対策'],
+    memo: '逆質問はDX支援と若手の裁量について。',
+    favorite: false,
+    createdAt: now,
+    updatedAt: now
+  },
+  {
+    id: 'mock-5',
+    type: 'fullTime',
+    companyName: 'クラフトフーズ',
+    aspiration: 'low',
+    status: '未エントリー',
+    loginId: '',
+    password: '',
+    industry: '食品',
+    role: 'マーケティング',
+    tags: ['検討中'],
+    memo: '',
+    favorite: false,
+    createdAt: now,
+    updatedAt: now
+  }
+];
