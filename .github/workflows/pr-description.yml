@@ -29,18 +29,11 @@ jobs:
               per_page: 100,
             });
 
-            const commits = await github.paginate(github.rest.pulls.listCommits, {
-              owner,
-              repo,
-              pull_number,
-              per_page: 100,
-            });
-
             const categoryRules = [
               {
                 name: 'CI',
                 match: (path) => path.startsWith('.github/'),
-                summary: 'GitHub Actionsなどの自動化を更新しています。',
+                summary: 'GitHub Actionsなどの自動化を更新しました。',
               },
               {
                 name: 'UI',
@@ -48,17 +41,17 @@ jobs:
                   path === 'App.tsx' ||
                   path.startsWith('src/features/') ||
                   path.startsWith('src/ui/'),
-                summary: '画面やコンポーネントを更新しています。',
+                summary: '画面やコンポーネントを更新しました。',
               },
               {
                 name: 'テーマ',
                 match: (path) => path.startsWith('src/constants/'),
-                summary: 'テーマや配色を更新しています。',
+                summary: 'テーマや配色を更新しました。',
               },
               {
                 name: 'データ',
                 match: (path) => path.startsWith('src/data/'),
-                summary: '初期データやサンプルデータを更新しています。',
+                summary: '初期データやサンプルデータを更新しました。',
               },
               {
                 name: '設定',
@@ -69,12 +62,12 @@ jobs:
                     'tsconfig.json',
                     'app.json',
                   ].includes(path),
-                summary: 'プロジェクト設定を更新しています。',
+                summary: 'プロジェクト設定を更新しました。',
               },
               {
                 name: 'ドキュメント',
                 match: (path) => path.endsWith('.md'),
-                summary: 'ドキュメントを更新しています。',
+                summary: 'ドキュメントを更新しました。',
               },
             ];
 
@@ -91,56 +84,15 @@ jobs:
             const touchedRules = categoryRules.filter(
               (rule) => groups.get(rule.name).length > 0
             );
-            const overview = touchedRules.length > 0
-              ? touchedRules.map((rule) => `- ${rule.summary}`)
-              : ['- 差分から変更点を取得できませんでした。'];
+            const overview = touchedRules.map((rule) => `- ${rule.summary}`);
+            if (groups.get('その他').length > 0) {
+              overview.push('- その他の関連ファイルを更新しました。');
+            }
+            if (overview.length === 0) {
+              overview.push('- 差分から変更内容を取得できませんでした。');
+            }
 
-            const latestCommits = commits
-              .slice(-5)
-              .map((commit) => {
-                const message = commit.commit.message.split('\n')[0];
-                return `- ${commit.sha.slice(0, 7)} ${message}`;
-              });
-
-            const totalAdditions = files.reduce((sum, file) => sum + file.additions, 0);
-            const totalDeletions = files.reduce((sum, file) => sum + file.deletions, 0);
-            const fileLines = [...groups.entries()]
-              .filter(([, groupedFiles]) => groupedFiles.length > 0)
-              .map(([name, groupedFiles]) => {
-                const lines = groupedFiles
-                  .slice(0, 12)
-                  .map(
-                    (file) =>
-                      `- \`${file.filename}\` (${file.status}, +${file.additions}/-${file.deletions})`
-                  );
-                const hiddenCount = groupedFiles.length - lines.length;
-                if (hiddenCount > 0) {
-                  lines.push(`- 他 ${hiddenCount} 件`);
-                }
-
-                return `### ${name}\n${lines.join('\n')}`;
-              });
-
-            const commitSummary = latestCommits.length > 0
-              ? `\n\n直近コミット:\n${latestCommits.join('\n')}`
-              : '';
-            const body = [
-              `## 概要\n${overview.join('\n')}${commitSummary}`,
-              `## 変更ファイル\n${
-                fileLines.join('\n\n') || '- 変更ファイルを取得できませんでした。'
-              }`,
-              [
-                '## 差分規模',
-                `- 変更ファイル: ${files.length} 件`,
-                `- 追加行数: ${totalAdditions}`,
-                `- 削除行数: ${totalDeletions}`,
-              ].join('\n'),
-              [
-                '## 確認項目',
-                '- [ ] npm run typecheck',
-                '- [ ] 手動確認',
-              ].join('\n'),
-            ].join('\n\n');
+            const body = `## 概要\n${overview.join('\n')}`;
 
             const start = '<!-- pr-auto-summary:start -->';
             const end = '<!-- pr-auto-summary:end -->';
