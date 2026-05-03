@@ -33,7 +33,37 @@ jobs:
             );
             const manualPrBody = (pr.body ?? '').replace(blockPattern, '').trim();
 
-            const files = await github.paginate(github.rest.pulls.listFiles, {
+            const pullFiles = await github.paginate(github.rest.pulls.listFiles, {
+              owner,
+              repo,
+              pull_number,
+              per_page: 100,
+            });
+
+            const comparison = await github.rest.repos.compareCommitsWithBasehead({
+              owner,
+              repo,
+              basehead: `${pr.base.sha}...${pr.head.sha}`,
+            });
+
+            const filesByName = new Map();
+            for (const file of [
+              ...pullFiles,
+              ...(comparison.data.files ?? []),
+            ]) {
+              const current = filesByName.get(file.filename);
+              filesByName.set(file.filename, {
+                ...current,
+                ...file,
+                patch: file.patch ?? current?.patch,
+              });
+            }
+
+            const files = [...filesByName.values()].sort((a, b) =>
+              a.filename.localeCompare(b.filename, 'ja')
+            );
+
+            const commits = await github.paginate(github.rest.pulls.listCommits, {
               owner,
               repo,
               pull_number,
@@ -48,10 +78,21 @@ jobs:
               return `${value.slice(0, maxLength)}\n...省略...`;
             };
 
-            const diffSummary = files
+            const fileInventory = files
+              .map(
+                (file) =>
+                  `- ${file.status} ${file.filename} (+${file.additions}/-${file.deletions})`
+              )
+              .join('\n');
+
+            const commitSummary = commits
+              .map((commit) => `- ${commit.commit.message.split('\n')[0]}`)
+              .join('\n');
+
+            const patchDetails = files
               .map((file) => {
                 const patch = file.patch
-                  ? `\n${truncate(file.patch, 3500)}`
+                  ? `\n${truncate(file.patch, 1600)}`
                   : '';
                 return [
                   `File: ${file.filename}`,
@@ -61,17 +102,6 @@ jobs:
                 ].join('\n');
               })
               .join('\n\n---\n\n');
-
-            const fallbackSummary = () => {
-              const fileNames = files.slice(0, 8).map((file) => `\`${file.filename}\``);
-              const restCount = files.length - fileNames.length;
-              const restText = restCount > 0 ? ` ほか ${restCount} 件` : '';
-              if (fileNames.length === 0) {
-                return '- 差分から変更内容を取得できませんでした。';
-              }
-
-              return `- ${fileNames.join('、')}${restText} の変更を反映しました。`;
-            };
 
             const extractResponseText = (data) => {
               if (typeof data.output_text === 'string') {
@@ -93,22 +123,28 @@ jobs:
             const generateSummary = async () => {
               const apiKey = process.env.OPENAI_API_KEY;
               if (!apiKey) {
-                core.warning('OPENAI_API_KEY is not set. Falling back to a simple summary.');
-                return fallbackSummary();
+                throw new Error('OPENAI_API_KEY secret is required to generate an AI PR summary.');
               }
 
               const prompt = [
-                '以下はGitHub Pull Requestの情報と変更差分です。',
+                '以下はGitHub Pull Request全体の情報です。',
+                '最新コミットだけではなく、base SHA から head SHA までのPR全体の差分をもとに要約してください。',
                 'このPRで何が行われたかを、日本語で簡潔に要約してください。',
                 '出力はMarkdown本文のみ。見出し、確認項目、変更ファイル一覧、差分規模、定型文は不要です。',
                 '箇条書きなら3〜5個、文章なら2〜4文にしてください。',
                 '差分にないことは書かないでください。',
                 '',
                 `PRタイトル: ${pr.title}`,
+                `Base: ${pr.base.sha}`,
+                `Head: ${pr.head.sha}`,
+                '',
+                `PR全体のコミット:\n${truncate(commitSummary, 5000)}`,
                 '',
                 `PR本文:\n${truncate(manualPrBody, 3000)}`,
                 '',
-                `変更差分:\n${truncate(diffSummary, 26000)}`,
+                `PR全体の変更ファイル一覧:\n${truncate(fileInventory, 12000)}`,
+                '',
+                `主要差分抜粋:\n${truncate(patchDetails, 26000)}`,
               ].join('\n');
 
               try {
@@ -129,19 +165,35 @@ jobs:
 
                 const data = await response.json();
                 if (!response.ok) {
-                  core.warning(`OpenAI API request failed: ${response.status} ${JSON.stringify(data)}`);
-                  return fallbackSummary();
+                  throw new Error(`OpenAI API request failed: ${response.status} ${JSON.stringify(data)}`);
                 }
 
-                return extractResponseText(data) || fallbackSummary();
+                const summary = extractResponseText(data);
+                if (!summary) {
+                  throw new Error('OpenAI API returned an empty summary.');
+                }
+
+                return {
+                  model: data.model ?? process.env.OPENAI_MODEL,
+                  summary,
+                };
               } catch (error) {
-                core.warning(`OpenAI summary generation failed: ${error.message}`);
-                return fallbackSummary();
+                throw new Error(`OpenAI summary generation failed: ${error.message}`);
               }
             };
 
-            const summary = await generateSummary();
-            const body = `## 概要\n${summary}`;
+            const result = await generateSummary().catch((error) => {
+              core.setFailed(error.message);
+              return null;
+            });
+            if (!result) {
+              return;
+            }
+
+            const body = [
+              `## 概要\n${result.summary}`,
+              `使用モデル: \`${result.model}\``,
+            ].join('\n\n');
 
             const block = `${start}\n${body}\n${end}`;
             const currentBody = pr.body ?? '';
