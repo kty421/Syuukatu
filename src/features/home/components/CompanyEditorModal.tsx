@@ -34,7 +34,6 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { AppTheme } from '../../../constants/theme';
 import { AppButton } from '../../../ui/AppButton';
 import { DismissKeyboardView } from '../../../ui/DismissKeyboardView';
-import { FullScreenModalShell } from '../../../ui/FullScreenModalShell';
 import { IconButton } from '../../../ui/IconButton';
 import { InputField } from '../../../ui/InputField';
 import { ModalCloseButton } from '../../../ui/ModalCloseButton';
@@ -45,6 +44,7 @@ import {
   CompanyQuestionAnswer
 } from '../types';
 import { getStatusList } from '../utils/companyUtils';
+import { QuestionMemoDialog } from './QuestionMemoDialog';
 
 type CompanyEditorModalProps = {
   visible: boolean;
@@ -603,8 +603,8 @@ export const CompanyEditorModal = ({
                   <ChipGroup
                     theme={theme}
                     selectedColor={aspirationTheme.foreground}
-                    selectedSurface={aspirationTheme.foreground}
-                    selectedTextColor={theme.colors.surface}
+                    selectedSurface={aspirationTheme.background}
+                    selectedTextColor={aspirationTheme.foreground}
                     value={form.aspiration}
                     options={[
                       { value: 'high', label: '高' },
@@ -805,92 +805,6 @@ const FormSection = ({
     <View style={styles.sectionBody}>{children}</View>
   </View>
 );
-
-const QuestionMemoDialog = ({
-  item,
-  theme,
-  accentColor,
-  onClose,
-  onSave
-}: {
-  item: CompanyQuestionAnswer | null;
-  theme: AppTheme;
-  accentColor: string;
-  onClose: () => void;
-  onSave: (item: CompanyQuestionAnswer) => void;
-}) => {
-  const [question, setQuestion] = useState('');
-  const [answer, setAnswer] = useState('');
-
-  useEffect(() => {
-    if (!item) {
-      return;
-    }
-
-    setQuestion(item.question);
-    setAnswer(item.answer);
-  }, [item]);
-
-  if (!item) {
-    return null;
-  }
-
-  return (
-    <FullScreenModalShell
-      visible
-      title="質問メモ"
-      theme={theme}
-      onClose={onClose}
-      closeIcon="close"
-    >
-      <KeyboardAwareScrollView
-        bottomOffset={28}
-        contentContainerStyle={styles.questionDialogBody}
-        keyboardDismissMode="interactive"
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
-        <DismissKeyboardView style={styles.questionDialogForm}>
-          <InputField
-            autoFocus
-            label="題目"
-            theme={theme}
-            value={question}
-            placeholder="例：学生時代に力を入れたこと"
-            onChangeText={setQuestion}
-          />
-          <View>
-            <InputField
-              label="回答内容"
-              theme={theme}
-              value={answer}
-              placeholder="話す要点やエピソード"
-              multiline
-              style={styles.answerTextInput}
-              onChangeText={setAnswer}
-            />
-            <Text style={[styles.answerCount, { color: theme.colors.textSubtle }]}>
-              {answer.length}文字
-            </Text>
-          </View>
-          <AppButton
-            label="保存"
-            onPress={() =>
-              onSave({
-                ...item,
-                question,
-                answer
-              })
-            }
-            theme={theme}
-            variant="primary"
-            accentColor={accentColor}
-          />
-        </DismissKeyboardView>
-      </KeyboardAwareScrollView>
-    </FullScreenModalShell>
-  );
-};
 
 const FieldLabel = ({
   label,
@@ -1097,26 +1011,5 @@ const styles = StyleSheet.create({
   },
   longTextInput: {
     minHeight: 148
-  },
-  questionDialogBody: {
-    alignSelf: 'center',
-    maxWidth: 760,
-    paddingBottom: 28,
-    paddingHorizontal: 18,
-    paddingTop: 18,
-    width: '100%'
-  },
-  questionDialogForm: {
-    gap: 16
-  },
-  answerTextInput: {
-    minHeight: 220
-  },
-  answerCount: {
-    fontSize: 11,
-    fontWeight: '600',
-    lineHeight: 15,
-    marginTop: 7,
-    textAlign: 'right'
   }
 });
