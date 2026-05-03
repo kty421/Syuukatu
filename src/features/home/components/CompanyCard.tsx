@@ -5,8 +5,6 @@ import {
   StyleSheet,
   Text,
   View,
-  type TextStyle,
-  type ViewStyle,
 } from "react-native";
 
 import { AppTheme } from "../../../constants/theme";
@@ -27,53 +25,6 @@ type CompanyCardProps = {
 
 const maskPassword = (password: string) => (password ? "••••••••" : "未登録");
 
-type AspirationPillVisual = {
-  pill: ViewStyle;
-  text: TextStyle;
-};
-
-type SetAspirationLevel = Exclude<Company["aspiration"], "unset">;
-
-const aspirationLabelBackgrounds = {
-  high: {
-    light: "#c56c73d2",
-    dark: "#F4C4C6",
-  },
-  middle: {
-    light: "#dec171c0",
-    dark: "#F2D29A",
-  },
-  low: {
-    light: "#7bd078cd",
-    dark: "#7ed67d",
-  },
-} satisfies Record<SetAspirationLevel, { light: string; dark: string }>;
-
-const getAspirationPillVisual = (
-  level: Company["aspiration"],
-  theme: AppTheme,
-): AspirationPillVisual => {
-  const aspiration = theme.aspirations[level];
-
-  switch (level) {
-    case "high":
-    case "middle":
-    case "low":
-      return {
-        pill: {
-          backgroundColor:
-            aspirationLabelBackgrounds[level][theme.isDark ? "dark" : "light"],
-        },
-        text: { color: theme.colors.surface },
-      };
-    case "unset":
-      return {
-        pill: { backgroundColor: aspiration.background },
-        text: { color: aspiration.foreground },
-      };
-  }
-};
-
 export const CompanyCard = memo(
   ({
     company,
@@ -87,10 +38,6 @@ export const CompanyCard = memo(
     onDelete,
   }: CompanyCardProps) => {
     const aspiration = theme.aspirations[company.aspiration];
-    const aspirationPillVisual = getAspirationPillVisual(
-      company.aspiration,
-      theme,
-    );
 
     const runChildAction =
       (handler: () => void) => (event: GestureResponderEvent) => {
@@ -118,9 +65,16 @@ export const CompanyCard = memo(
                 numberOfLines={1}>
                 {company.companyName}
               </Text>
-              <View style={[styles.aspirationPill, aspirationPillVisual.pill]}>
+              <View
+                style={[
+                  styles.aspirationPill,
+                  { backgroundColor: aspiration.background },
+                ]}>
                 <Text
-                  style={[styles.aspirationText, aspirationPillVisual.text]}>
+                  style={[
+                    styles.aspirationText,
+                    { color: aspiration.foreground },
+                  ]}>
                   志望度 {aspiration.label}
                 </Text>
               </View>

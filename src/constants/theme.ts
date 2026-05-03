@@ -289,18 +289,24 @@ const createAspirationStyles = (isDark: boolean) =>
   ({
     high: {
       label: "高",
-      foreground: isDark ? "#F0C2C8" : "#8A4B55",
-      background: isDark ? "#332228" : "#FFF3F4",
+      foreground: isDark ? "#FCA5A5" : "#DC2626",
+      background: isDark
+        ? "rgba(248, 113, 113, 0.18)"
+        : "rgba(239, 68, 68, 0.12)",
     },
     middle: {
       label: "中",
-      foreground: isDark ? "#EED49A" : "#766232",
-      background: isDark ? "#342D1C" : "#FBF6E9",
+      foreground: isDark ? "#FCD34D" : "#B45309",
+      background: isDark
+        ? "rgba(251, 191, 36, 0.18)"
+        : "rgba(245, 158, 11, 0.14)",
     },
     low: {
       label: "低",
-      foreground: isDark ? "#7ed67d" : "#2d8530",
-      background: isDark ? "#18351D" : "#EAF7E8",
+      foreground: isDark ? "#93C5FD" : "#2563EB",
+      background: isDark
+        ? "rgba(96, 165, 250, 0.18)"
+        : "rgba(59, 130, 246, 0.12)",
     },
     unset: {
       label: "未設定",
