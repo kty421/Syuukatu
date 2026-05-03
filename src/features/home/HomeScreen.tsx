@@ -1,4 +1,4 @@
-import { FlashList } from '@shopify/flash-list';
+import { FlashList, type FlashListRef } from '@shopify/flash-list';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -25,19 +25,37 @@ import { DismissKeyboardView } from '../../ui/DismissKeyboardView';
 import { FloatingActionButton } from '../../ui/FloatingActionButton';
 import { SearchField } from '../../ui/SearchField';
 import { ApplicationTypeSegment } from './components/ApplicationTypeSegment';
+import {
+  BottomNavigation,
+  getNavigationPalette,
+  MainTab
+} from './components/BottomNavigation';
 import { CompanyEditorModal } from './components/CompanyEditorModal';
 import { CompanySection } from './components/CompanySection';
+import { QuestionCompanyPickerModal } from './components/QuestionCompanyPickerModal';
+import { QuestionListView } from './components/QuestionListView';
+import { QuestionMemoDialog } from './components/QuestionMemoDialog';
 import { useCompanies } from './hooks/useCompanies';
 import {
   ApplicationType,
   applicationTypeLabels,
   Company,
-  CompanyDraft
+  CompanyDraft,
+  CompanyQuestionAnswer
 } from './types';
 import {
   filterAndSortCompanies,
   groupCompaniesByStatus
 } from './utils/companyUtils';
+import {
+  countQuestionMemos,
+  filterQuestionMemos,
+  flattenQuestionMemos,
+  QuestionMemoEntry,
+  QuestionMemoFilter,
+  QuestionMemoSort,
+  sortQuestionMemos
+} from './utils/questionMemoUtils';
 
 const transitionValueByType: Record<ApplicationType, number> = {
   internship: 0,
@@ -48,6 +66,19 @@ const clamp = (value: number, min: number, max: number) =>
   Math.min(Math.max(value, min), max);
 
 const AnimatedSafeAreaView = Animated.createAnimatedComponent(SafeAreaView);
+type CompanyStatusGroup = ReturnType<typeof groupCompaniesByStatus>[number];
+
+const createQuestionMemoDraft = (): CompanyQuestionAnswer => {
+  const now = new Date().toISOString();
+
+  return {
+    id: `qa-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    question: '',
+    answer: '',
+    createdAt: now,
+    updatedAt: now
+  };
+};
 
 const runHapticsSafely = async (task: () => Promise<void>) => {
   try {
@@ -66,6 +97,7 @@ export const HomeScreen = () => {
 
   const colorScheme = useColorScheme();
   const theme = getTheme(colorScheme);
+  const questionAccentPalette = getNavigationPalette(theme);
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const metrics = getContentMetrics(width);
@@ -75,11 +107,23 @@ export const HomeScreen = () => {
     width: '100%'
   };
 
-  const [query, setQuery] = useState('');
+  const [companyQuery, setCompanyQuery] = useState('');
+  const [questionQuery, setQuestionQuery] = useState('');
   const [activeType, setActiveType] = useState<ApplicationType>('internship');
+  const [homeView, setHomeView] = useState<MainTab>('companies');
+  const [questionFilter, setQuestionFilter] =
+    useState<QuestionMemoFilter>('all');
+  const [questionSort, setQuestionSort] =
+    useState<QuestionMemoSort>('updatedAtDesc');
   const [editorVisible, setEditorVisible] = useState(false);
   const [editorType, setEditorType] = useState<ApplicationType>('internship');
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
+  const [editingQuestionMemo, setEditingQuestionMemo] = useState<{
+    companyId: string;
+    item: CompanyQuestionAnswer;
+  } | null>(null);
+  const [questionCompanyPickerVisible, setQuestionCompanyPickerVisible] =
+    useState(false);
   const [visiblePasswordIds, setVisiblePasswordIds] = useState<Set<string>>(
     new Set()
   );
@@ -89,6 +133,8 @@ export const HomeScreen = () => {
   } | null>(null);
   const typeTransition = useRef(new Animated.Value(0)).current;
   const edgePullX = useRef(new Animated.Value(0)).current;
+  const companyListRef = useRef<FlashListRef<CompanyStatusGroup>>(null);
+  const questionListRef = useRef<FlashListRef<QuestionMemoEntry>>(null);
   const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const activeTypeTheme = theme.applicationTypes[activeType];
@@ -110,14 +156,48 @@ export const HomeScreen = () => {
     }),
     [edgePullX]
   );
-  const bottomPadding = Math.max(insets.bottom, 8) + 96;
+  const navigationBottom = Math.max(insets.bottom, 8) + 12;
+  const navigationHeight = 64;
+  const navigationReservedHeight = navigationBottom + navigationHeight + 18;
+  const bottomPadding = navigationReservedHeight + 96;
+  const bottomNavigationWidth = Math.min(width - metrics.contentPadding * 2, 420);
+  const activeTypeCompanies = useMemo(
+    () => filterAndSortCompanies(companies, activeType, ''),
+    [activeType, companies]
+  );
+  const availableCompanies = useMemo(
+    () =>
+      [...companies]
+        .filter((company) => !company.archived)
+        .sort(
+          (a, b) =>
+            new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+        ),
+    [companies]
+  );
   const activeCompanies = useMemo(
-    () => filterAndSortCompanies(companies, activeType, query),
-    [activeType, companies, query]
+    () => filterAndSortCompanies(companies, activeType, companyQuery),
+    [activeType, companies, companyQuery]
   );
   const groups = useMemo(
     () => groupCompaniesByStatus(activeCompanies, activeType),
     [activeCompanies, activeType]
+  );
+  const questionEntries = useMemo(
+    () => flattenQuestionMemos(companies),
+    [companies]
+  );
+  const questionCounts = useMemo(
+    () => countQuestionMemos(questionEntries),
+    [questionEntries]
+  );
+  const filteredQuestionEntries = useMemo(
+    () =>
+      sortQuestionMemos(
+        filterQuestionMemos(questionEntries, questionQuery, questionFilter),
+        questionSort
+      ),
+    [questionEntries, questionFilter, questionQuery, questionSort]
   );
 
   const internshipCount = companies.filter(
@@ -128,6 +208,21 @@ export const HomeScreen = () => {
   ).length;
   const activeTypeCount =
     activeType === 'internship' ? internshipCount : fullTimeCount;
+  const searchPlaceholder =
+    homeView === 'questions'
+      ? '質問文、企業名、タグで検索'
+      : '企業名、ID、業界、タグで検索';
+  const searchValue = homeView === 'questions' ? questionQuery : companyQuery;
+  const screenBackgroundStyle =
+    homeView === 'companies'
+      ? animatedThemeStyle
+      : { backgroundColor: theme.colors.background };
+  const pageMotionStyle = homeView === 'companies' ? edgePullStyle : null;
+  const fabBottom = navigationReservedHeight + 12;
+  const fabAccentColor =
+    homeView === 'companies'
+      ? activeTypeTheme.accent
+      : questionAccentPalette.selected;
 
   const showToast = useCallback(
     (message: string, tone: 'success' | 'error' = 'success') => {
@@ -143,6 +238,32 @@ export const HomeScreen = () => {
     },
     []
   );
+
+  const scrollQuestionListToTop = useCallback((animated = true) => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        questionListRef.current?.scrollToOffset({ offset: 0, animated });
+      });
+    });
+  }, []);
+
+  const scrollCompanyListToTop = useCallback((animated = true) => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        companyListRef.current?.scrollToOffset({ offset: 0, animated });
+      });
+    });
+  }, []);
+
+  const clearCompanySearch = useCallback(() => {
+    setCompanyQuery('');
+    scrollCompanyListToTop(false);
+  }, [scrollCompanyListToTop]);
+
+  const clearQuestionSearch = useCallback(() => {
+    setQuestionQuery('');
+    scrollQuestionListToTop(false);
+  }, [scrollQuestionListToTop]);
 
   useEffect(
     () => () => {
@@ -214,6 +335,16 @@ export const HomeScreen = () => {
     },
     [activeType, animateTypeTransition]
   );
+
+  const changeHomeView = async (view: MainTab) => {
+    if (view === homeView) {
+      return;
+    }
+
+    Keyboard.dismiss();
+    setHomeView(view);
+    await runHapticsSafely(() => Haptics.selectionAsync());
+  };
 
   const swipeResponder = useMemo(
     () =>
@@ -380,6 +511,141 @@ export const HomeScreen = () => {
     } catch {}
   };
 
+  const openQuestionCompanyPicker = async () => {
+    Keyboard.dismiss();
+
+    if (availableCompanies.length === 0) {
+      Alert.alert('企業がありません', '先に企業を追加してください。');
+      return;
+    }
+
+    await runHapticsSafely(() =>
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+    );
+    setQuestionCompanyPickerVisible(true);
+  };
+
+  const openQuestionMemo = async (entry: QuestionMemoEntry) => {
+    Keyboard.dismiss();
+    await runHapticsSafely(() => Haptics.selectionAsync());
+    setEditingQuestionMemo({
+      companyId: entry.company.id,
+      item: entry.questionAnswer
+    });
+  };
+
+  const startQuestionMemoForCompany = (company: Company) => {
+    setQuestionCompanyPickerVisible(false);
+    setEditingQuestionMemo({
+      companyId: company.id,
+      item: createQuestionMemoDraft()
+    });
+  };
+
+  const saveQuestionMemo = async (item: CompanyQuestionAnswer) => {
+    if (!editingQuestionMemo) {
+      return;
+    }
+
+    const targetCompany = companies.find(
+      (company) => company.id === editingQuestionMemo.companyId
+    );
+
+    if (!targetCompany) {
+      showToast('企業が見つかりませんでした', 'error');
+      setEditingQuestionMemo(null);
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const nextItem: CompanyQuestionAnswer = {
+      ...item,
+      question: item.question.trim(),
+      answer: item.answer.trim(),
+      createdAt: item.createdAt || now,
+      updatedAt: now
+    };
+
+    if (!nextItem.question && !nextItem.answer) {
+      setEditingQuestionMemo(null);
+      return;
+    }
+
+    const currentItems = targetCompany.questionAnswers ?? [];
+    const isExistingQuestionMemo = currentItems.some(
+      (current) => current.id === nextItem.id
+    );
+    const nextQuestionAnswers = isExistingQuestionMemo
+      ? currentItems.map((current) =>
+          current.id === nextItem.id ? nextItem : current
+        )
+      : [...currentItems, nextItem];
+
+    try {
+      await upsertCompany({
+        ...targetCompany,
+        questionAnswers: nextQuestionAnswers
+      });
+      await runHapticsSafely(() =>
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
+      );
+      showToast('質問メモを保存しました');
+      setEditingQuestionMemo(null);
+      if (!isExistingQuestionMemo) {
+        setHomeView('questions');
+        setQuestionFilter('all');
+        setQuestionSort('updatedAtDesc');
+        setQuestionQuery('');
+        scrollQuestionListToTop();
+      }
+    } catch {
+      showToast('質問メモの保存に失敗しました', 'error');
+    }
+  };
+
+  const deleteQuestionMemo = (entry: QuestionMemoEntry) => {
+    Alert.alert(
+      '質問メモを削除しますか？',
+      `${entry.company.companyName}の「${
+        entry.questionAnswer.question || '題目未入力'
+      }」を削除します。`,
+      [
+        { text: 'キャンセル', style: 'cancel' },
+        {
+          text: '削除',
+          style: 'destructive',
+          onPress: async () => {
+            const targetCompany = companies.find(
+              (company) => company.id === entry.company.id
+            );
+
+            if (!targetCompany) {
+              showToast('企業が見つかりませんでした', 'error');
+              return;
+            }
+
+            try {
+              await upsertCompany({
+                ...targetCompany,
+                questionAnswers: (targetCompany.questionAnswers ?? []).filter(
+                  (item) => item.id !== entry.questionAnswer.id
+                )
+              });
+              await runHapticsSafely(() =>
+                Haptics.notificationAsync(
+                  Haptics.NotificationFeedbackType.Warning
+                )
+              );
+              showToast('質問メモを削除しました');
+            } catch {
+              showToast('質問メモの削除に失敗しました', 'error');
+            }
+          }
+        }
+      ]
+    );
+  };
+
   const renderEmptyCompanies = () => {
     if (isLoading) {
       return (
@@ -392,7 +658,7 @@ export const HomeScreen = () => {
       );
     }
 
-    if (query.trim()) {
+    if (companyQuery.trim()) {
       return (
         <View style={[containerStyle, styles.plainEmptyState]}>
           <Text style={[styles.emptyTitle, { color: theme.colors.text }]}>
@@ -401,7 +667,7 @@ export const HomeScreen = () => {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="検索をクリア"
-            onPress={() => setQuery('')}
+            onPress={clearCompanySearch}
             style={({ pressed }) => [
               styles.clearSearchButton,
               pressed && styles.pressed
@@ -436,13 +702,13 @@ export const HomeScreen = () => {
   return (
     <AnimatedSafeAreaView
       edges={['top', 'left', 'right']}
-      style={[styles.safeArea, animatedThemeStyle]}
+      style={[styles.safeArea, screenBackgroundStyle]}
     >
       <Animated.View
         style={[
           styles.topArea,
-          animatedThemeStyle,
-          edgePullStyle
+          screenBackgroundStyle,
+          pageMotionStyle
         ]}
       >
         <View
@@ -453,17 +719,19 @@ export const HomeScreen = () => {
           ]}
         >
           <Text style={[styles.compactTitle, { color: theme.colors.text }]}>
-            企業一覧
+            {homeView === 'companies' ? '企業一覧' : '質問一覧'}
           </Text>
         </View>
 
-        <ApplicationTypeSegment
-          value={activeType}
-          theme={theme}
-          transitionProgress={typeTransition}
-          edgePullX={edgePullX}
-          onChange={changeApplicationType}
-        />
+        {homeView === 'companies' ? (
+          <ApplicationTypeSegment
+            value={activeType}
+            theme={theme}
+            transitionProgress={typeTransition}
+            edgePullX={edgePullX}
+            onChange={changeApplicationType}
+          />
+        ) : null}
 
         <View
           style={[
@@ -473,61 +741,126 @@ export const HomeScreen = () => {
           ]}
         >
           <SearchField
-            value={query}
-            placeholder="企業名、ID、業界、タグで検索"
+            value={searchValue}
+            placeholder={searchPlaceholder}
             theme={theme}
-            onChangeText={setQuery}
-            onClear={() => setQuery('')}
+            onChangeText={
+              homeView === 'questions' ? setQuestionQuery : setCompanyQuery
+            }
+            onClear={() => {
+              if (homeView === 'questions') {
+                clearQuestionSearch();
+                return;
+              }
+
+              clearCompanySearch();
+            }}
           />
         </View>
       </Animated.View>
 
       <Animated.View
-        style={[styles.listArea, animatedThemeStyle, edgePullStyle]}
-        {...swipeResponder.panHandlers}
+        style={[styles.listArea, screenBackgroundStyle, pageMotionStyle]}
+        {...(homeView === 'companies' ? swipeResponder.panHandlers : {})}
       >
-        <DismissKeyboardView style={styles.flex}>
-          <FlashList
-            data={groups}
-            keyboardDismissMode="on-drag"
-            keyboardShouldPersistTaps="handled"
-            ListEmptyComponent={renderEmptyCompanies}
-            contentContainerStyle={{
-              paddingBottom: bottomPadding,
-              paddingHorizontal: metrics.contentPadding,
-              paddingTop: 8
+        {homeView === 'companies' ? (
+          <DismissKeyboardView style={styles.flex}>
+            <FlashList
+              ref={companyListRef}
+              data={groups}
+              keyboardDismissMode="on-drag"
+              keyboardShouldPersistTaps="handled"
+              ListEmptyComponent={renderEmptyCompanies}
+              contentContainerStyle={{
+                paddingBottom: bottomPadding,
+                paddingHorizontal: metrics.contentPadding,
+                paddingTop: 8
+              }}
+              onScrollBeginDrag={Keyboard.dismiss}
+              keyExtractor={(item) => item.status}
+              renderItem={({ item }) => (
+                <View style={containerStyle}>
+                  <CompanySection
+                    title={item.status}
+                    companies={item.companies}
+                    theme={theme}
+                    visiblePasswordIds={visiblePasswordIds}
+                    onEdit={openEditModal}
+                    onTogglePassword={togglePassword}
+                    onToggleFavorite={handleToggleFavorite}
+                    onCopy={copyToClipboard}
+                    onOpenUrl={openUrl}
+                    onDelete={handleDeleteCompany}
+                  />
+                </View>
+              )}
+              showsVerticalScrollIndicator={false}
+            />
+          </DismissKeyboardView>
+        ) : (
+          <QuestionListView
+            entries={filteredQuestionEntries}
+            counts={questionCounts}
+            filter={questionFilter}
+            sort={questionSort}
+            query={questionQuery}
+            isLoading={isLoading}
+            theme={theme}
+            accentColor={questionAccentPalette.selected}
+            accentSurface={questionAccentPalette.selectedBackground}
+            accentBorder={questionAccentPalette.selected}
+            contentPadding={metrics.contentPadding}
+            bottomPadding={bottomPadding}
+            containerStyle={containerStyle}
+            listRef={questionListRef}
+            onFilterChange={setQuestionFilter}
+            onSortChange={(sort) => {
+              setQuestionSort(sort);
+              scrollQuestionListToTop(false);
             }}
-            onScrollBeginDrag={Keyboard.dismiss}
-            keyExtractor={(item) => item.status}
-            renderItem={({ item }) => (
-              <View style={containerStyle}>
-                <CompanySection
-                  title={item.status}
-                  companies={item.companies}
-                  theme={theme}
-                  visiblePasswordIds={visiblePasswordIds}
-                  onEdit={openEditModal}
-                  onTogglePassword={togglePassword}
-                  onToggleFavorite={handleToggleFavorite}
-                  onCopy={copyToClipboard}
-                  onOpenUrl={openUrl}
-                  onDelete={handleDeleteCompany}
-                />
-              </View>
-            )}
-            showsVerticalScrollIndicator={false}
+            onClearQuery={clearQuestionSearch}
+            onOpenQuestion={(entry) => {
+              void openQuestionMemo(entry);
+            }}
+            onOpenCompany={(entry) => openEditModal(entry.company)}
+            onDelete={deleteQuestionMemo}
           />
-        </DismissKeyboardView>
+        )}
       </Animated.View>
 
       <FloatingActionButton
-        accentColor={activeTypeTheme.accent}
-        label={`${applicationTypeLabels[activeType]}を追加`}
-        onPress={() => openCreateModal(activeType)}
+        accentColor={fabAccentColor}
+        label={
+          homeView === 'questions'
+            ? '質問を追加'
+            : `${applicationTypeLabels[activeType]}を追加`
+        }
+        onPress={() => {
+          if (homeView === 'questions') {
+            void openQuestionCompanyPicker();
+            return;
+          }
+
+          void openCreateModal(activeType);
+        }}
         theme={theme}
         style={{
-          bottom: Math.max(insets.bottom, 8) + 24,
+          bottom: fabBottom,
           right: metrics.contentPadding
+        }}
+      />
+
+      <BottomNavigation
+        value={homeView}
+        theme={theme}
+        onChange={(view) => {
+          void changeHomeView(view);
+        }}
+        style={{
+          alignSelf: 'center',
+          bottom: navigationBottom,
+          left: (width - bottomNavigationWidth) / 2,
+          width: bottomNavigationWidth
         }}
       />
 
@@ -538,6 +871,26 @@ export const HomeScreen = () => {
         theme={theme}
         onClose={() => setEditorVisible(false)}
         onSave={handleSave}
+      />
+
+      <QuestionMemoDialog
+        item={editingQuestionMemo?.item ?? null}
+        theme={theme}
+        accentColor={fabAccentColor}
+        onClose={() => setEditingQuestionMemo(null)}
+        onSave={(item) => {
+          void saveQuestionMemo(item);
+        }}
+      />
+
+      <QuestionCompanyPickerModal
+        visible={questionCompanyPickerVisible}
+        companies={availableCompanies}
+        theme={theme}
+        accentColor={questionAccentPalette.selected}
+        accentSurface={questionAccentPalette.selectedBackground}
+        onClose={() => setQuestionCompanyPickerVisible(false)}
+        onSelect={startQuestionMemoForCompany}
       />
 
       {toast ? <AppToast message={toast.message} theme={theme} tone={toast.tone} /> : null}

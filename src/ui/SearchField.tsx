@@ -1,7 +1,25 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import {
+  Platform,
+  Pressable,
+  StyleSheet,
+  TextInput,
+  TextStyle,
+  View,
+  ViewStyle
+} from 'react-native';
 
 import { AppTheme } from '../constants/theme';
+
+const webInputOutlineReset =
+  Platform.OS === 'web'
+    ? ({ outlineStyle: 'none', outlineWidth: 0 } as unknown as TextStyle)
+    : null;
+
+const webButtonOutlineReset =
+  Platform.OS === 'web'
+    ? ({ outlineStyle: 'none', outlineWidth: 0 } as unknown as ViewStyle)
+    : null;
 
 type SearchFieldProps = {
   value: string;
@@ -35,7 +53,7 @@ export const SearchField = ({
       placeholderTextColor={theme.colors.placeholder}
       autoCapitalize="none"
       autoCorrect={false}
-      style={[styles.input, { color: theme.colors.text }]}
+      style={[styles.input, webInputOutlineReset, { color: theme.colors.text }]}
     />
     {value.length > 0 ? (
       <Pressable
@@ -48,7 +66,11 @@ export const SearchField = ({
             ? { color: theme.colors.surfacePressed, borderless: true }
             : undefined
         }
-        style={({ pressed }) => [styles.clearButton, pressed && styles.pressed]}
+        style={({ pressed }) => [
+          styles.clearButton,
+          webButtonOutlineReset,
+          pressed && styles.pressed
+        ]}
       >
         <Ionicons name="close-circle" size={18} color={theme.colors.textSubtle} />
       </Pressable>

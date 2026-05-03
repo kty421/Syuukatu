@@ -6,15 +6,28 @@ import {
 } from 'react';
 import {
   LayoutChangeEvent,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
+  TextStyle,
   TextInput,
   TextInputProps,
-  View
+  View,
+  ViewStyle
 } from 'react-native';
 
 import { AppTheme } from '../constants/theme';
+
+const webInputOutlineReset =
+  Platform.OS === 'web'
+    ? ({ outlineStyle: 'none', outlineWidth: 0 } as unknown as TextStyle)
+    : null;
+
+const webShellOutlineReset =
+  Platform.OS === 'web'
+    ? ({ outlineStyle: 'none', outlineWidth: 0 } as unknown as ViewStyle)
+    : null;
 
 type InputFieldProps = TextInputProps & {
   label: string;
@@ -77,6 +90,7 @@ export const InputField = forwardRef<TextInput, InputFieldProps>(
           }}
           style={[
             styles.fieldShell,
+            webShellOutlineReset,
             {
               backgroundColor: theme.colors.surfaceElevated,
               borderColor: errorMessage ? theme.colors.danger : theme.colors.outline
@@ -99,6 +113,7 @@ export const InputField = forwardRef<TextInput, InputFieldProps>(
             style={[
               styles.input,
               multiline && styles.textArea,
+              webInputOutlineReset,
               { color: theme.colors.text },
               style
             ]}
