@@ -22,15 +22,13 @@ export const ApplicationTypeSegment = ({
   onChange
 }: ApplicationTypeSegmentProps) => {
   const [containerWidth, setContainerWidth] = useState(0);
-  const internshipActiveText = theme.isDark ? '#D9FCFF' : '#063F46';
-  const fullTimeActiveText = theme.isDark ? '#E3EEFF' : '#071F3F';
   const internshipTextColor = transitionProgress.interpolate({
     inputRange: [0, 1],
-    outputRange: [internshipActiveText, theme.colors.textMuted]
+    outputRange: [theme.applicationTypes.internship.accent, theme.colors.textMuted]
   });
   const fullTimeTextColor = transitionProgress.interpolate({
     inputRange: [0, 1],
-    outputRange: [theme.colors.textMuted, fullTimeActiveText]
+    outputRange: [theme.colors.textMuted, theme.applicationTypes.fullTime.accent]
   });
   const indicatorColor = transitionProgress.interpolate({
     inputRange: [0, 1],
@@ -69,7 +67,7 @@ export const ApplicationTypeSegment = ({
             onPress={() => onChange(type)}
             style={({ pressed }) => [
               styles.option,
-              pressed && styles.pressed
+              pressed && { backgroundColor: theme.colors.surfaceSubtle }
             ]}
           >
             <Animated.Text
@@ -134,8 +132,5 @@ const styles = StyleSheet.create({
     left: 0,
     position: 'absolute',
     width: '50%'
-  },
-  pressed: {
-    opacity: 0.78
   }
 });

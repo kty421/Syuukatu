@@ -24,7 +24,7 @@ export const AppToast = ({
         theme.shadows.floating,
         {
           backgroundColor: theme.colors.surfaceOverlay,
-          borderColor: isError ? theme.colors.danger : theme.colors.outline
+          borderColor: isError ? theme.colors.danger : theme.colors.primaryBorder
         }
       ]}
     >
@@ -33,8 +33,8 @@ export const AppToast = ({
           styles.iconWrap,
           {
             backgroundColor: isError
-              ? theme.colors.dangerSoft
-              : theme.colors.primarySoft
+              ? theme.colors.dangerSubtle
+              : theme.colors.primarySubtle
           }
         ]}
       >
@@ -44,7 +44,7 @@ export const AppToast = ({
           color={isError ? theme.colors.danger : theme.colors.primary}
         />
       </View>
-      <Text style={[styles.message, { color: theme.colors.text }]}>{message}</Text>
+      <Text style={[styles.message, { color: theme.colors.textPrimary }]}>{message}</Text>
     </View>
   );
 };

@@ -40,7 +40,7 @@ export const QuestionCompanyPickerModal = ({
           theme.shadows.surface,
           {
             backgroundColor: theme.colors.surface,
-            borderColor: theme.colors.outline
+            borderColor: theme.colors.border
           }
         ]}
       >
@@ -61,13 +61,13 @@ export const QuestionCompanyPickerModal = ({
                 onPress={() => onSelect(company)}
                 style={({ pressed }) => [
                   styles.row,
-                  pressed && { backgroundColor: theme.colors.surfaceMuted }
+                  pressed && { backgroundColor: theme.colors.surfaceSubtle }
                 ]}
               >
                 <View style={styles.rowText}>
                   <Text
                     numberOfLines={1}
-                    style={[styles.companyName, { color: theme.colors.text }]}
+                    style={[styles.companyName, { color: theme.colors.textPrimary }]}
                   >
                     {company.companyName}
                   </Text>

@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useState } from 'react';
 import {
   Platform,
   Pressable,
@@ -35,48 +36,54 @@ export const SearchField = ({
   theme,
   onChangeText,
   onClear
-}: SearchFieldProps) => (
-  <View
-    style={[
-      styles.container,
-      {
-        backgroundColor: theme.colors.surfaceElevated,
-        borderColor: theme.colors.outline
-      }
-    ]}
-  >
-    <Ionicons name="search" size={18} color={theme.colors.textSubtle} />
-    <TextInput
-      value={value}
-      onChangeText={onChangeText}
-      placeholder={placeholder}
-      placeholderTextColor={theme.colors.placeholder}
-      autoCapitalize="none"
-      autoCorrect={false}
-      style={[styles.input, webInputOutlineReset, { color: theme.colors.text }]}
-    />
-    {value.length > 0 ? (
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="検索語を消す"
-        hitSlop={8}
-        onPress={onClear}
-        android_ripple={
-          Platform.OS === 'android'
-            ? { color: theme.colors.surfacePressed, borderless: true }
-            : undefined
+}: SearchFieldProps) => {
+  const [focused, setFocused] = useState(false);
+
+  return (
+    <View
+      style={[
+        styles.container,
+        {
+          backgroundColor: theme.colors.surfaceElevated,
+          borderColor: focused ? theme.colors.focusRing : theme.colors.border
         }
-        style={({ pressed }) => [
-          styles.clearButton,
-          webButtonOutlineReset,
-          pressed && styles.pressed
-        ]}
-      >
-        <Ionicons name="close-circle" size={18} color={theme.colors.textSubtle} />
-      </Pressable>
-    ) : null}
-  </View>
-);
+      ]}
+    >
+      <Ionicons name="search" size={18} color={theme.colors.textMuted} />
+      <TextInput
+        value={value}
+        onChangeText={onChangeText}
+        placeholder={placeholder}
+        placeholderTextColor={theme.colors.placeholder}
+        autoCapitalize="none"
+        autoCorrect={false}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        style={[styles.input, webInputOutlineReset, { color: theme.colors.textPrimary }]}
+      />
+      {value.length > 0 ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="検索語を消す"
+          hitSlop={8}
+          onPress={onClear}
+          android_ripple={
+            Platform.OS === 'android'
+              ? { color: theme.colors.surfacePressed, borderless: true }
+              : undefined
+          }
+          style={({ pressed }) => [
+            styles.clearButton,
+            webButtonOutlineReset,
+            pressed && { backgroundColor: theme.colors.surfaceSubtle }
+          ]}
+        >
+          <Ionicons name="close-circle" size={18} color={theme.colors.textMuted} />
+        </Pressable>
+      ) : null}
+    </View>
+  );
+};
 
 const styles = StyleSheet.create({
   container: {
@@ -99,8 +106,5 @@ const styles = StyleSheet.create({
     height: 28,
     justifyContent: 'center',
     width: 28
-  },
-  pressed: {
-    opacity: 0.76
   }
 });

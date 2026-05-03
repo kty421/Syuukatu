@@ -38,6 +38,7 @@ export const IconButton = ({
   const compact = size === 'compact';
   const plain = variant === 'plain';
   const palette = getPalette(theme, tone, accentColor, accentSurface);
+  const foreground = disabled ? theme.colors.disabledText : palette.foreground;
 
   return (
     <Pressable
@@ -59,12 +60,16 @@ export const IconButton = ({
           backgroundColor: plain ? 'transparent' : palette.background,
           borderColor: plain ? 'transparent' : palette.border
         },
-        pressed && !disabled && styles.pressed,
-        disabled && styles.disabled
+        pressed && !disabled && { backgroundColor: palette.pressedBackground },
+        disabled &&
+          !plain && {
+            backgroundColor: theme.colors.disabledBackground,
+            borderColor: theme.colors.disabledBackground
+          }
       ]}
     >
       <Ionicons
-        color={disabled ? theme.colors.textSubtle : palette.foreground}
+        color={foreground}
         name={icon}
         size={iconSize ?? (compact ? 16 : 20)}
       />
@@ -81,22 +86,25 @@ const getPalette = (
   switch (tone) {
     case 'accent':
       return {
-        background: accentSurface ?? theme.colors.primarySoft,
-        border: 'transparent',
-        foreground: accentColor ?? theme.colors.primary
+        background: accentSurface ?? theme.colors.primarySubtle,
+        border: theme.colors.primaryBorder,
+        foreground: accentColor ?? theme.colors.primary,
+        pressedBackground: theme.colors.primarySubtle
       };
     case 'danger':
       return {
-        background: theme.colors.dangerSoft,
-        border: 'transparent',
-        foreground: theme.colors.danger
+        background: theme.colors.dangerSubtle,
+        border: theme.colors.dangerSubtle,
+        foreground: theme.colors.danger,
+        pressedBackground: theme.colors.dangerSubtle
       };
     case 'neutral':
     default:
       return {
-        background: theme.colors.surfaceMuted,
-        border: theme.colors.outline,
-        foreground: theme.colors.textMuted
+        background: theme.colors.surfaceSubtle,
+        border: theme.colors.border,
+        foreground: theme.colors.textSecondary,
+        pressedBackground: theme.colors.surfacePressed
       };
   }
 };
@@ -122,11 +130,5 @@ const styles = StyleSheet.create({
   compact: {
     height: 36,
     width: 36
-  },
-  pressed: {
-    opacity: 0.8
-  },
-  disabled: {
-    opacity: 0.48
   }
 });

@@ -67,7 +67,7 @@ export const FullScreenModalShell = ({
             </View>
             <Text
               numberOfLines={1}
-              style={[styles.title, { color: theme.colors.text }]}
+              style={[styles.title, { color: theme.colors.textPrimary }]}
             >
               {title}
             </Text>

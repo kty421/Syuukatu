@@ -22,19 +22,19 @@ export const SectionHeader = ({
   <View style={styles.row}>
     <View style={styles.textBlock}>
       {eyebrow ? (
-        <Text style={[styles.eyebrow, { color: theme.colors.textSubtle }]}>
+        <Text style={[styles.eyebrow, { color: theme.colors.textDisabled }]}>
           {eyebrow}
         </Text>
       ) : null}
       <View style={styles.titleRow}>
-        <Text style={[styles.title, { color: theme.colors.text }]}>{title}</Text>
+        <Text style={[styles.title, { color: theme.colors.textPrimary }]}>{title}</Text>
         {typeof count === 'number' ? (
           <View
             style={[
               styles.countPill,
               {
-                backgroundColor: theme.colors.surfaceMuted,
-                borderColor: theme.colors.outline
+                backgroundColor: theme.colors.surfaceSubtle,
+                borderColor: theme.colors.border
               }
             ]}
           >

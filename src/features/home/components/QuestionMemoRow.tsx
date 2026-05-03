@@ -44,16 +44,16 @@ export const QuestionMemoRow = ({
         styles.card,
         {
           backgroundColor: theme.colors.surface,
-          borderColor: theme.colors.outline
+          borderColor: theme.colors.border
         },
-        pressed && { backgroundColor: theme.colors.surfaceMuted }
+        pressed && { backgroundColor: theme.colors.surfaceSubtle }
       ]}
     >
       <View style={styles.headerRow}>
         <View style={styles.titleBlock}>
           <Text
             numberOfLines={2}
-            style={[styles.questionTitle, { color: theme.colors.text }]}
+            style={[styles.questionTitle, { color: theme.colors.textPrimary }]}
           >
             {questionAnswer.question.trim() || '題目未入力'}
           </Text>
@@ -64,14 +64,14 @@ export const QuestionMemoRow = ({
             >
               {company.companyName}
             </Text>
-            <Text style={[styles.dot, { color: theme.colors.textSubtle }]}>/</Text>
+            <Text style={[styles.dot, { color: theme.colors.textDisabled }]}>/</Text>
             <Text
               numberOfLines={1}
               style={[styles.metaText, { color: theme.colors.textMuted }]}
             >
               {applicationTypeLabels[company.type]}
             </Text>
-            <Text style={[styles.dot, { color: theme.colors.textSubtle }]}>/</Text>
+            <Text style={[styles.dot, { color: theme.colors.textDisabled }]}>/</Text>
             <Text
               numberOfLines={1}
               style={[styles.metaText, { color: theme.colors.textMuted }]}
@@ -112,7 +112,8 @@ export const QuestionMemoRow = ({
             style={[
               styles.statePill,
               {
-                backgroundColor: statusMeta.background(theme)
+                backgroundColor: statusMeta.background(theme),
+                borderColor: statusMeta.border(theme)
               }
             ]}
           >
@@ -131,8 +132,8 @@ export const QuestionMemoRow = ({
               style={[
                 styles.tagPill,
                 {
-                  backgroundColor: theme.colors.surfaceMuted,
-                  borderColor: theme.colors.outline
+                  backgroundColor: theme.colors.surfaceSubtle,
+                  borderColor: theme.colors.border
                 }
               ]}
             >
@@ -146,7 +147,7 @@ export const QuestionMemoRow = ({
           ))}
         </View>
         {updatedAt ? (
-          <Text style={[styles.updatedAt, { color: theme.colors.textSubtle }]}>
+          <Text style={[styles.updatedAt, { color: theme.colors.textDisabled }]}>
             {updatedAt}
           </Text>
         ) : null}
@@ -160,15 +161,17 @@ const getStatusMeta = (status: QuestionMemoStatus) => {
     case 'answered':
       return {
         label: '回答済み',
-        background: (theme: AppTheme) => theme.colors.successSoft,
-        foreground: (theme: AppTheme) => theme.colors.success
+        background: (theme: AppTheme) => theme.colors.primary,
+        border: (theme: AppTheme) => theme.colors.primary,
+        foreground: (theme: AppTheme) => theme.colors.textOnPrimary
       };
     case 'unanswered':
     default:
       return {
         label: '未回答',
-        background: (theme: AppTheme) => theme.colors.warningSoft,
-        foreground: (theme: AppTheme) => theme.colors.warning
+        background: (theme: AppTheme) => theme.colors.surface,
+        border: (theme: AppTheme) => theme.colors.primaryBorder,
+        foreground: (theme: AppTheme) => theme.colors.primary
       };
   }
 };
@@ -243,6 +246,7 @@ const styles = StyleSheet.create({
   },
   statePill: {
     borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: 8,
     paddingVertical: 3
   },
