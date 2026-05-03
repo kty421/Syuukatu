@@ -1,15 +1,17 @@
-import { memo, type ReactNode } from 'react';
+import { memo, type ReactNode } from "react";
 import {
   GestureResponderEvent,
   Pressable,
   StyleSheet,
   Text,
-  View
-} from 'react-native';
+  View,
+  type TextStyle,
+  type ViewStyle,
+} from "react-native";
 
-import { AppTheme } from '../../../constants/theme';
-import { IconButton } from '../../../ui/IconButton';
-import { Company } from '../types';
+import { AppTheme } from "../../../constants/theme";
+import { IconButton } from "../../../ui/IconButton";
+import { Company } from "../types";
 
 type CompanyCardProps = {
   company: Company;
@@ -23,7 +25,54 @@ type CompanyCardProps = {
   onDelete: () => void;
 };
 
-const maskPassword = (password: string) => (password ? '••••••••' : '未登録');
+const maskPassword = (password: string) => (password ? "••••••••" : "未登録");
+
+type AspirationPillVisual = {
+  pill: ViewStyle;
+  text: TextStyle;
+};
+
+type SetAspirationLevel = Exclude<Company["aspiration"], "unset">;
+
+const aspirationLabelBackgrounds = {
+  high: {
+    light: "#c56c73d2",
+    dark: "#F4C4C6",
+  },
+  middle: {
+    light: "#dec171c0",
+    dark: "#F2D29A",
+  },
+  low: {
+    light: "#7bd078cd",
+    dark: "#7ed67d",
+  },
+} satisfies Record<SetAspirationLevel, { light: string; dark: string }>;
+
+const getAspirationPillVisual = (
+  level: Company["aspiration"],
+  theme: AppTheme,
+): AspirationPillVisual => {
+  const aspiration = theme.aspirations[level];
+
+  switch (level) {
+    case "high":
+    case "middle":
+    case "low":
+      return {
+        pill: {
+          backgroundColor:
+            aspirationLabelBackgrounds[level][theme.isDark ? "dark" : "light"],
+        },
+        text: { color: theme.colors.surface },
+      };
+    case "unset":
+      return {
+        pill: { backgroundColor: aspiration.background },
+        text: { color: aspiration.foreground },
+      };
+  }
+};
 
 export const CompanyCard = memo(
   ({
@@ -35,10 +84,13 @@ export const CompanyCard = memo(
     onToggleFavorite,
     onCopy,
     onOpenUrl,
-    onDelete
+    onDelete,
   }: CompanyCardProps) => {
     const aspiration = theme.aspirations[company.aspiration];
-    const typeTheme = theme.applicationTypes[company.type];
+    const aspirationPillVisual = getAspirationPillVisual(
+      company.aspiration,
+      theme,
+    );
 
     const runChildAction =
       (handler: () => void) => (event: GestureResponderEvent) => {
@@ -53,30 +105,36 @@ export const CompanyCard = memo(
         onPress={onPress}
         style={({ pressed }) => [
           styles.card,
-          pressed && { backgroundColor: theme.colors.surfaceMuted }
-        ]}
-      >
+          pressed && { backgroundColor: theme.colors.surfaceSubtle },
+        ]}>
         <View style={styles.headerRow}>
           <View style={styles.titleBlock}>
             <View style={styles.nameRow}>
               <Text
-                style={[styles.companyName, { color: theme.colors.text }]}
-                numberOfLines={1}
-              >
+                style={[
+                  styles.companyName,
+                  { color: theme.colors.textPrimary },
+                ]}
+                numberOfLines={1}>
                 {company.companyName}
               </Text>
+              <View style={[styles.aspirationPill, aspirationPillVisual.pill]}>
+                <Text
+                  style={[styles.aspirationText, aspirationPillVisual.text]}>
+                  志望度 {aspiration.label}
+                </Text>
+              </View>
             </View>
           </View>
 
           <View style={styles.actions}>
             <IconButton
-              icon={company.favorite ? 'star' : 'star-outline'}
-              label={company.favorite ? 'お気に入りを解除' : 'お気に入りに追加'}
+              icon={company.favorite ? "star" : "star-outline"}
+              label={company.favorite ? "お気に入りを解除" : "お気に入りに追加"}
               onPress={runChildAction(onToggleFavorite)}
               theme={theme}
               tone="accent"
               variant="plain"
-              accentColor={typeTheme.accent}
               size="compact"
               iconSize={17}
             />
@@ -104,49 +162,17 @@ export const CompanyCard = memo(
           </View>
         </View>
 
-        <View style={styles.metaRow}>
-          <View
-            style={[
-              styles.statusPill,
-              {
-                backgroundColor: typeTheme.muted,
-                borderColor: typeTheme.border
-              }
-            ]}
-          >
-            <Text style={[styles.statusText, { color: typeTheme.accent }]}>
-              {company.status}
-            </Text>
-          </View>
-          <View
-            style={[
-              styles.aspirationPill,
-              { backgroundColor: aspiration.background }
-            ]}
-          >
-            <Text
-              style={[
-                styles.aspirationText,
-                { color: aspiration.foreground }
-              ]}
-            >
-              志望度 {aspiration.label}
-            </Text>
-          </View>
-        </View>
-
         <View
           style={[
             styles.credentialBlock,
             {
               backgroundColor: theme.colors.surfaceElevated,
-              borderColor: theme.colors.outline
-            }
-          ]}
-        >
+              borderColor: theme.colors.border,
+            },
+          ]}>
           <CredentialRow
             label="ID"
-            value={company.loginId || '未登録'}
+            value={company.loginId || "未登録"}
             isPlaceholder={!company.loginId}
             theme={theme}
             iconButtons={
@@ -155,12 +181,13 @@ export const CompanyCard = memo(
                   <IconButton
                     icon="copy-outline"
                     label="ログインIDをコピー"
-                    onPress={runChildAction(() => onCopy(company.loginId, 'ログインID'))}
+                    onPress={runChildAction(() =>
+                      onCopy(company.loginId, "ログインID"),
+                    )}
                     theme={theme}
                     tone="accent"
                     size="compact"
                     variant="plain"
-                    accentColor={typeTheme.accent}
                     disabled={!company.loginId}
                   />
                 </View>
@@ -170,14 +197,14 @@ export const CompanyCard = memo(
           <View
             style={[
               styles.credentialDivider,
-              { backgroundColor: theme.colors.divider }
+              { backgroundColor: theme.colors.divider },
             ]}
           />
           <CredentialRow
             label="PW"
             value={
               isPasswordVisible
-                ? company.password || '未登録'
+                ? company.password || "未登録"
                 : maskPassword(company.password)
             }
             isPlaceholder={!company.password}
@@ -186,25 +213,29 @@ export const CompanyCard = memo(
               <View style={styles.credentialActionsSlot}>
                 <View style={styles.passwordActions}>
                   <IconButton
-                    icon={isPasswordVisible ? 'eye-off-outline' : 'eye-outline'}
-                    label={isPasswordVisible ? 'パスワードを隠す' : 'パスワードを表示'}
+                    icon={isPasswordVisible ? "eye-off-outline" : "eye-outline"}
+                    label={
+                      isPasswordVisible
+                        ? "パスワードを隠す"
+                        : "パスワードを表示"
+                    }
                     onPress={runChildAction(onTogglePassword)}
                     theme={theme}
                     tone="accent"
                     size="compact"
                     variant="plain"
-                    accentColor={typeTheme.accent}
                     disabled={!company.password}
                   />
                   <IconButton
                     icon="copy-outline"
                     label="パスワードをコピー"
-                    onPress={runChildAction(() => onCopy(company.password, 'パスワード'))}
+                    onPress={runChildAction(() =>
+                      onCopy(company.password, "パスワード"),
+                    )}
                     theme={theme}
                     tone="accent"
                     size="compact"
                     variant="plain"
-                    accentColor={typeTheme.accent}
                     disabled={!company.password}
                   />
                 </View>
@@ -214,7 +245,7 @@ export const CompanyCard = memo(
         </View>
       </Pressable>
     );
-  }
+  },
 );
 
 const CredentialRow = ({
@@ -222,7 +253,7 @@ const CredentialRow = ({
   value,
   isPlaceholder,
   theme,
-  iconButtons
+  iconButtons,
 }: {
   label: string;
   value: string;
@@ -231,21 +262,23 @@ const CredentialRow = ({
   iconButtons: ReactNode;
 }) => (
   <View style={styles.credentialRow}>
-    <Text style={[styles.credentialLabel, { color: theme.colors.textSubtle }]}>
+    <Text
+      style={[styles.credentialLabel, { color: theme.colors.textDisabled }]}>
       {label}
     </Text>
     <Text
       style={[
         styles.credentialValue,
-        isPlaceholder ? styles.credentialValuePlaceholder : styles.credentialValueFilled,
+        isPlaceholder
+          ? styles.credentialValuePlaceholder
+          : styles.credentialValueFilled,
         {
           color: isPlaceholder
-            ? theme.colors.placeholder
-            : theme.colors.text
-        }
+            ? theme.colors.textDisabled
+            : theme.colors.textPrimary,
+        },
       ]}
-      numberOfLines={1}
-    >
+      numberOfLines={1}>
       {value}
     </Text>
     {iconButtons}
@@ -255,113 +288,98 @@ const CredentialRow = ({
 const styles = StyleSheet.create({
   card: {
     paddingHorizontal: 16,
-    paddingVertical: 12
+    paddingVertical: 12,
   },
   headerRow: {
-    alignItems: 'flex-start',
-    flexDirection: 'row',
-    gap: 10
+    alignItems: "flex-start",
+    flexDirection: "row",
+    gap: 10,
   },
   titleBlock: {
     flex: 1,
-    minWidth: 0
+    minWidth: 0,
   },
   nameRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 6
+    alignItems: "center",
+    flexDirection: "row",
   },
   companyName: {
     flex: 1,
     fontSize: 16,
-    fontWeight: '600',
-    lineHeight: 21
-  },
-  metaRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 0
-  },
-  statusPill: {
-    borderRadius: 999,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: 8,
-    paddingVertical: 4
-  },
-  statusText: {
-    fontSize: 10,
-    fontWeight: '600',
-    lineHeight: 14
+    fontWeight: "600",
+    lineHeight: 21,
   },
   aspirationPill: {
     borderRadius: 999,
+    flexShrink: 0,
+    marginLeft: 8,
+    marginTop: 3,
     paddingHorizontal: 8,
-    paddingVertical: 4
+    paddingVertical: 4,
   },
   aspirationText: {
     fontSize: 10,
-    fontWeight: '600',
-    lineHeight: 14
+    fontWeight: "600",
+    lineHeight: 14,
   },
   actions: {
-    alignItems: 'center',
-    flexDirection: 'row',
+    alignItems: "center",
+    flexDirection: "row",
     gap: 0,
-    marginRight: -2
+    marginRight: -2,
   },
   credentialBlock: {
     borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
-    marginTop: 10,
-    overflow: 'hidden'
+    marginTop: 6,
+    overflow: "hidden",
   },
   credentialRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
+    alignItems: "center",
+    flexDirection: "row",
     gap: 10,
     minHeight: 40,
-    paddingHorizontal: 12
+    paddingHorizontal: 12,
   },
   credentialLabel: {
     fontSize: 10,
-    fontWeight: '700',
+    fontWeight: "700",
     letterSpacing: 0.3,
     lineHeight: 13,
-    width: 24
+    width: 24,
   },
   credentialValue: {
     flex: 1,
     fontSize: 13,
-    lineHeight: 17
+    lineHeight: 17,
   },
   credentialValueFilled: {
-    fontWeight: '600'
+    fontWeight: "600",
   },
   credentialValuePlaceholder: {
     fontSize: 12,
-    fontWeight: '400',
-    lineHeight: 16
+    fontWeight: "400",
+    lineHeight: 16,
   },
   credentialActionsSlot: {
-    alignItems: 'flex-end',
-    justifyContent: 'center',
-    width: 72
+    alignItems: "flex-end",
+    justifyContent: "center",
+    width: 72,
   },
   singleActionWrap: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: 36
+    alignItems: "center",
+    justifyContent: "center",
+    width: 36,
   },
   credentialDivider: {
     height: StyleSheet.hairlineWidth,
-    marginLeft: 34
+    marginLeft: 34,
   },
   passwordActions: {
-    alignItems: 'center',
-    flexDirection: 'row',
+    alignItems: "center",
+    flexDirection: "row",
     gap: 0,
-    justifyContent: 'flex-end',
-    width: 72
-  }
+    justifyContent: "flex-end",
+    width: 72,
+  },
 });

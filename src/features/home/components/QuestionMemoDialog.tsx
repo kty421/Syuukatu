@@ -12,7 +12,6 @@ import { CompanyQuestionAnswer } from '../types';
 type QuestionMemoDialogProps = {
   item: CompanyQuestionAnswer | null;
   theme: AppTheme;
-  accentColor: string;
   onClose: () => void;
   onSave: (item: CompanyQuestionAnswer) => void;
 };
@@ -20,7 +19,6 @@ type QuestionMemoDialogProps = {
 export const QuestionMemoDialog = ({
   item,
   theme,
-  accentColor,
   onClose,
   onSave
 }: QuestionMemoDialogProps) => {
@@ -74,7 +72,7 @@ export const QuestionMemoDialog = ({
               style={styles.answerTextInput}
               onChangeText={setAnswer}
             />
-            <Text style={[styles.answerCount, { color: theme.colors.textSubtle }]}>
+            <Text style={[styles.answerCount, { color: theme.colors.textDisabled }]}>
               {answer.length}文字
             </Text>
           </View>
@@ -89,7 +87,6 @@ export const QuestionMemoDialog = ({
             }
             theme={theme}
             variant="primary"
-            accentColor={accentColor}
           />
         </DismissKeyboardView>
       </KeyboardAwareScrollView>

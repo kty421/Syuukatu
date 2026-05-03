@@ -36,7 +36,7 @@ export const BottomNavigation = ({
         theme.shadows.floating,
         {
           backgroundColor: theme.colors.surface,
-          borderColor: theme.colors.outline
+          borderColor: theme.colors.border
         },
         style
       ]}
@@ -60,7 +60,7 @@ export const BottomNavigation = ({
             <Ionicons
               name={item.icon}
               size={20}
-              color={selected ? palette.selected : theme.colors.textSubtle}
+              color={selected ? palette.selected : theme.colors.textDisabled}
             />
             <Text
               style={[
@@ -78,8 +78,8 @@ export const BottomNavigation = ({
 };
 
 export const getNavigationPalette = (theme: AppTheme) => ({
-  selected: theme.isDark ? '#F0A6C8' : '#9A2865',
-  selectedBackground: theme.isDark ? '#3A2032' : '#F7EAF1'
+  selected: theme.colors.selected,
+  selectedBackground: theme.colors.primarySubtle
 });
 
 const styles = StyleSheet.create({

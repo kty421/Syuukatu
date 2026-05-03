@@ -17,7 +17,6 @@ type AppButtonProps = {
   icon?: keyof typeof Ionicons.glyphMap;
   variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
   size?: 'default' | 'compact';
-  accentColor?: string;
   disabled?: boolean;
   loading?: boolean;
 };
@@ -29,17 +28,18 @@ export const AppButton = ({
   icon,
   variant = 'primary',
   size = 'default',
-  accentColor,
   disabled,
   loading
 }: AppButtonProps) => {
-  const palette = getPalette(theme, variant, accentColor);
+  const palette = getPalette(theme, variant);
   const compact = size === 'compact';
+  const inactive = disabled || loading;
+  const foreground = disabled ? theme.colors.disabledText : palette.foreground;
 
   return (
     <Pressable
       accessibilityRole="button"
-      disabled={disabled || loading}
+      disabled={inactive}
       onPress={onPress}
       android_ripple={
         Platform.OS === 'android'
@@ -53,18 +53,24 @@ export const AppButton = ({
           backgroundColor: palette.background,
           borderColor: palette.border
         },
-        pressed && !disabled && !loading && styles.pressed,
-        (disabled || loading) && styles.disabled
+        pressed && !inactive && {
+          backgroundColor: palette.pressedBackground,
+          borderColor: palette.pressedBorder
+        },
+        disabled && {
+          backgroundColor: theme.colors.disabledBackground,
+          borderColor: theme.colors.disabledBackground
+        }
       ]}
     >
       {loading ? (
-        <ActivityIndicator color={palette.foreground} />
+        <ActivityIndicator color={foreground} />
       ) : (
         <>
           {icon ? (
-            <Ionicons name={icon} size={compact ? 16 : 18} color={palette.foreground} />
+            <Ionicons name={icon} size={compact ? 16 : 18} color={foreground} />
           ) : null}
-          <Text style={[styles.label, { color: palette.foreground }]}>{label}</Text>
+          <Text style={[styles.label, { color: foreground }]}>{label}</Text>
         </>
       )}
     </Pressable>
@@ -73,34 +79,41 @@ export const AppButton = ({
 
 const getPalette = (
   theme: AppTheme,
-  variant: NonNullable<AppButtonProps['variant']>,
-  accentColor?: string
+  variant: NonNullable<AppButtonProps['variant']>
 ) => {
   switch (variant) {
     case 'secondary':
       return {
         background: theme.colors.surface,
-        foreground: theme.colors.text,
-        border: theme.colors.outline
+        foreground: theme.colors.textPrimary,
+        border: theme.colors.border,
+        pressedBackground: theme.colors.surfaceSubtle,
+        pressedBorder: theme.colors.primaryBorder
       };
     case 'ghost':
       return {
-        background: theme.colors.surfaceMuted,
-        foreground: theme.colors.textMuted,
-        border: 'transparent'
+        background: 'transparent',
+        foreground: theme.colors.textSecondary,
+        border: 'transparent',
+        pressedBackground: theme.colors.surfaceSubtle,
+        pressedBorder: 'transparent'
       };
     case 'danger':
       return {
-        background: theme.colors.dangerSoft,
-        foreground: theme.colors.danger,
-        border: 'transparent'
+        background: theme.colors.danger,
+        foreground: theme.colors.textOnDanger,
+        border: theme.colors.danger,
+        pressedBackground: theme.colors.dangerHover,
+        pressedBorder: theme.colors.dangerHover
       };
     case 'primary':
     default:
       return {
-        background: accentColor ?? theme.colors.primary,
-        foreground: theme.colors.onPrimary,
-        border: accentColor ?? theme.colors.primary
+        background: theme.colors.primary,
+        foreground: theme.colors.textOnPrimary,
+        border: theme.colors.primary,
+        pressedBackground: theme.colors.primaryPressed,
+        pressedBorder: theme.colors.primaryPressed
       };
   }
 };
@@ -127,11 +140,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     lineHeight: 18
-  },
-  pressed: {
-    opacity: 0.82
-  },
-  disabled: {
-    opacity: 0.46
   }
 });

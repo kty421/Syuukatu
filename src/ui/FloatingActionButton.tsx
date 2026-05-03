@@ -5,7 +5,6 @@ import { AppTheme } from '../constants/theme';
 
 type FloatingActionButtonProps = {
   theme: AppTheme;
-  accentColor: string;
   label: string;
   onPress: () => void;
   style?: StyleProp<ViewStyle>;
@@ -13,7 +12,6 @@ type FloatingActionButtonProps = {
 
 export const FloatingActionButton = ({
   theme,
-  accentColor,
   label,
   onPress,
   style
@@ -31,14 +29,15 @@ export const FloatingActionButton = ({
       styles.button,
       theme.shadows.floating,
       {
-        backgroundColor: accentColor,
-        borderColor: theme.isDark ? theme.colors.outlineStrong : 'rgba(255,255,255,0.62)'
+        backgroundColor: theme.colors.primary,
+        borderColor: theme.colors.primaryBorder
       },
-      pressed && styles.pressed,
+      pressed && { backgroundColor: theme.colors.primaryPressed },
+      pressed && styles.pressedScale,
       style
     ]}
   >
-    <Ionicons name="add" size={30} color={theme.colors.onPrimary} />
+    <Ionicons name="add" size={30} color={theme.colors.textOnPrimary} />
   </Pressable>
 );
 
@@ -52,8 +51,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     width: 58
   },
-  pressed: {
-    opacity: 0.82,
+  pressedScale: {
     transform: [{ scale: 0.96 }]
   }
 });

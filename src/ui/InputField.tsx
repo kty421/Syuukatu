@@ -1,5 +1,6 @@
 import {
   forwardRef,
+  useState,
   useImperativeHandle,
   useRef,
   type ReactNode
@@ -35,7 +36,6 @@ type InputFieldProps = TextInputProps & {
   required?: boolean;
   errorMessage?: string | null;
   trailing?: ReactNode;
-  accentColor?: string;
   fieldKey?: string;
   onContainerLayout?: (fieldKey: string, y: number) => void;
 };
@@ -48,7 +48,6 @@ export const InputField = forwardRef<TextInput, InputFieldProps>(
       required,
       errorMessage,
       trailing,
-      accentColor,
       fieldKey,
       onContainerLayout,
       style,
@@ -63,6 +62,7 @@ export const InputField = forwardRef<TextInput, InputFieldProps>(
   ) => {
     const inputRef = useRef<TextInput>(null);
     const hasValue = typeof value === 'string' && value.length > 0;
+    const [focused, setFocused] = useState(false);
 
     useImperativeHandle(ref, () => inputRef.current as TextInput);
 
@@ -76,7 +76,7 @@ export const InputField = forwardRef<TextInput, InputFieldProps>(
 
     return (
       <View onLayout={handleLayout}>
-        <Text style={[styles.label, { color: theme.colors.textMuted }]}>
+        <Text style={[styles.label, { color: theme.colors.textSecondary }]}>
           {label}
           {required ? (
             <Text style={{ color: theme.colors.danger }}> *</Text>
@@ -93,7 +93,11 @@ export const InputField = forwardRef<TextInput, InputFieldProps>(
             webShellOutlineReset,
             {
               backgroundColor: theme.colors.surfaceElevated,
-              borderColor: errorMessage ? theme.colors.danger : theme.colors.outline
+              borderColor: errorMessage
+                ? theme.colors.danger
+                : focused
+                  ? theme.colors.focusRing
+                  : theme.colors.border
             }
           ]}
         >
@@ -104,9 +108,11 @@ export const InputField = forwardRef<TextInput, InputFieldProps>(
             placeholder={hasValue ? '' : placeholder}
             placeholderTextColor={theme.colors.placeholder}
             onBlur={(event) => {
+              setFocused(false);
               onBlur?.(event);
             }}
             onFocus={(event) => {
+              setFocused(true);
               onFocus?.(event);
             }}
             multiline={multiline}
@@ -114,7 +120,7 @@ export const InputField = forwardRef<TextInput, InputFieldProps>(
               styles.input,
               multiline && styles.textArea,
               webInputOutlineReset,
-              { color: theme.colors.text },
+              { color: theme.colors.textPrimary },
               style
             ]}
             {...props}

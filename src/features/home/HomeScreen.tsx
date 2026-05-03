@@ -25,11 +25,7 @@ import { DismissKeyboardView } from '../../ui/DismissKeyboardView';
 import { FloatingActionButton } from '../../ui/FloatingActionButton';
 import { SearchField } from '../../ui/SearchField';
 import { ApplicationTypeSegment } from './components/ApplicationTypeSegment';
-import {
-  BottomNavigation,
-  getNavigationPalette,
-  MainTab
-} from './components/BottomNavigation';
+import { BottomNavigation, MainTab } from './components/BottomNavigation';
 import { CompanyEditorModal } from './components/CompanyEditorModal';
 import { CompanySection } from './components/CompanySection';
 import { QuestionCompanyPickerModal } from './components/QuestionCompanyPickerModal';
@@ -97,7 +93,6 @@ export const HomeScreen = () => {
 
   const colorScheme = useColorScheme();
   const theme = getTheme(colorScheme);
-  const questionAccentPalette = getNavigationPalette(theme);
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const metrics = getContentMetrics(width);
@@ -219,11 +214,6 @@ export const HomeScreen = () => {
       : { backgroundColor: theme.colors.background };
   const pageMotionStyle = homeView === 'companies' ? edgePullStyle : null;
   const fabBottom = navigationReservedHeight + 12;
-  const fabAccentColor =
-    homeView === 'companies'
-      ? activeTypeTheme.accent
-      : questionAccentPalette.selected;
-
   const showToast = useCallback(
     (message: string, tone: 'success' | 'error' = 'success') => {
       if (toastTimeoutRef.current) {
@@ -650,7 +640,7 @@ export const HomeScreen = () => {
     if (isLoading) {
       return (
         <View style={[containerStyle, styles.centerState]}>
-          <ActivityIndicator color={activeTypeTheme.accent} />
+          <ActivityIndicator color={theme.colors.primary} />
           <Text style={[styles.loadingText, { color: theme.colors.textMuted }]}>
             読み込み中
           </Text>
@@ -661,7 +651,7 @@ export const HomeScreen = () => {
     if (companyQuery.trim()) {
       return (
         <View style={[containerStyle, styles.plainEmptyState]}>
-          <Text style={[styles.emptyTitle, { color: theme.colors.text }]}>
+          <Text style={[styles.emptyTitle, { color: theme.colors.textPrimary }]}>
             一致する企業がありません
           </Text>
           <Pressable
@@ -676,7 +666,7 @@ export const HomeScreen = () => {
             <Text
               style={[
                 styles.clearSearchText,
-                { color: activeTypeTheme.accent }
+                { color: theme.colors.primary }
               ]}
             >
               検索をクリア
@@ -689,7 +679,7 @@ export const HomeScreen = () => {
     if (activeTypeCount === 0) {
       return (
         <View style={[containerStyle, styles.plainEmptyState]}>
-          <Text style={[styles.emptyTitle, { color: theme.colors.text }]}>
+          <Text style={[styles.emptyTitle, { color: theme.colors.textPrimary }]}>
             登録済みの企業はありません
           </Text>
         </View>
@@ -718,7 +708,7 @@ export const HomeScreen = () => {
             { paddingHorizontal: metrics.contentPadding }
           ]}
         >
-          <Text style={[styles.compactTitle, { color: theme.colors.text }]}>
+          <Text style={[styles.compactTitle, { color: theme.colors.textPrimary }]}>
             {homeView === 'companies' ? '企業一覧' : '質問一覧'}
           </Text>
         </View>
@@ -806,9 +796,9 @@ export const HomeScreen = () => {
             query={questionQuery}
             isLoading={isLoading}
             theme={theme}
-            accentColor={questionAccentPalette.selected}
-            accentSurface={questionAccentPalette.selectedBackground}
-            accentBorder={questionAccentPalette.selected}
+            accentColor={theme.colors.selected}
+            accentSurface={theme.colors.primarySubtle}
+            accentBorder={theme.colors.primaryBorder}
             contentPadding={metrics.contentPadding}
             bottomPadding={bottomPadding}
             containerStyle={containerStyle}
@@ -829,7 +819,6 @@ export const HomeScreen = () => {
       </Animated.View>
 
       <FloatingActionButton
-        accentColor={fabAccentColor}
         label={
           homeView === 'questions'
             ? '質問を追加'
@@ -876,7 +865,6 @@ export const HomeScreen = () => {
       <QuestionMemoDialog
         item={editingQuestionMemo?.item ?? null}
         theme={theme}
-        accentColor={fabAccentColor}
         onClose={() => setEditingQuestionMemo(null)}
         onSave={(item) => {
           void saveQuestionMemo(item);
@@ -887,8 +875,8 @@ export const HomeScreen = () => {
         visible={questionCompanyPickerVisible}
         companies={availableCompanies}
         theme={theme}
-        accentColor={questionAccentPalette.selected}
-        accentSurface={questionAccentPalette.selectedBackground}
+        accentColor={theme.colors.selected}
+        accentSurface={theme.colors.primarySubtle}
         onClose={() => setQuestionCompanyPickerVisible(false)}
         onSelect={startQuestionMemoForCompany}
       />

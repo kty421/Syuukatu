@@ -36,7 +36,6 @@ export const CompanySection = ({
     style={styles.section}
   >
     <SectionHeader
-      eyebrow="選考状況"
       title={title}
       count={companies.length}
       theme={theme}
@@ -48,7 +47,7 @@ export const CompanySection = ({
         theme.shadows.surface,
         {
           backgroundColor: theme.colors.surface,
-          borderColor: theme.colors.outline
+          borderColor: theme.colors.border
         }
       ]}
     >

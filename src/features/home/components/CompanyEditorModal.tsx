@@ -560,7 +560,7 @@ export const CompanyEditorModal = ({
                   <Animated.View
                     style={[
                       styles.handle,
-                      { backgroundColor: theme.colors.outlineStrong },
+                      { backgroundColor: theme.colors.border },
                       handleAnimatedStyle
                     ]}
                   />
@@ -568,7 +568,7 @@ export const CompanyEditorModal = ({
 
                 <View style={styles.headerRow}>
                   <ModalCloseButton onPress={() => requestClose()} theme={theme} />
-                  <Text style={[styles.headerTitle, { color: theme.colors.text }]}>
+                  <Text style={[styles.headerTitle, { color: theme.colors.textPrimary }]}>
                     {company ? '企業編集' : '企業追加'}
                   </Text>
                   <View style={styles.headerSpacer} />
@@ -618,8 +618,9 @@ export const CompanyEditorModal = ({
                   <FieldLabel label="選考状況" theme={theme} />
                   <ChipGroup
                     theme={theme}
-                    selectedColor={typeTheme.accent}
-                    selectedSurface={typeTheme.muted}
+                    selectedColor={theme.colors.border}
+                    selectedSurface={theme.colors.surfaceSubtle}
+                    selectedTextColor={theme.colors.textPrimary}
                     value={form.status}
                     options={statusOptions.map((status) => ({
                       value: status,
@@ -655,7 +656,6 @@ export const CompanyEditorModal = ({
                         tone="accent"
                         size="compact"
                         variant="plain"
-                        accentColor={typeTheme.accent}
                       />
                     }
                   />
@@ -683,17 +683,17 @@ export const CompanyEditorModal = ({
                             styles.qaRow,
                             {
                               backgroundColor: theme.colors.surfaceElevated,
-                              borderColor: theme.colors.outline
+                              borderColor: theme.colors.border
                             }
                           ]}
                         >
                           <View style={styles.qaRowBody}>
-                            <Text style={[styles.qaIndex, { color: theme.colors.textSubtle }]}>
+                            <Text style={[styles.qaIndex, { color: theme.colors.textDisabled }]}>
                               {index + 1}
                             </Text>
                             <Text
                               numberOfLines={1}
-                              style={[styles.qaTitle, { color: theme.colors.text }]}
+                              style={[styles.qaTitle, { color: theme.colors.textPrimary }]}
                             >
                               {item.question || '題目未入力'}
                             </Text>
@@ -763,7 +763,6 @@ export const CompanyEditorModal = ({
                   onPress={handleSave}
                   theme={theme}
                   variant="primary"
-                  accentColor={typeTheme.accent}
                 />
               </DismissKeyboardView>
             </KeyboardAwareScrollView>
@@ -773,7 +772,6 @@ export const CompanyEditorModal = ({
         <QuestionMemoDialog
           item={editingQuestionAnswer}
           theme={theme}
-          accentColor={typeTheme.accent}
           onClose={() => setEditingQuestionAnswer(null)}
           onSave={saveQuestionAnswer}
         />
@@ -797,11 +795,11 @@ const FormSection = ({
       theme.shadows.surface,
       {
         backgroundColor: theme.colors.surface,
-        borderColor: theme.colors.outline
+        borderColor: theme.colors.border
       }
     ]}
   >
-    <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>{title}</Text>
+    <Text style={[styles.sectionTitle, { color: theme.colors.textPrimary }]}>{title}</Text>
     <View style={styles.sectionBody}>{children}</View>
   </View>
 );
@@ -813,7 +811,7 @@ const FieldLabel = ({
   label: string;
   theme: AppTheme;
 }) => (
-  <Text style={[styles.fieldLabel, { color: theme.colors.textMuted }]}>{label}</Text>
+  <Text style={[styles.fieldLabel, { color: theme.colors.textSecondary }]}>{label}</Text>
 );
 
 const ChipGroup = <T extends string>({
@@ -851,7 +849,7 @@ const ChipGroup = <T extends string>({
             styles.chip,
             {
               backgroundColor: selected ? selectedSurface : theme.colors.surfaceElevated,
-              borderColor: selected ? selectedColor : theme.colors.outline
+              borderColor: selected ? selectedColor : theme.colors.border
             }
           ]}
         >
@@ -861,7 +859,7 @@ const ChipGroup = <T extends string>({
               {
                 color: selected
                   ? selectedTextColor ?? selectedColor
-                  : theme.colors.textMuted
+                  : theme.colors.textSecondary
               }
             ]}
           >

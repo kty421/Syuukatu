@@ -34,15 +34,17 @@ export const FilterChip = ({
       styles.chip,
       {
         backgroundColor: selected ? surface : theme.colors.surface,
-        borderColor: selected ? border : theme.colors.outline
+        borderColor: selected ? border : theme.colors.border
       },
-      pressed && styles.pressed
+      pressed && {
+        backgroundColor: selected ? surface : theme.colors.surfaceSubtle
+      }
     ]}
   >
     <Text
       style={[
         styles.label,
-        { color: selected ? tint : theme.colors.textMuted }
+        { color: selected ? tint : theme.colors.textSecondary }
       ]}
     >
       {label}
@@ -64,8 +66,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     lineHeight: 17
-  },
-  pressed: {
-    opacity: 0.84
   }
 });

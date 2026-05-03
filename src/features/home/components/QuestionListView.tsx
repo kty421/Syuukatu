@@ -120,7 +120,7 @@ export const QuestionListView = ({
             styles.sortTrigger,
             {
               backgroundColor: theme.colors.surface,
-              borderColor: theme.colors.outline
+              borderColor: theme.colors.border
             },
             pressed && styles.pressed
           ]}
@@ -138,7 +138,7 @@ export const QuestionListView = ({
         visible={sortMenuVisible}
         onRequestClose={() => setSortMenuVisible(false)}
       >
-        <View style={styles.menuRoot}>
+        <View style={[styles.menuRoot, { backgroundColor: theme.colors.overlay }]}>
           <Pressable
             accessibilityLabel="並び替えメニューを閉じる"
             style={StyleSheet.absoluteFill}
@@ -150,11 +150,11 @@ export const QuestionListView = ({
               theme.shadows.floating,
               {
                 backgroundColor: theme.colors.surface,
-                borderColor: theme.colors.outline
+                borderColor: theme.colors.border
               }
             ]}
           >
-            <Text style={[styles.menuTitle, { color: theme.colors.textMuted }]}>
+            <Text style={[styles.menuTitle, { color: theme.colors.textSecondary }]}>
               並び替え
             </Text>
             {sortOptions.map((option) => {
@@ -173,13 +173,13 @@ export const QuestionListView = ({
                   }}
                   style={({ pressed }) => [
                     styles.sortMenuItem,
-                    pressed && { backgroundColor: theme.colors.surfaceMuted }
+                    pressed && { backgroundColor: theme.colors.surfaceSubtle }
                   ]}
                 >
                   <Text
                     style={[
                       styles.sortMenuText,
-                      { color: selected ? accentColor : theme.colors.text }
+                      { color: selected ? accentColor : theme.colors.textPrimary }
                     ]}
                   >
                     {option.label}
@@ -210,7 +210,7 @@ export const QuestionListView = ({
     if (!query.trim() && counts.all === 0) {
       return (
         <View style={[containerStyle, styles.emptyState]}>
-          <Text style={[styles.emptyTitle, { color: theme.colors.text }]}>
+          <Text style={[styles.emptyTitle, { color: theme.colors.textPrimary }]}>
             登録済みの質問はありません
           </Text>
           <Text style={[styles.emptyDescription, { color: theme.colors.textMuted }]}>
@@ -222,7 +222,7 @@ export const QuestionListView = ({
 
     return (
       <View style={[containerStyle, styles.emptyState]}>
-        <Text style={[styles.emptyTitle, { color: theme.colors.text }]}>
+        <Text style={[styles.emptyTitle, { color: theme.colors.textPrimary }]}>
           一致する質問がありません
         </Text>
         {query.trim() ? (
@@ -324,7 +324,6 @@ const styles = StyleSheet.create({
   },
   menuRoot: {
     alignItems: 'center',
-    backgroundColor: 'rgba(10, 18, 28, 0.18)',
     flex: 1,
     justifyContent: 'center',
     padding: 24
