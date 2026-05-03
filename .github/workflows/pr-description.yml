@@ -1,0 +1,170 @@
+name: PR Description
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  update-description:
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Update PR description
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const pull_number = pr.number;
+
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner,
+              repo,
+              pull_number,
+              per_page: 100,
+            });
+
+            const commits = await github.paginate(github.rest.pulls.listCommits, {
+              owner,
+              repo,
+              pull_number,
+              per_page: 100,
+            });
+
+            const categoryRules = [
+              {
+                name: 'CI',
+                match: (path) => path.startsWith('.github/'),
+                summary: 'GitHub Actionsなどの自動化を更新しています。',
+              },
+              {
+                name: 'UI',
+                match: (path) =>
+                  path === 'App.tsx' ||
+                  path.startsWith('src/features/') ||
+                  path.startsWith('src/ui/'),
+                summary: '画面やコンポーネントを更新しています。',
+              },
+              {
+                name: 'テーマ',
+                match: (path) => path.startsWith('src/constants/'),
+                summary: 'テーマや配色を更新しています。',
+              },
+              {
+                name: 'データ',
+                match: (path) => path.startsWith('src/data/'),
+                summary: '初期データやサンプルデータを更新しています。',
+              },
+              {
+                name: '設定',
+                match: (path) =>
+                  [
+                    'package.json',
+                    'package-lock.json',
+                    'tsconfig.json',
+                    'app.json',
+                  ].includes(path),
+                summary: 'プロジェクト設定を更新しています。',
+              },
+              {
+                name: 'ドキュメント',
+                match: (path) => path.endsWith('.md'),
+                summary: 'ドキュメントを更新しています。',
+              },
+            ];
+
+            const groups = new Map([
+              ...categoryRules.map((rule) => [rule.name, []]),
+              ['その他', []],
+            ]);
+
+            for (const file of files) {
+              const rule = categoryRules.find((item) => item.match(file.filename));
+              groups.get(rule?.name ?? 'その他').push(file);
+            }
+
+            const touchedRules = categoryRules.filter(
+              (rule) => groups.get(rule.name).length > 0
+            );
+            const overview = touchedRules.length > 0
+              ? touchedRules.map((rule) => `- ${rule.summary}`)
+              : ['- 差分から変更点を取得できませんでした。'];
+
+            const latestCommits = commits
+              .slice(-5)
+              .map((commit) => {
+                const message = commit.commit.message.split('\n')[0];
+                return `- ${commit.sha.slice(0, 7)} ${message}`;
+              });
+
+            const totalAdditions = files.reduce((sum, file) => sum + file.additions, 0);
+            const totalDeletions = files.reduce((sum, file) => sum + file.deletions, 0);
+            const fileLines = [...groups.entries()]
+              .filter(([, groupedFiles]) => groupedFiles.length > 0)
+              .map(([name, groupedFiles]) => {
+                const lines = groupedFiles
+                  .slice(0, 12)
+                  .map(
+                    (file) =>
+                      `- \`${file.filename}\` (${file.status}, +${file.additions}/-${file.deletions})`
+                  );
+                const hiddenCount = groupedFiles.length - lines.length;
+                if (hiddenCount > 0) {
+                  lines.push(`- 他 ${hiddenCount} 件`);
+                }
+
+                return `### ${name}\n${lines.join('\n')}`;
+              });
+
+            const commitSummary = latestCommits.length > 0
+              ? `\n\n直近コミット:\n${latestCommits.join('\n')}`
+              : '';
+            const body = [
+              `## 概要\n${overview.join('\n')}${commitSummary}`,
+              `## 変更ファイル\n${
+                fileLines.join('\n\n') || '- 変更ファイルを取得できませんでした。'
+              }`,
+              [
+                '## 差分規模',
+                `- 変更ファイル: ${files.length} 件`,
+                `- 追加行数: ${totalAdditions}`,
+                `- 削除行数: ${totalDeletions}`,
+              ].join('\n'),
+              [
+                '## 確認項目',
+                '- [ ] npm run typecheck',
+                '- [ ] 手動確認',
+              ].join('\n'),
+            ].join('\n\n');
+
+            const start = '<!-- pr-auto-summary:start -->';
+            const end = '<!-- pr-auto-summary:end -->';
+            const block = `${start}\n${body}\n${end}`;
+            const currentBody = pr.body ?? '';
+            const escapeRegExp = (value) =>
+              value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const blockPattern = new RegExp(
+              `${escapeRegExp(start)}[\\s\\S]*?${escapeRegExp(end)}`
+            );
+            const nextBody = blockPattern.test(currentBody)
+              ? currentBody.replace(blockPattern, block)
+              : currentBody.trim()
+                ? `${currentBody.trim()}\n\n${block}`
+                : block;
+
+            if (nextBody === currentBody) {
+              core.info('PR description is already up to date.');
+              return;
+            }
+
+            await github.rest.pulls.update({
+              owner,
+              repo,
+              pull_number,
+              body: nextBody,
+            });
