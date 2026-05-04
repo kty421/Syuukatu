@@ -1,10 +1,29 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useMemo } from 'react';
+import {
+  BackHandler,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  useWindowDimensions
+} from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, {
+  Extrapolation,
+  cancelAnimation,
+  interpolate,
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppTheme } from '../../../constants/theme';
 import { AppButton } from '../../../ui/AppButton';
-import { IconButton } from '../../../ui/IconButton';
+import { ModalCloseButton } from '../../../ui/ModalCloseButton';
 
 type HomeMenuModalProps = {
   visible: boolean;
@@ -12,15 +31,39 @@ type HomeMenuModalProps = {
   showPasswordControls: boolean;
   passwordDefaultVisible: boolean;
   theme: AppTheme;
+  onOpen: () => void;
   onPasswordDefaultVisibleChange: (visible: boolean) => void;
   onSignOut: () => void;
   onClose: () => void;
 };
 
+const EDGE_SWIPE_WIDTH = 30;
+const EDGE_SWIPE_TOP_OFFSET = 64;
+const GESTURE_ACTIVATION_DISTANCE = 12;
+const VELOCITY_THRESHOLD = 720;
+
 const webCursor =
   Platform.OS === 'web'
     ? ({ cursor: 'pointer' } as unknown as object)
     : null;
+
+const clamp = (value: number, min: number, max: number) => {
+  'worklet';
+
+  return Math.min(Math.max(value, min), max);
+};
+
+const drawerSpring = (velocity = 0) => {
+  'worklet';
+
+  return {
+    damping: 28,
+    mass: 0.9,
+    overshootClamping: true,
+    stiffness: 260,
+    velocity
+  };
+};
 
 export const HomeMenuModal = ({
   visible,
@@ -28,38 +71,219 @@ export const HomeMenuModal = ({
   showPasswordControls,
   passwordDefaultVisible,
   theme,
+  onOpen,
   onPasswordDefaultVisibleChange,
   onSignOut,
   onClose
 }: HomeMenuModalProps) => {
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const drawerWidth = Math.min(width * 0.86, 360);
+  const closeThreshold = drawerWidth / 3;
+  const translateX = useSharedValue(drawerWidth);
+  const dragStartX = useSharedValue(drawerWidth);
+
+  const finishClose = useCallback(() => {
+    onClose();
+  }, [onClose]);
+  const finishOpen = useCallback(() => {
+    onOpen();
+  }, [onOpen]);
+
+  const requestClose = useCallback(
+    (velocityX = 0) => {
+      cancelAnimation(translateX);
+      translateX.value = withSpring(
+        drawerWidth,
+        drawerSpring(Math.max(velocityX, 0)),
+        (finished) => {
+          if (finished) {
+            runOnJS(finishClose)();
+          }
+        }
+      );
+    },
+    [drawerWidth, finishClose, translateX]
+  );
+
+  const backdropStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(
+      translateX.value,
+      [drawerWidth, 0],
+      [0, 1],
+      Extrapolation.CLAMP
+    )
+  }));
+
+  const drawerStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: translateX.value }]
+  }));
+
+  const edgeOpenGesture = useMemo(
+    () =>
+      Gesture.Pan()
+        .enabled(!visible)
+        .maxPointers(1)
+        .activeOffsetX([-GESTURE_ACTIVATION_DISTANCE, 100000])
+        .failOffsetY([-18, 18])
+        .enableTrackpadTwoFingerGesture(true)
+        .onStart(() => {
+          cancelAnimation(translateX);
+          dragStartX.value = translateX.value;
+        })
+        .onUpdate((event) => {
+          translateX.value = clamp(
+            dragStartX.value + event.translationX,
+            0,
+            drawerWidth
+          );
+        })
+        .onEnd((event) => {
+          const openedDistance = drawerWidth - translateX.value;
+          const shouldOpen =
+            openedDistance >= closeThreshold ||
+            event.velocityX <= -VELOCITY_THRESHOLD;
+
+          if (shouldOpen) {
+            runOnJS(finishOpen)();
+            translateX.value = withSpring(
+              0,
+              drawerSpring(Math.min(event.velocityX, 0))
+            );
+            return;
+          }
+
+          translateX.value = withSpring(
+            drawerWidth,
+            drawerSpring(Math.max(event.velocityX, 0))
+          );
+        }),
+    [
+      closeThreshold,
+      dragStartX,
+      drawerWidth,
+      finishOpen,
+      translateX,
+      visible
+    ]
+  );
+
+  const drawerCloseGesture = useMemo(
+    () =>
+      Gesture.Pan()
+        .enabled(visible)
+        .maxPointers(1)
+        .activeOffsetX([-100000, GESTURE_ACTIVATION_DISTANCE])
+        .failOffsetY([-22, 22])
+        .enableTrackpadTwoFingerGesture(true)
+        .onStart(() => {
+          cancelAnimation(translateX);
+          dragStartX.value = translateX.value;
+        })
+        .onUpdate((event) => {
+          translateX.value = clamp(
+            dragStartX.value + event.translationX,
+            0,
+            drawerWidth
+          );
+        })
+        .onEnd((event) => {
+          const shouldClose =
+            translateX.value >= closeThreshold ||
+            event.velocityX >= VELOCITY_THRESHOLD;
+
+          if (shouldClose) {
+            translateX.value = withSpring(
+              drawerWidth,
+              drawerSpring(Math.max(event.velocityX, 0)),
+              (finished) => {
+                if (finished) {
+                  runOnJS(finishClose)();
+                }
+              }
+            );
+            return;
+          }
+
+          translateX.value = withSpring(
+            0,
+            drawerSpring(Math.min(event.velocityX, 0))
+          );
+        }),
+    [
+      closeThreshold,
+      dragStartX,
+      drawerWidth,
+      finishClose,
+      translateX,
+      visible
+    ]
+  );
+
+  useEffect(() => {
+    cancelAnimation(translateX);
+
+    if (visible) {
+      translateX.value = withSpring(0, drawerSpring());
+      return;
+    }
+
+    translateX.value = withSpring(drawerWidth, drawerSpring());
+  }, [drawerWidth, translateX, visible]);
+
+  useEffect(() => {
+    if (!visible) {
+      return undefined;
+    }
+
+    const subscription = BackHandler.addEventListener(
+      'hardwareBackPress',
+      () => {
+        requestClose();
+        return true;
+      }
+    );
+
+    return () => subscription.remove();
+  }, [requestClose, visible]);
 
   return (
-    <Modal
-      animationType="fade"
-      transparent
-      visible={visible}
-      onRequestClose={onClose}
-    >
-      <View style={[styles.root, { backgroundColor: theme.colors.overlay }]}>
-        <Pressable
-          accessibilityLabel="メニューを閉じる"
-          style={StyleSheet.absoluteFill}
-          onPress={onClose}
-        />
-        <View
+    <View pointerEvents="box-none" style={styles.root}>
+      <Animated.View
+        pointerEvents="none"
+        style={[StyleSheet.absoluteFillObject, styles.backdrop, backdropStyle]}
+      />
+
+      <Pressable
+        accessibilityLabel="メニューを閉じる"
+        pointerEvents={visible ? 'auto' : 'none'}
+        style={StyleSheet.absoluteFill}
+        onPress={() => requestClose()}
+      />
+
+      <GestureDetector gesture={drawerCloseGesture}>
+        <Animated.View
+          collapsable={false}
+          pointerEvents={visible ? 'auto' : 'none'}
           style={[
             styles.drawer,
             theme.shadows.floating,
+            drawerStyle,
             {
               backgroundColor: theme.colors.surface,
-              borderRightColor: theme.colors.border,
+              borderLeftColor: theme.colors.border,
               paddingBottom: Math.max(insets.bottom, 14),
-              paddingTop: insets.top + 12
+              paddingTop: Math.max(insets.top, 10) + 12,
+              width: drawerWidth
             }
           ]}
         >
           <View style={styles.header}>
+            <ModalCloseButton
+              label="メニューを閉じる"
+              onPress={() => requestClose()}
+              theme={theme}
+            />
             <View style={styles.headerTitleBlock}>
               <Text style={[styles.kicker, { color: theme.colors.textMuted }]}>
                 Syuukatu
@@ -68,15 +292,6 @@ export const HomeMenuModal = ({
                 メニュー
               </Text>
             </View>
-            <IconButton
-              icon="close"
-              label="メニューを閉じる"
-              onPress={onClose}
-              theme={theme}
-              tone="neutral"
-              size="compact"
-              variant="plain"
-            />
           </View>
 
           <View style={[styles.divider, { backgroundColor: theme.colors.divider }]} />
@@ -168,9 +383,23 @@ export const HomeMenuModal = ({
               variant="danger"
             />
           </View>
-        </View>
-      </View>
-    </Modal>
+        </Animated.View>
+      </GestureDetector>
+
+      <GestureDetector gesture={edgeOpenGesture}>
+        <View
+          collapsable={false}
+          pointerEvents={visible ? 'none' : 'auto'}
+          style={[
+            styles.edgeSwipeZone,
+            {
+              top: EDGE_SWIPE_TOP_OFFSET,
+              width: EDGE_SWIPE_WIDTH
+            }
+          ]}
+        />
+      </GestureDetector>
+    </View>
   );
 };
 
@@ -215,16 +444,28 @@ const PasswordSegmentButton = ({
 
 const styles = StyleSheet.create({
   root: {
-    flex: 1,
-    justifyContent: 'flex-start'
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 30
+  },
+  backdrop: {
+    backgroundColor: 'rgba(0, 0, 0, 0.52)'
+  },
+  edgeSwipeZone: {
+    bottom: 0,
+    position: 'absolute',
+    right: 0,
+    zIndex: 4
   },
   drawer: {
-    borderRightWidth: StyleSheet.hairlineWidth,
+    borderLeftWidth: StyleSheet.hairlineWidth,
+    bottom: 0,
     gap: 18,
-    height: '100%',
     maxWidth: 360,
     paddingHorizontal: 18,
-    width: '86%'
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    zIndex: 3
   },
   header: {
     alignItems: 'center',
@@ -239,12 +480,14 @@ const styles = StyleSheet.create({
   kicker: {
     fontSize: 11,
     fontWeight: '800',
-    lineHeight: 15
+    lineHeight: 15,
+    textAlign: 'right'
   },
   title: {
     fontSize: 20,
     fontWeight: '800',
-    lineHeight: 26
+    lineHeight: 26,
+    textAlign: 'right'
   },
   menuSection: {
     gap: 12
