@@ -32,12 +32,27 @@ const getSupabaseAnonKey = () =>
       process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY
   );
 
+const getSupabaseHost = (supabaseUrl: string) => {
+  if (!supabaseUrl) {
+    return null;
+  }
+
+  try {
+    return new URL(supabaseUrl).host;
+  } catch {
+    return null;
+  }
+};
+
 export const getSupabaseServerConfigStatus = () => {
   const supabaseUrl = getSupabaseUrl();
   const supabaseAnonKey = getSupabaseAnonKey();
+  const supabaseHost = getSupabaseHost(supabaseUrl);
 
   return {
     hasSupabaseUrl: Boolean(supabaseUrl),
+    supabaseHost,
+    supabaseProjectRef: supabaseHost?.split('.')[0] ?? null,
     hasSupabaseAnonKey: Boolean(supabaseAnonKey),
     supabaseAnonKeyLength: supabaseAnonKey.length,
     supabaseAnonKeyLooksLikeJwt:
