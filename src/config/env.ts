@@ -13,8 +13,12 @@ type ExpoExtra = {
 
 const extra = (Constants.expoConfig?.extra ?? {}) as ExpoExtra;
 
-const toEnvString = (value: unknown) =>
-  typeof value === 'string' ? value : value == null ? '' : String(value);
+const toEnvString = (value: unknown) => {
+  const raw =
+    typeof value === 'string' ? value : value == null ? '' : String(value);
+
+  return raw.trim().replace(/^['"]|['"]$/g, '');
+};
 
 const readEnvValue = (processValue: string | undefined, extraValue: unknown) => {
   if (typeof processValue === 'string' && processValue.length > 0) {

@@ -2,6 +2,10 @@ import type { User } from '@supabase/supabase-js';
 import { parse, serialize } from 'cookie';
 
 import { HttpError } from './http';
+import {
+  isSupabaseConfigError,
+  normalizeAuthErrorMessage
+} from './authErrors';
 import { createSupabaseServerClient } from './supabase';
 import type { VercelRequest, VercelResponse } from './vercel';
 
@@ -135,6 +139,10 @@ export const getAuthenticatedSupabase = async (
     const supabase = createSupabaseServerClient(accessToken);
     const { data, error } = await supabase.auth.getUser(accessToken);
 
+    if (error && isSupabaseConfigError(error.message)) {
+      throw new HttpError(500, normalizeAuthErrorMessage(error.message));
+    }
+
     if (!error && data.user) {
       return { supabase, user: data.user, accessToken };
     }
@@ -145,6 +153,10 @@ export const getAuthenticatedSupabase = async (
     const { data, error } = await supabase.auth.refreshSession({
       refresh_token: refreshToken
     });
+
+    if (error && isSupabaseConfigError(error.message)) {
+      throw new HttpError(500, normalizeAuthErrorMessage(error.message));
+    }
 
     if (!error && data.session && data.user) {
       setSessionCookies(res, data.session);

@@ -15,11 +15,36 @@ type ServerClientOptions = {
 
 const SERVER_AUTH_STORAGE_KEY = 'syuukatu-server-auth';
 
+const normalizeEnvValue = (value: string | undefined) => {
+  const trimmed = value?.trim() ?? '';
+
+  return trimmed.replace(/^['"]|['"]$/g, '');
+};
+
 const getSupabaseUrl = () =>
-  process.env.SUPABASE_URL ?? process.env.EXPO_PUBLIC_SUPABASE_URL;
+  normalizeEnvValue(
+    process.env.SUPABASE_URL ?? process.env.EXPO_PUBLIC_SUPABASE_URL
+  );
 
 const getSupabaseAnonKey = () =>
-  process.env.SUPABASE_ANON_KEY ?? process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+  normalizeEnvValue(
+    process.env.SUPABASE_ANON_KEY ??
+      process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY
+  );
+
+export const getSupabaseServerConfigStatus = () => {
+  const supabaseUrl = getSupabaseUrl();
+  const supabaseAnonKey = getSupabaseAnonKey();
+
+  return {
+    hasSupabaseUrl: Boolean(supabaseUrl),
+    hasSupabaseAnonKey: Boolean(supabaseAnonKey),
+    supabaseAnonKeyLength: supabaseAnonKey.length,
+    supabaseAnonKeyLooksLikeJwt:
+      supabaseAnonKey.split('.').length === 3 &&
+      supabaseAnonKey.startsWith('ey')
+  };
+};
 
 export const createSupabaseServerClient = (
   accessToken?: string,
