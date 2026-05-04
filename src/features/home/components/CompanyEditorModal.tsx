@@ -16,8 +16,11 @@ import {
   View,
   useWindowDimensions
 } from 'react-native';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
+import {
+  Gesture,
+  GestureDetector,
+  ScrollView
+} from 'react-native-gesture-handler';
 import Animated, {
   Easing,
   Extrapolation,
@@ -37,6 +40,7 @@ import { DismissKeyboardView } from '../../../ui/DismissKeyboardView';
 import { IconButton } from '../../../ui/IconButton';
 import { InputField } from '../../../ui/InputField';
 import { ModalCloseButton } from '../../../ui/ModalCloseButton';
+import { useKeyboardInset } from '../../../ui/useKeyboardInset';
 import {
   ApplicationType,
   Company,
@@ -88,6 +92,7 @@ export const CompanyEditorModal = ({
   onSave
 }: CompanyEditorModalProps) => {
   const insets = useSafeAreaInsets();
+  const keyboardInset = useKeyboardInset();
   const { height: windowHeight } = useWindowDimensions();
   const [form, setForm] = useState<FormState>(createEmptyForm(type));
   const [tagText, setTagText] = useState('');
@@ -580,13 +585,16 @@ export const CompanyEditorModal = ({
               </Animated.View>
             </GestureDetector>
 
-            <KeyboardAwareScrollView
-              bottomOffset={28}
-              contentContainerStyle={styles.content}
-              disableScrollOnKeyboardHide
+            <ScrollView
+              contentContainerStyle={[
+                styles.content,
+                { paddingBottom: Math.max(28, keyboardInset + 28) }
+              ]}
               keyboardDismissMode="interactive"
               keyboardShouldPersistTaps="handled"
+              nestedScrollEnabled
               onScrollBeginDrag={Keyboard.dismiss}
+              overScrollMode="never"
               showsVerticalScrollIndicator={false}
               style={styles.flex}
             >
@@ -794,7 +802,7 @@ export const CompanyEditorModal = ({
                   variant="primary"
                 />
               </DismissKeyboardView>
-            </KeyboardAwareScrollView>
+            </ScrollView>
           </SafeAreaView>
         </Animated.View>
 

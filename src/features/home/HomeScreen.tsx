@@ -877,6 +877,12 @@ export const HomeScreen = ({
           ]}
         >
           <View style={styles.titleRow}>
+            <View style={styles.titleSide} />
+            <View style={styles.titleCenter}>
+              <Text style={[styles.compactTitle, { color: theme.colors.textPrimary }]}>
+                {homeView === 'companies' ? '企業一覧' : '質問一覧'}
+              </Text>
+            </View>
             <View style={styles.titleSide}>
               <IconButton
                 icon="menu-outline"
@@ -889,12 +895,6 @@ export const HomeScreen = ({
                 iconSize={22}
               />
             </View>
-            <View style={styles.titleCenter}>
-              <Text style={[styles.compactTitle, { color: theme.colors.textPrimary }]}>
-                {homeView === 'companies' ? '企業一覧' : '質問一覧'}
-              </Text>
-            </View>
-            <View style={styles.titleSide} />
           </View>
         </View>
 
@@ -1134,6 +1134,7 @@ export const HomeScreen = ({
         showPasswordControls={showPasswordControls}
         passwordDefaultVisible={passwordDefaultVisible}
         theme={theme}
+        onOpen={() => setMenuVisible(true)}
         onPasswordDefaultVisibleChange={changePasswordDefaultVisibility}
         onClose={() => setMenuVisible(false)}
         onSignOut={() => {
