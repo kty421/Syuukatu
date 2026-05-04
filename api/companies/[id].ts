@@ -1,5 +1,10 @@
 import { getAuthenticatedSupabase } from '../_lib/auth';
-import { handleApiError, requireMethod, sendJson } from '../_lib/http';
+import {
+  handleApiError,
+  handleCorsPreflight,
+  requireMethod,
+  sendJson
+} from '../_lib/http';
 import type { VercelRequest, VercelResponse } from '../_lib/vercel';
 
 const getCompanyId = (value: string | string[] | undefined) =>
@@ -10,6 +15,10 @@ export default async function handler(
   res: VercelResponse
 ) {
   try {
+    if (handleCorsPreflight(req, res)) {
+      return;
+    }
+
     requireMethod(req.method, ['DELETE']);
     const id = getCompanyId(req.query.id);
 
@@ -26,7 +35,9 @@ export default async function handler(
       .eq('user_id', user.id);
 
     if (error) {
-      sendJson(res, 400, { error: error.message });
+      sendJson(res, 400, {
+        error: '企業データの削除に失敗しました。'
+      });
       return;
     }
 

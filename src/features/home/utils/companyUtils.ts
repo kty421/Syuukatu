@@ -73,10 +73,6 @@ export const filterAndSortCompanies = (
         .includes(normalizedQuery);
     })
     .sort((a, b) => {
-      if (a.favorite !== b.favorite) {
-        return a.favorite ? -1 : 1;
-      }
-
       const aspirationDiff = aspirationRank[a.aspiration] - aspirationRank[b.aspiration];
       if (aspirationDiff !== 0) {
         return aspirationDiff;

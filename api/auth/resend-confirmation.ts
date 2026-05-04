@@ -12,6 +12,7 @@ import {
   sendJson
 } from '../_lib/http';
 import { createSupabaseServerClient } from '../_lib/supabase';
+import { getWebAuthCallbackUrl } from '../_lib/url';
 import type { VercelRequest, VercelResponse } from '../_lib/vercel';
 
 const bodySchema = z.object({
@@ -30,7 +31,13 @@ export default async function handler(
     requireMethod(req.method, ['POST']);
     const body = bodySchema.parse(parseRequestBody(req.body));
     const supabase = createSupabaseServerClient();
-    const { error } = await supabase.auth.resetPasswordForEmail(body.email);
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email: body.email,
+      options: {
+        emailRedirectTo: getWebAuthCallbackUrl(req)
+      }
+    });
 
     if (error) {
       sendJson(res, getAuthErrorStatus(error.message), {
@@ -39,7 +46,10 @@ export default async function handler(
       return;
     }
 
-    sendJson(res, 200, { ok: true });
+    sendJson(res, 200, {
+      ok: true,
+      message: '確認メールを再送しました。'
+    });
   } catch (error) {
     handleApiError(res, error);
   }

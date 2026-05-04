@@ -1,5 +1,10 @@
 import { clearSessionCookies, getRequestTokens } from '../_lib/auth';
-import { handleApiError, requireMethod, sendJson } from '../_lib/http';
+import {
+  handleApiError,
+  handleCorsPreflight,
+  requireMethod,
+  sendJson
+} from '../_lib/http';
 import { createSupabaseServerClient } from '../_lib/supabase';
 import type { VercelRequest, VercelResponse } from '../_lib/vercel';
 
@@ -8,6 +13,10 @@ export default async function handler(
   res: VercelResponse
 ) {
   try {
+    if (handleCorsPreflight(req, res)) {
+      return;
+    }
+
     requireMethod(req.method, ['POST']);
     const { accessToken, refreshToken } = getRequestTokens(req);
 

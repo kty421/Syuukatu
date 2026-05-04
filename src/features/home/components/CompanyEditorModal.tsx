@@ -461,11 +461,9 @@ export const CompanyEditorModal = ({
     try {
       await onSave(payload);
       requestClose();
-    } catch (caughtError) {
+    } catch {
       setError(
-        caughtError instanceof Error
-          ? caughtError.message
-          : '保存に失敗しました。しばらくしてからもう一度お試しください。'
+        '保存に失敗しました。しばらくしてからもう一度お試しください。'
       );
       setIsSaving(false);
     }

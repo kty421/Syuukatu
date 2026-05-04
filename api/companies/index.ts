@@ -4,7 +4,13 @@ import {
   upsertCompanyBodySchema
 } from '../_lib/company';
 import { getAuthenticatedSupabase } from '../_lib/auth';
-import { handleApiError, parseRequestBody, requireMethod, sendJson } from '../_lib/http';
+import {
+  handleApiError,
+  handleCorsPreflight,
+  parseRequestBody,
+  requireMethod,
+  sendJson
+} from '../_lib/http';
 import type { VercelRequest, VercelResponse } from '../_lib/vercel';
 
 export default async function handler(
@@ -12,6 +18,10 @@ export default async function handler(
   res: VercelResponse
 ) {
   try {
+    if (handleCorsPreflight(req, res)) {
+      return;
+    }
+
     requireMethod(req.method, ['GET', 'POST', 'PUT']);
     const { supabase, user } = await getAuthenticatedSupabase(req, res);
 
@@ -22,7 +32,9 @@ export default async function handler(
         .order('updated_at', { ascending: false });
 
       if (error) {
-        sendJson(res, 400, { error: error.message });
+        sendJson(res, 400, {
+          error: '企業データの読み込みに失敗しました。'
+        });
         return;
       }
 
@@ -38,7 +50,9 @@ export default async function handler(
       .single();
 
     if (error) {
-      sendJson(res, 400, { error: error.message });
+      sendJson(res, 400, {
+        error: '企業データの保存に失敗しました。'
+      });
       return;
     }
 

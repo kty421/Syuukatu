@@ -105,7 +105,7 @@ const NavigationItem = ({
     >
       <Ionicons
         name={icon}
-        size={20}
+        size={18}
         color={selected ? palette.selected : theme.colors.textDisabled}
       />
       <Text
@@ -128,29 +128,29 @@ export const getNavigationPalette = (theme: AppTheme) => ({
 const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
-    borderRadius: 24,
+    borderRadius: 21,
     borderWidth: StyleSheet.hairlineWidth,
     flexDirection: 'row',
     gap: 6,
-    height: 64,
+    height: 56,
     overflow: 'hidden',
-    padding: 6,
+    padding: 5,
     position: 'absolute'
   },
   item: {
     alignItems: 'center',
-    borderRadius: 18,
+    borderRadius: 16,
     flex: 1,
     flexDirection: 'row',
     gap: 7,
-    height: 52,
+    height: 46,
     justifyContent: 'center',
-    paddingHorizontal: 12
+    paddingHorizontal: 10
   },
   label: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
-    lineHeight: 17
+    lineHeight: 16
   },
   pressed: {
     opacity: 0.82
