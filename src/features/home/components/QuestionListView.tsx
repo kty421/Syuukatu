@@ -1,9 +1,7 @@
-import { Ionicons } from '@expo/vector-icons';
 import { FlashList, type FlashListRef } from '@shopify/flash-list';
-import { memo, useCallback, useMemo, useState, type Ref } from 'react';
+import { memo, useCallback, useMemo, type Ref } from 'react';
 import {
   Keyboard,
-  Modal,
   Pressable,
   StyleSheet,
   Text,
@@ -19,6 +17,7 @@ import {
   QuestionMemoSort
 } from '../utils/questionMemoUtils';
 import { QuestionMemoRow } from './QuestionMemoRow';
+import { QuestionSortMenu } from './QuestionSortMenu';
 
 type QuestionListViewProps = {
   entries: QuestionMemoEntry[];
@@ -47,24 +46,6 @@ const filterOptions: { value: QuestionMemoFilter; label: string }[] = [
   { value: 'all', label: 'すべて' },
   { value: 'unanswered', label: '未回答' },
   { value: 'answered', label: '回答済み' }
-];
-
-const sortOptions: {
-  value: QuestionMemoSort;
-  label: string;
-}[] = [
-  {
-    value: 'titleAsc',
-    label: 'タイトル名'
-  },
-  {
-    value: 'updatedAtDesc',
-    label: '更新日'
-  },
-  {
-    value: 'createdAtDesc',
-    label: '追加日'
-  }
 ];
 
 const QUESTION_LIST_OVERRIDE_PROPS = { initialDrawBatchSize: 10 } as const;
@@ -140,7 +121,6 @@ export const QuestionListView = ({
   onOpenCompany,
   onDelete
 }: QuestionListViewProps) => {
-  const [sortMenuVisible, setSortMenuVisible] = useState(false);
   const contentContainerStyle = useMemo(
     () => ({
       paddingBottom: bottomPadding,
@@ -171,87 +151,13 @@ export const QuestionListView = ({
             />
           ))}
         </View>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="質問の並び替え"
-          onPress={() => setSortMenuVisible(true)}
-          style={({ pressed }) => [
-            styles.sortTrigger,
-            {
-              backgroundColor: theme.colors.surface,
-              borderColor: theme.colors.border
-            },
-            pressed && styles.pressed
-          ]}
-        >
-          <Ionicons
-            name="ellipsis-horizontal"
-            size={18}
-            color={theme.colors.textMuted}
-          />
-        </Pressable>
+        <QuestionSortMenu
+          value={sort}
+          theme={theme}
+          accentColor={accentColor}
+          onChange={onSortChange}
+        />
       </View>
-      <Modal
-        animationType="fade"
-        transparent
-        visible={sortMenuVisible}
-        onRequestClose={() => setSortMenuVisible(false)}
-      >
-        <View style={[styles.menuRoot, { backgroundColor: theme.colors.overlay }]}>
-          <Pressable
-            accessibilityLabel="並び替えメニューを閉じる"
-            style={StyleSheet.absoluteFill}
-            onPress={() => setSortMenuVisible(false)}
-          />
-          <View
-            style={[
-              styles.sortMenu,
-              theme.shadows.floating,
-              {
-                backgroundColor: theme.colors.surface,
-                borderColor: theme.colors.border
-              }
-            ]}
-          >
-            <Text style={[styles.menuTitle, { color: theme.colors.textSecondary }]}>
-              並び替え
-            </Text>
-            {sortOptions.map((option) => {
-              const selected = option.value === sort;
-
-              return (
-                <Pressable
-                  key={option.value}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected }}
-                  onPress={() => {
-                    if (!selected) {
-                      onSortChange(option.value);
-                    }
-                    setSortMenuVisible(false);
-                  }}
-                  style={({ pressed }) => [
-                    styles.sortMenuItem,
-                    pressed && { backgroundColor: theme.colors.surfaceSubtle }
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.sortMenuText,
-                      { color: selected ? accentColor : theme.colors.textPrimary }
-                    ]}
-                  >
-                    {option.label}
-                  </Text>
-                  {selected ? (
-                    <Ionicons name="checkmark" size={18} color={accentColor} />
-                  ) : null}
-                </Pressable>
-              );
-            })}
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 
@@ -393,52 +299,6 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 8,
     minWidth: 0
-  },
-  sortTrigger: {
-    alignItems: 'center',
-    borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    flexDirection: 'row',
-    gap: 6,
-    justifyContent: 'center',
-    minHeight: 34,
-    width: 40
-  },
-  menuRoot: {
-    alignItems: 'center',
-    flex: 1,
-    justifyContent: 'center',
-    padding: 24
-  },
-  sortMenu: {
-    borderRadius: 20,
-    borderWidth: StyleSheet.hairlineWidth,
-    maxWidth: 320,
-    overflow: 'hidden',
-    paddingVertical: 8,
-    width: '100%'
-  },
-  menuTitle: {
-    fontSize: 12,
-    fontWeight: '700',
-    lineHeight: 16,
-    paddingBottom: 6,
-    paddingHorizontal: 16,
-    paddingTop: 6
-  },
-  sortMenuItem: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 12,
-    justifyContent: 'space-between',
-    minHeight: 48,
-    paddingHorizontal: 16
-  },
-  sortMenuText: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: '700',
-    lineHeight: 19
   },
   emptyState: {
     alignItems: 'center',
