@@ -5,7 +5,7 @@ export type QuestionMemoFilter = 'all' | QuestionMemoStatus;
 export type QuestionMemoSort =
   | 'titleAsc'
   | 'updatedAtDesc'
-  | 'updatedAtAsc';
+  | 'createdAtDesc';
 
 export type QuestionMemoEntry = {
   company: Company;
@@ -91,6 +91,9 @@ const getUpdatedAtTime = (entry: QuestionMemoEntry) =>
       entry.company.updatedAt
   );
 
+const getCreatedAtTime = (entry: QuestionMemoEntry) =>
+  toTime(entry.questionAnswer.createdAt || entry.company.createdAt);
+
 export const sortQuestionMemos = (
   entries: QuestionMemoEntry[],
   sort: QuestionMemoSort
@@ -110,8 +113,8 @@ export const sortQuestionMemos = (
     }
 
     const timeOrder =
-      sort === 'updatedAtAsc'
-        ? getUpdatedAtTime(a) - getUpdatedAtTime(b)
+      sort === 'createdAtDesc'
+        ? getCreatedAtTime(b) - getCreatedAtTime(a)
         : getUpdatedAtTime(b) - getUpdatedAtTime(a);
 
     if (timeOrder !== 0) {

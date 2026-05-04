@@ -59,11 +59,11 @@ const sortOptions: {
   },
   {
     value: 'updatedAtDesc',
-    label: '更新日新しい'
+    label: '更新日'
   },
   {
-    value: 'updatedAtAsc',
-    label: '更新日古い'
+    value: 'createdAtDesc',
+    label: '追加日'
   }
 ];
 

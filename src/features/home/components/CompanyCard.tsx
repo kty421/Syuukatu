@@ -18,7 +18,6 @@ type CompanyCardProps = {
   showPasswordControls: boolean;
   onPress: () => void;
   onTogglePassword: () => void;
-  onToggleFavorite: () => void;
   onCopy: (value: string, label: string) => void;
   onOpenUrl: () => void;
   onDelete: () => void;
@@ -34,7 +33,6 @@ export const CompanyCard = memo(
     showPasswordControls,
     onPress,
     onTogglePassword,
-    onToggleFavorite,
     onCopy,
     onOpenUrl,
     onDelete,
@@ -84,16 +82,6 @@ export const CompanyCard = memo(
           </View>
 
           <View style={styles.actions}>
-            <IconButton
-              icon={company.favorite ? "star" : "star-outline"}
-              label={company.favorite ? "お気に入りを解除" : "お気に入りに追加"}
-              onPress={runChildAction(onToggleFavorite)}
-              theme={theme}
-              tone="accent"
-              variant="plain"
-              size="compact"
-              iconSize={17}
-            />
             <IconButton
               icon="open-outline"
               label="企業ページを開く"

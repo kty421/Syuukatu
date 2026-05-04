@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { FlashList, type FlashListRef } from '@shopify/flash-list';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
@@ -26,11 +27,13 @@ import { AppButton } from '../../ui/AppButton';
 import { AppToast } from '../../ui/AppToast';
 import { DismissKeyboardView } from '../../ui/DismissKeyboardView';
 import { FloatingActionButton } from '../../ui/FloatingActionButton';
+import { IconButton } from '../../ui/IconButton';
 import { SearchField } from '../../ui/SearchField';
 import { ApplicationTypeSegment } from './components/ApplicationTypeSegment';
 import { BottomNavigation, MainTab } from './components/BottomNavigation';
 import { CompanyEditorModal } from './components/CompanyEditorModal';
 import { CompanySection } from './components/CompanySection';
+import { HomeMenuModal } from './components/HomeMenuModal';
 import { QuestionCompanyPickerModal } from './components/QuestionCompanyPickerModal';
 import { QuestionListView } from './components/QuestionListView';
 import { QuestionMemoDialog } from './components/QuestionMemoDialog';
@@ -44,6 +47,7 @@ import {
 } from './types';
 import {
   filterAndSortCompanies,
+  getStatusList,
   groupCompaniesByStatus
 } from './utils/companyUtils';
 import {
@@ -66,6 +70,7 @@ const clamp = (value: number, min: number, max: number) =>
 
 const AnimatedSafeAreaView = Animated.createAnimatedComponent(SafeAreaView);
 type CompanyStatusGroup = ReturnType<typeof groupCompaniesByStatus>[number];
+const PASSWORD_DEFAULT_VISIBLE_KEY = 'syuukatu:password-default-visible';
 
 const createQuestionMemoDraft = (): CompanyQuestionAnswer => {
   const now = new Date().toISOString();
@@ -150,9 +155,16 @@ export const HomeScreen = ({
   } | null>(null);
   const [questionCompanyPickerVisible, setQuestionCompanyPickerVisible] =
     useState(false);
-  const [visiblePasswordIds, setVisiblePasswordIds] = useState<Set<string>>(
-    new Set()
-  );
+  const [menuVisible, setMenuVisible] = useState(false);
+  const [passwordDefaultVisible, setPasswordDefaultVisible] = useState(false);
+  const [passwordPreferenceHydrated, setPasswordPreferenceHydrated] =
+    useState(false);
+  const [passwordVisibilityOverrides, setPasswordVisibilityOverrides] =
+    useState<Set<string>>(new Set());
+  const [questionCreateCompanyId, setQuestionCreateCompanyId] = useState<
+    string | null
+  >(null);
+  const [questionSaveNoticeKey, setQuestionSaveNoticeKey] = useState(0);
   const [toast, setToast] = useState<{
     message: string;
     tone: 'success' | 'error';
@@ -182,9 +194,9 @@ export const HomeScreen = ({
     }),
     [edgePullX]
   );
-  const navigationBottom = Math.max(insets.bottom, 8) + 12;
-  const navigationHeight = 64;
-  const navigationReservedHeight = navigationBottom + navigationHeight + 18;
+  const navigationBottom = Math.max(insets.bottom, 6) + 6;
+  const navigationHeight = 56;
+  const navigationReservedHeight = navigationBottom + navigationHeight + 14;
   const bottomPadding = navigationReservedHeight + 96;
   const bottomNavigationWidth = Math.min(width - metrics.contentPadding * 2, 420);
   const activeTypeCompanies = useMemo(
@@ -244,7 +256,7 @@ export const HomeScreen = ({
       ? animatedThemeStyle
       : { backgroundColor: theme.colors.background };
   const pageMotionStyle = homeView === 'companies' ? edgePullStyle : null;
-  const fabBottom = navigationReservedHeight + 12;
+  const fabBottom = navigationReservedHeight + 8;
   const showPasswordControls = Platform.OS !== 'web';
   const showToast = useCallback(
     (message: string, tone: 'success' | 'error' = 'success') => {
@@ -295,6 +307,40 @@ export const HomeScreen = ({
     },
     []
   );
+
+  useEffect(() => {
+    let mounted = true;
+
+    AsyncStorage.getItem(PASSWORD_DEFAULT_VISIBLE_KEY)
+      .then((value) => {
+        if (!mounted) {
+          return;
+        }
+
+        setPasswordDefaultVisible(value === 'visible');
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (mounted) {
+          setPasswordPreferenceHydrated(true);
+        }
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!passwordPreferenceHydrated) {
+      return;
+    }
+
+    AsyncStorage.setItem(
+      PASSWORD_DEFAULT_VISIBLE_KEY,
+      passwordDefaultVisible ? 'visible' : 'hidden'
+    ).catch(() => {});
+  }, [passwordDefaultVisible, passwordPreferenceHydrated]);
 
   useEffect(() => {
     if (!storageError) {
@@ -440,7 +486,7 @@ export const HomeScreen = ({
   );
 
   const togglePassword = (id: string) => {
-    setVisiblePasswordIds((current) => {
+    setPasswordVisibilityOverrides((current) => {
       const next = new Set(current);
       if (next.has(id)) {
         next.delete(id);
@@ -449,6 +495,16 @@ export const HomeScreen = ({
       }
       return next;
     });
+  };
+
+  const isCompanyPasswordVisible = (id: string) =>
+    passwordDefaultVisible
+      ? !passwordVisibilityOverrides.has(id)
+      : passwordVisibilityOverrides.has(id);
+
+  const changePasswordDefaultVisibility = (visible: boolean) => {
+    setPasswordDefaultVisible(visible);
+    setPasswordVisibilityOverrides(new Set());
   };
 
   const copyToClipboard = async (value: string, label: string) => {
@@ -564,29 +620,8 @@ export const HomeScreen = ({
     ]);
   };
 
-  const handleToggleFavorite = async (company: Company) => {
-    Keyboard.dismiss();
-    try {
-      await upsertCompany({
-        ...company,
-        favorite: !company.favorite
-      });
-      await runHapticsSafely(() => Haptics.selectionAsync());
-      showToast(
-        company.favorite
-          ? 'お気に入りを解除しました'
-          : 'お気に入りに追加しました'
-      );
-    } catch {}
-  };
-
   const openQuestionCompanyPicker = async () => {
     Keyboard.dismiss();
-
-    if (availableCompanies.length === 0) {
-      Alert.alert('企業がありません', '先に企業を追加してください。');
-      return;
-    }
 
     await runHapticsSafely(() =>
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
@@ -605,10 +640,52 @@ export const HomeScreen = ({
 
   const startQuestionMemoForCompany = (company: Company) => {
     setQuestionCompanyPickerVisible(false);
+    setQuestionCreateCompanyId(company.id);
     setEditingQuestionMemo({
       companyId: company.id,
       item: createQuestionMemoDraft()
     });
+  };
+
+  const createCompanyForQuestion = async (companyName: string) => {
+    const trimmedName = companyName.trim();
+
+    if (!trimmedName) {
+      return;
+    }
+
+    try {
+      const savedCompany = await upsertCompany({
+        type: activeType,
+        companyName: trimmedName,
+        aspiration: 'unset',
+        status: getStatusList(activeType)[0],
+        loginId: '',
+        password: '',
+        myPageUrl: '',
+        industry: '',
+        role: '',
+        tags: [],
+        questionAnswers: [],
+        memo: '',
+        favorite: false,
+        archived: false
+      });
+
+      await runHapticsSafely(() =>
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
+      );
+      showToast('企業を追加しました');
+      startQuestionMemoForCompany(savedCompany);
+    } catch (error) {
+      showToast('企業の追加に失敗しました', 'error');
+      throw error;
+    }
+  };
+
+  const closeQuestionMemo = () => {
+    setEditingQuestionMemo(null);
+    setQuestionCreateCompanyId(null);
   };
 
   const saveQuestionMemo = async (item: CompanyQuestionAnswer) => {
@@ -622,7 +699,7 @@ export const HomeScreen = ({
 
     if (!targetCompany) {
       showToast('企業が見つかりませんでした', 'error');
-      setEditingQuestionMemo(null);
+      closeQuestionMemo();
       return;
     }
 
@@ -636,7 +713,7 @@ export const HomeScreen = ({
     };
 
     if (!nextItem.question && !nextItem.answer) {
-      setEditingQuestionMemo(null);
+      closeQuestionMemo();
       return;
     }
 
@@ -659,7 +736,19 @@ export const HomeScreen = ({
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
       );
       showToast('質問メモを保存しました');
-      setEditingQuestionMemo(null);
+      const shouldContinueCreating =
+        !isExistingQuestionMemo && questionCreateCompanyId === targetCompany.id;
+
+      if (shouldContinueCreating) {
+        setQuestionSaveNoticeKey((current) => current + 1);
+        setEditingQuestionMemo({
+          companyId: targetCompany.id,
+          item: createQuestionMemoDraft()
+        });
+        return;
+      }
+
+      closeQuestionMemo();
       if (!isExistingQuestionMemo) {
         setHomeView('questions');
         setQuestionFilter('all');
@@ -788,28 +877,24 @@ export const HomeScreen = ({
           ]}
         >
           <View style={styles.titleRow}>
-            <View style={styles.titleSide} />
+            <View style={styles.titleSide}>
+              <IconButton
+                icon="menu-outline"
+                label="サイドメニューを開く"
+                onPress={() => setMenuVisible(true)}
+                theme={theme}
+                tone="neutral"
+                size="compact"
+                variant="plain"
+                iconSize={22}
+              />
+            </View>
             <View style={styles.titleCenter}>
               <Text style={[styles.compactTitle, { color: theme.colors.textPrimary }]}>
                 {homeView === 'companies' ? '企業一覧' : '質問一覧'}
               </Text>
             </View>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="ログアウト"
-              onPress={() => {
-                handleSignOut();
-              }}
-              style={({ pressed }) => [
-                styles.signOutButton,
-                { borderColor: theme.colors.border },
-                pressed && styles.pressed
-              ]}
-            >
-              <Text style={[styles.signOutText, { color: theme.colors.textSecondary }]}>
-                ログアウト
-              </Text>
-            </Pressable>
+            <View style={styles.titleSide} />
           </View>
         </View>
 
@@ -936,10 +1021,9 @@ export const HomeScreen = ({
                     companies={item.companies}
                     theme={theme}
                     showPasswordControls={showPasswordControls}
-                    visiblePasswordIds={visiblePasswordIds}
+                    isPasswordVisible={isCompanyPasswordVisible}
                     onEdit={openEditModal}
                     onTogglePassword={togglePassword}
-                    onToggleFavorite={handleToggleFavorite}
                     onCopy={copyToClipboard}
                     onOpenUrl={openUrl}
                     onDelete={handleDeleteCompany}
@@ -1028,7 +1112,8 @@ export const HomeScreen = ({
       <QuestionMemoDialog
         item={editingQuestionMemo?.item ?? null}
         theme={theme}
-        onClose={() => setEditingQuestionMemo(null)}
+        saveNoticeKey={questionSaveNoticeKey}
+        onClose={closeQuestionMemo}
         onSave={(item) => {
           void saveQuestionMemo(item);
         }}
@@ -1038,10 +1123,23 @@ export const HomeScreen = ({
         visible={questionCompanyPickerVisible}
         companies={availableCompanies}
         theme={theme}
-        accentColor={theme.colors.selected}
-        accentSurface={theme.colors.primarySubtle}
         onClose={() => setQuestionCompanyPickerVisible(false)}
         onSelect={startQuestionMemoForCompany}
+        onCreateCompany={createCompanyForQuestion}
+      />
+
+      <HomeMenuModal
+        visible={menuVisible}
+        userEmail={user.email}
+        showPasswordControls={showPasswordControls}
+        passwordDefaultVisible={passwordDefaultVisible}
+        theme={theme}
+        onPasswordDefaultVisibleChange={changePasswordDefaultVisibility}
+        onClose={() => setMenuVisible(false)}
+        onSignOut={() => {
+          setMenuVisible(false);
+          handleSignOut();
+        }}
       />
 
       {toast ? <AppToast message={toast.message} theme={theme} tone={toast.tone} /> : null}
@@ -1079,26 +1177,14 @@ const styles = StyleSheet.create({
     gap: 10
   },
   titleSide: {
-    width: 86
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 44
   },
   titleCenter: {
     alignItems: 'center',
     flex: 1,
     minWidth: 0
-  },
-  signOutButton: {
-    alignItems: 'center',
-    borderRadius: 14,
-    borderWidth: StyleSheet.hairlineWidth,
-    justifyContent: 'center',
-    minHeight: 34,
-    paddingHorizontal: 10,
-    width: 86
-  },
-  signOutText: {
-    fontSize: 11,
-    fontWeight: '700',
-    lineHeight: 15
   },
   searchArea: {
     paddingTop: 12

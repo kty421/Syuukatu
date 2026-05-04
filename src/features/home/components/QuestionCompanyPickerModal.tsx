@@ -1,107 +1,153 @@
+import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { AppTheme } from '../../../constants/theme';
+import { AppButton } from '../../../ui/AppButton';
 import { FullScreenModalShell } from '../../../ui/FullScreenModalShell';
+import { InputField } from '../../../ui/InputField';
 import { Company } from '../types';
 
 type QuestionCompanyPickerModalProps = {
   visible: boolean;
   companies: Company[];
   theme: AppTheme;
-  accentColor: string;
-  accentSurface: string;
   onClose: () => void;
   onSelect: (company: Company) => void;
+  onCreateCompany: (companyName: string) => Promise<void>;
 };
 
 export const QuestionCompanyPickerModal = ({
   visible,
   companies,
   theme,
-  accentColor,
-  accentSurface,
   onClose,
-  onSelect
-}: QuestionCompanyPickerModalProps) => (
-  <FullScreenModalShell
-    visible={visible}
-    title="企業を選択"
-    theme={theme}
-    onClose={onClose}
-  >
-    <ScrollView
-      contentContainerStyle={styles.body}
-      keyboardShouldPersistTaps="handled"
-      showsVerticalScrollIndicator={false}
+  onSelect,
+  onCreateCompany
+}: QuestionCompanyPickerModalProps) => {
+  const [newCompanyName, setNewCompanyName] = useState('');
+  const [isCreating, setIsCreating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const trimmedCompanyName = newCompanyName.trim();
+
+  const createCompany = async () => {
+    if (!trimmedCompanyName || isCreating) {
+      return;
+    }
+
+    setIsCreating(true);
+    setError(null);
+
+    try {
+      await onCreateCompany(trimmedCompanyName);
+      setNewCompanyName('');
+    } catch {
+      setError('企業を追加できませんでした。');
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  return (
+    <FullScreenModalShell
+      visible={visible}
+      title="企業を選択"
+      theme={theme}
+      onClose={onClose}
     >
-      <View
-        style={[
-          styles.surface,
-          theme.shadows.surface,
-          {
-            backgroundColor: theme.colors.surface,
-            borderColor: theme.colors.border
-          }
-        ]}
+      <ScrollView
+        contentContainerStyle={styles.body}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       >
-        {companies.length > 0 ? (
-          companies.map((company, index) => (
-            <View key={company.id}>
-              {index > 0 ? (
-                <View
-                  style={[
-                    styles.divider,
-                    { backgroundColor: theme.colors.divider }
-                  ]}
-                />
-              ) : null}
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={`${company.companyName}に質問メモを追加`}
-                onPress={() => onSelect(company)}
-                style={({ pressed }) => [
-                  styles.row,
-                  pressed && { backgroundColor: theme.colors.surfaceSubtle }
-                ]}
-              >
-                <View style={styles.rowText}>
-                  <Text
-                    numberOfLines={1}
-                    style={[styles.companyName, { color: theme.colors.textPrimary }]}
-                  >
-                    {company.companyName}
-                  </Text>
-                  <Text
-                    numberOfLines={1}
-                    style={[styles.metaText, { color: theme.colors.textMuted }]}
-                  >
-                    {company.status} / 質問{company.questionAnswers?.length ?? 0}件
-                  </Text>
-                </View>
-                <View
-                  style={[
-                    styles.selectPill,
-                    { backgroundColor: accentSurface }
+        <View
+          style={[
+            styles.surface,
+            theme.shadows.surface,
+            {
+              backgroundColor: theme.colors.surface,
+              borderColor: theme.colors.border
+            }
+          ]}
+        >
+          {companies.length > 0 ? (
+            companies.map((company, index) => (
+              <View key={company.id}>
+                {index > 0 ? (
+                  <View
+                    style={[
+                      styles.divider,
+                      { backgroundColor: theme.colors.divider }
+                    ]}
+                  />
+                ) : null}
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`${company.companyName}に質問メモを追加`}
+                  onPress={() => onSelect(company)}
+                  style={({ pressed }) => [
+                    styles.row,
+                    pressed && { backgroundColor: theme.colors.surfaceSubtle }
                   ]}
                 >
-                  <Text style={[styles.selectText, { color: accentColor }]}>
-                    選択
-                  </Text>
-                </View>
-              </Pressable>
+                  <View style={styles.rowText}>
+                    <Text
+                      numberOfLines={1}
+                      style={[styles.companyName, { color: theme.colors.textPrimary }]}
+                    >
+                      {company.companyName}
+                    </Text>
+                    <Text
+                      numberOfLines={1}
+                      style={[styles.metaText, { color: theme.colors.textMuted }]}
+                    >
+                      {company.status} / 質問{company.questionAnswers?.length ?? 0}件
+                    </Text>
+                  </View>
+                </Pressable>
+              </View>
+            ))
+          ) : (
+            <View style={styles.emptyState}>
+              <Text style={[styles.emptyText, { color: theme.colors.textMuted }]}>
+                企業がありません
+              </Text>
             </View>
-          ))
-        ) : (
-          <View style={styles.emptyState}>
-            <Text style={[styles.emptyText, { color: theme.colors.textMuted }]}>
-              企業がありません
-            </Text>
+          )}
+
+          <View style={[styles.divider, { backgroundColor: theme.colors.divider }]} />
+          <View style={styles.createCompanyArea}>
+            <InputField
+              label="新しい企業を追加"
+              theme={theme}
+              value={newCompanyName}
+              placeholder="企業名を入力"
+              onChangeText={setNewCompanyName}
+              onSubmitEditing={() => {
+                void createCompany();
+              }}
+            />
+            {error ? (
+              <Text style={[styles.errorText, { color: theme.colors.danger }]}>
+                {error}
+              </Text>
+            ) : null}
+            <AppButton
+              label="追加して質問を書く"
+              icon="add"
+              loading={isCreating}
+              disabled={!trimmedCompanyName || isCreating}
+              onPress={() => {
+                void createCompany();
+              }}
+              theme={theme}
+              variant="secondary"
+            />
           </View>
-        )}
-      </View>
-    </ScrollView>
-  </FullScreenModalShell>
-);
+        </View>
+      </ScrollView>
+    </FullScreenModalShell>
+  );
+};
 
 const styles = StyleSheet.create({
   body: {
@@ -140,16 +186,6 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     marginTop: 4
   },
-  selectPill: {
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 5
-  },
-  selectText: {
-    fontSize: 11,
-    fontWeight: '700',
-    lineHeight: 15
-  },
   divider: {
     height: StyleSheet.hairlineWidth,
     marginLeft: 16
@@ -165,5 +201,14 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     lineHeight: 19,
     textAlign: 'center'
+  },
+  createCompanyArea: {
+    gap: 12,
+    padding: 16
+  },
+  errorText: {
+    fontSize: 12,
+    fontWeight: '700',
+    lineHeight: 17
   }
 });

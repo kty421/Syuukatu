@@ -1,4 +1,3 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
 import { nativeAuthCallbackUrl } from '../../config/env';
@@ -10,23 +9,6 @@ import { AuthUser } from './types';
 type AuthResponse = {
   user: AuthUser | null;
   message?: string;
-};
-
-const REMEMBERED_EMAIL_KEY = 'syuukatu:auth:remembered-email';
-
-export const getRememberedEmail = () =>
-  AsyncStorage.getItem(REMEMBERED_EMAIL_KEY);
-
-export const setRememberedEmail = async (
-  email: string,
-  remember: boolean
-) => {
-  if (remember) {
-    await AsyncStorage.setItem(REMEMBERED_EMAIL_KEY, email);
-    return;
-  }
-
-  await AsyncStorage.removeItem(REMEMBERED_EMAIL_KEY);
 };
 
 export const getCurrentUser = async (): Promise<AuthUser | null> => {
@@ -185,6 +167,28 @@ export const sendPasswordReset = async (email: string) => {
   );
 
   if (error) {
-    throw error;
+    throw normalizeAuthError(error);
+  }
+};
+
+export const resendConfirmationEmail = async (email: string) => {
+  if (Platform.OS === 'web') {
+    await apiRequest('/api/auth/resend-confirmation', {
+      method: 'POST',
+      body: { email }
+    });
+    return;
+  }
+
+  const { error } = await requireNativeSupabase().auth.resend({
+    type: 'signup',
+    email,
+    options: {
+      emailRedirectTo: nativeAuthCallbackUrl
+    }
+  });
+
+  if (error) {
+    throw normalizeAuthError(error);
   }
 };

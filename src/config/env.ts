@@ -71,12 +71,12 @@ export const getApiUrl = (path: string) => {
     throw new Error('API path must start with /.');
   }
 
-  if (Platform.OS === 'web') {
-    return path;
-  }
-
   if (apiBaseUrl) {
     return `${apiBaseUrl}${path}`;
+  }
+
+  if (Platform.OS === 'web') {
+    return path;
   }
 
   throw new Error(

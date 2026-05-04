@@ -11,10 +11,9 @@ type CompanySectionProps = {
   companies: Company[];
   theme: AppTheme;
   showPasswordControls: boolean;
-  visiblePasswordIds: Set<string>;
+  isPasswordVisible: (id: string) => boolean;
   onEdit: (company: Company) => void;
   onTogglePassword: (id: string) => void;
-  onToggleFavorite: (company: Company) => void;
   onCopy: (value: string, label: string) => void;
   onOpenUrl: (company: Company) => void;
   onDelete: (company: Company) => void;
@@ -25,10 +24,9 @@ export const CompanySection = ({
   companies,
   theme,
   showPasswordControls,
-  visiblePasswordIds,
+  isPasswordVisible,
   onEdit,
   onTogglePassword,
-  onToggleFavorite,
   onCopy,
   onOpenUrl,
   onDelete
@@ -65,12 +63,11 @@ export const CompanySection = ({
           ) : null}
           <CompanyCard
             company={company}
-            isPasswordVisible={visiblePasswordIds.has(company.id)}
+            isPasswordVisible={isPasswordVisible(company.id)}
             showPasswordControls={showPasswordControls}
             theme={theme}
             onPress={() => onEdit(company)}
             onTogglePassword={() => onTogglePassword(company.id)}
-            onToggleFavorite={() => onToggleFavorite(company)}
             onCopy={onCopy}
             onOpenUrl={() => onOpenUrl(company)}
             onDelete={() => onDelete(company)}

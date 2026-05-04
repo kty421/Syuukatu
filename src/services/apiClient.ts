@@ -154,6 +154,7 @@ export const apiRequest = async <T>(
 ): Promise<T> => {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  let requestUrl = '';
   const headers: Record<string, string> = {
     Accept: 'application/json'
   };
@@ -167,7 +168,7 @@ export const apiRequest = async <T>(
   }
 
   try {
-    const requestUrl = getApiUrl(path);
+    requestUrl = getApiUrl(path);
     logApiRequest(method, path, requestUrl);
     const response = await fetch(requestUrl, {
       method,
@@ -215,6 +216,13 @@ export const apiRequest = async <T>(
     ) {
       throw new ApiError(
         '企業データAPIのURLが未設定です。.env の EXPO_PUBLIC_API_BASE_URL にVercel URLを設定してください。',
+        0
+      );
+    }
+
+    if (Platform.OS === 'web' && /^https?:\/\//i.test(requestUrl)) {
+      throw new ApiError(
+        'APIへ接続できませんでした。ローカルWebから別ドメインのAPIを使う場合は、Vercel APIを最新デプロイしてCORS設定を反映してください。',
         0
       );
     }

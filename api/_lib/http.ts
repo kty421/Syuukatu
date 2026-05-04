@@ -1,6 +1,6 @@
 import { ZodError } from 'zod';
 
-import type { VercelResponse } from './vercel';
+import type { VercelRequest, VercelResponse } from './vercel';
 
 export class HttpError extends Error {
   status: number;
@@ -11,6 +11,80 @@ export class HttpError extends Error {
     this.status = status;
   }
 }
+
+const firstHeader = (value: string | string[] | undefined) =>
+  Array.isArray(value) ? value[0] : value;
+
+const getConfiguredCorsOrigins = () =>
+  [
+    process.env.CORS_ALLOWED_ORIGINS,
+    process.env.WEB_ALLOWED_ORIGINS,
+    process.env.EXPO_PUBLIC_WEB_ORIGIN,
+    process.env.WEB_AUTH_CALLBACK_URL,
+    process.env.EXPO_PUBLIC_WEB_AUTH_CALLBACK_URL,
+    process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined
+  ]
+    .filter(Boolean)
+    .flatMap((value) => String(value).split(','))
+    .map((value) => {
+      try {
+        return new URL(value.trim()).origin;
+      } catch {
+        return value.trim().replace(/\/+$/, '');
+      }
+    })
+    .filter(Boolean);
+
+const isLocalDevOrigin = (origin: string) =>
+  /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin);
+
+const isAllowedCorsOrigin = (origin: string) =>
+  isLocalDevOrigin(origin) || getConfiguredCorsOrigins().includes(origin);
+
+export const applyCorsHeaders = (
+  req: VercelRequest,
+  res: VercelResponse
+) => {
+  const origin = firstHeader(req.headers.origin);
+
+  if (!origin || !isAllowedCorsOrigin(origin)) {
+    return;
+  }
+
+  res.setHeader('Access-Control-Allow-Origin', origin);
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader(
+    'Access-Control-Allow-Methods',
+    'GET,POST,PUT,DELETE,OPTIONS'
+  );
+  res.setHeader(
+    'Access-Control-Allow-Headers',
+    firstHeader(req.headers['access-control-request-headers']) ??
+      'Accept, Authorization, Content-Type'
+  );
+  res.setHeader('Access-Control-Max-Age', '86400');
+  res.setHeader('Vary', 'Origin');
+};
+
+export const handleCorsPreflight = (
+  req: VercelRequest,
+  res: VercelResponse
+) => {
+  applyCorsHeaders(req, res);
+
+  if (req.method !== 'OPTIONS') {
+    return false;
+  }
+
+  res.status(204);
+  if (res.end) {
+    res.end();
+    return true;
+  }
+
+  res.json(null);
+  return true;
+};
 
 export const sendJson = (
   res: VercelResponse,

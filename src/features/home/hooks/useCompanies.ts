@@ -118,9 +118,7 @@ export const useCompanies = ({
         setStorageError(null);
       } catch (error) {
         setCompanies(previousCompanies);
-        setStorageError(
-          error instanceof Error ? error.message : '保存を完了できませんでした。'
-        );
+        setStorageError('保存を完了できませんでした。');
         throw error;
       }
     },
@@ -156,6 +154,7 @@ export const useCompanies = ({
         : [nextCompany, ...companies];
 
       await commit(nextCompanies, companies);
+      return nextCompany;
     },
     [commit, companies]
   );

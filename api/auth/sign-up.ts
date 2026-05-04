@@ -10,7 +10,13 @@ import {
   getAuthErrorStatus,
   normalizeAuthErrorMessage
 } from '../_lib/authErrors';
-import { handleApiError, parseRequestBody, requireMethod, sendJson } from '../_lib/http';
+import {
+  handleApiError,
+  handleCorsPreflight,
+  parseRequestBody,
+  requireMethod,
+  sendJson
+} from '../_lib/http';
 import { createPkceStorage } from '../_lib/pkce';
 import { createSupabaseServerClient } from '../_lib/supabase';
 import { getWebAuthCallbackUrl } from '../_lib/url';
@@ -26,6 +32,10 @@ export default async function handler(
   res: VercelResponse
 ) {
   try {
+    if (handleCorsPreflight(req, res)) {
+      return;
+    }
+
     requireMethod(req.method, ['POST']);
     const body = bodySchema.parse(parseRequestBody(req.body));
     const pkce = createPkceStorage();

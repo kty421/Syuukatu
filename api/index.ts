@@ -1,8 +1,17 @@
-import { handleApiError, requireMethod, sendJson } from './_lib/http';
+import {
+  handleApiError,
+  handleCorsPreflight,
+  requireMethod,
+  sendJson
+} from './_lib/http';
 import type { VercelRequest, VercelResponse } from './_lib/vercel';
 
 export default function handler(req: VercelRequest, res: VercelResponse) {
   try {
+    if (handleCorsPreflight(req, res)) {
+      return;
+    }
+
     requireMethod(req.method, ['GET']);
 
     sendJson(res, 200, {
