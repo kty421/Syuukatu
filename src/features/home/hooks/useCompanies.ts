@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import {
   deleteRemoteCompany,
@@ -59,22 +59,50 @@ export const useCompanies = ({
   const [storageError, setStorageError] = useState<string | null>(null);
   const [localMigrationAvailable, setLocalMigrationAvailable] = useState(false);
   const [isMigratingLocalData, setIsMigratingLocalData] = useState(false);
+  const companiesRef = useRef<Company[]>([]);
+
+  const setCompaniesState = useCallback(
+    (nextCompanies: Company[] | ((current: Company[]) => Company[])) => {
+      if (typeof nextCompanies !== 'function') {
+        companiesRef.current = nextCompanies;
+        setCompanies(nextCompanies);
+        return;
+      }
+
+      setCompanies((currentCompanies) => {
+        const resolvedCompanies = nextCompanies(currentCompanies);
+        companiesRef.current = resolvedCompanies;
+        return resolvedCompanies;
+      });
+    },
+    []
+  );
 
   useEffect(() => {
     let isMounted = true;
 
     const hydrate = async () => {
+      if (isMounted) {
+        setIsLoading(true);
+        setStorageError(null);
+      }
+
       try {
-        const accessToken = await getAccessToken();
-        const remoteCompanies = await fetchRemoteCompanies(accessToken);
-        const loadedCompanies = await hydrateNativePasswords(remoteCompanies);
-        const migrationCompleted = await hasCompletedLocalMigration(userId);
-        const localCompanies = migrationCompleted
-          ? []
-          : await loadLocalCompaniesForMigration();
+        const accessTokenPromise = getAccessToken();
+        const loadedCompaniesPromise = accessTokenPromise
+          .then(fetchRemoteCompanies)
+          .then(hydrateNativePasswords);
+        const localCompaniesPromise = hasCompletedLocalMigration(userId).then(
+          (migrationCompleted) =>
+            migrationCompleted ? [] : loadLocalCompaniesForMigration()
+        );
+        const [loadedCompanies, localCompanies] = await Promise.all([
+          loadedCompaniesPromise,
+          localCompaniesPromise
+        ]);
 
         if (isMounted) {
-          setCompanies(loadedCompanies);
+          setCompaniesState(loadedCompanies);
           setLocalMigrationAvailable(localCompanies.length > 0);
         }
       } catch {
@@ -93,43 +121,14 @@ export const useCompanies = ({
     return () => {
       isMounted = false;
     };
-  }, [getAccessToken, userId]);
-
-  const commit = useCallback(
-    async (nextCompanies: Company[], previousCompanies: Company[]) => {
-      setCompanies(nextCompanies);
-
-      try {
-        const accessToken = await getAccessToken();
-        const changedCompanies = nextCompanies.filter((nextCompany) => {
-          const previous = previousCompanies.find(
-            (company) => company.id === nextCompany.id
-          );
-
-          return !previous || previous.updatedAt !== nextCompany.updatedAt;
-        });
-
-        await Promise.all(
-          changedCompanies.map(async (company) => {
-            await saveNativeCompanyPassword(company.id, company.password);
-            await upsertRemoteCompany(company, accessToken);
-          })
-        );
-        setStorageError(null);
-      } catch (error) {
-        setCompanies(previousCompanies);
-        setStorageError('保存を完了できませんでした。');
-        throw error;
-      }
-    },
-    [getAccessToken]
-  );
+  }, [getAccessToken, setCompaniesState, userId]);
 
   const upsertCompany = useCallback(
     async (draft: CompanyDraft) => {
+      const currentCompanies = companiesRef.current;
       const now = new Date().toISOString();
       const existing = draft.id
-        ? companies.find((company) => company.id === draft.id)
+        ? currentCompanies.find((company) => company.id === draft.id)
         : undefined;
 
       const nextCompany: Company = {
@@ -148,34 +147,100 @@ export const useCompanies = ({
       };
 
       const nextCompanies = existing
-        ? companies.map((company) =>
+        ? currentCompanies.map((company) =>
             company.id === nextCompany.id ? nextCompany : company
           )
-        : [nextCompany, ...companies];
+        : [nextCompany, ...currentCompanies];
 
-      await commit(nextCompanies, companies);
+      setCompaniesState(sortCompanies(nextCompanies));
+      setStorageError(null);
+
+      void (async () => {
+        try {
+          const accessToken = await getAccessToken();
+          await Promise.all([
+            saveNativeCompanyPassword(nextCompany.id, nextCompany.password),
+            upsertRemoteCompany(nextCompany, accessToken)
+          ]);
+          setStorageError(null);
+        } catch {
+          setCompaniesState((latestCompanies) => {
+            const latestCompany = latestCompanies.find(
+              (company) => company.id === nextCompany.id
+            );
+
+            if (
+              !latestCompany ||
+              latestCompany.updatedAt !== nextCompany.updatedAt
+            ) {
+              return latestCompanies;
+            }
+
+            return existing
+              ? sortCompanies(
+                  latestCompanies.map((company) =>
+                    company.id === existing.id ? existing : company
+                  )
+                )
+              : latestCompanies.filter(
+                  (company) => company.id !== nextCompany.id
+                );
+          });
+          setStorageError('保存を完了できませんでした。');
+        }
+      })();
+
       return nextCompany;
     },
-    [commit, companies]
+    [getAccessToken, setCompaniesState]
   );
 
   const deleteCompany = useCallback(
     async (id: string) => {
-      const nextCompanies = companies.filter((company) => company.id !== id);
-      setCompanies(nextCompanies);
+      const currentCompanies = companiesRef.current;
+      const deletedCompany = currentCompanies.find(
+        (company) => company.id === id
+      );
 
-      try {
-        const accessToken = await getAccessToken();
-        await deleteRemoteCompany(id, accessToken);
-        await deleteCompanyCredential(id);
-        setStorageError(null);
-      } catch (error) {
-        setCompanies(companies);
-        setStorageError('削除に失敗しました。もう一度お試しください。');
-        throw error;
+      if (!deletedCompany) {
+        return;
       }
+
+      setCompaniesState(
+        currentCompanies.filter((company) => company.id !== id)
+      );
+      setStorageError(null);
+
+      void (async () => {
+        try {
+          const accessToken = await getAccessToken();
+          await deleteRemoteCompany(id, accessToken);
+
+          let credentialDeleteFailed = false;
+          try {
+            await deleteCompanyCredential(id);
+          } catch {
+            credentialDeleteFailed = true;
+          }
+
+          setStorageError(
+            credentialDeleteFailed
+              ? '端末内のパスワード削除に失敗しました。'
+              : null
+          );
+        } catch {
+          setCompaniesState((latestCompanies) => {
+            if (latestCompanies.some((company) => company.id === id)) {
+              return latestCompanies;
+            }
+
+            return sortCompanies([...latestCompanies, deletedCompany]);
+          });
+          setStorageError('削除に失敗しました。もう一度お試しください。');
+        }
+      })();
     },
-    [companies, getAccessToken]
+    [getAccessToken, setCompaniesState]
   );
 
   const importLocalCompanies = useCallback(async () => {
@@ -183,20 +248,30 @@ export const useCompanies = ({
     setStorageError(null);
 
     try {
-      const localCompanies = await loadLocalCompaniesForMigration();
-      const nextCompanies = mergeByNewestUpdate(companies, localCompanies);
-      const accessToken = await getAccessToken();
+      const previousCompanies = companiesRef.current;
+      const [localCompanies, accessToken] = await Promise.all([
+        loadLocalCompaniesForMigration(),
+        getAccessToken()
+      ]);
+      const nextCompanies = mergeByNewestUpdate(
+        previousCompanies,
+        localCompanies
+      );
 
-      setCompanies(nextCompanies);
+      setCompaniesState(nextCompanies);
 
       await Promise.all(
-        nextCompanies.map(async (company) => {
-          await saveNativeCompanyPassword(company.id, company.password);
-          await upsertRemoteCompany(company, accessToken);
-        })
+        nextCompanies.map((company) =>
+          Promise.all([
+            saveNativeCompanyPassword(company.id, company.password),
+            upsertRemoteCompany(company, accessToken)
+          ])
+        )
       );
-      await purgeLegacyWebCredentials(localCompanies);
-      await markLocalMigrationComplete(userId);
+      await Promise.all([
+        purgeLegacyWebCredentials(localCompanies),
+        markLocalMigrationComplete(userId)
+      ]);
       setLocalMigrationAvailable(false);
       setStorageError(null);
     } catch (error) {
@@ -205,7 +280,7 @@ export const useCompanies = ({
     } finally {
       setIsMigratingLocalData(false);
     }
-  }, [companies, getAccessToken, userId]);
+  }, [getAccessToken, setCompaniesState, userId]);
 
   const dismissLocalMigration = useCallback(async () => {
     await markLocalMigrationComplete(userId);
@@ -219,7 +294,7 @@ export const useCompanies = ({
     try {
       const accessToken = await getAccessToken();
       const remoteCompanies = await fetchRemoteCompanies(accessToken);
-      setCompanies(await hydrateNativePasswords(remoteCompanies));
+      setCompaniesState(await hydrateNativePasswords(remoteCompanies));
     } catch {
       setStorageError('保存データの再読み込みに失敗しました。');
     } finally {

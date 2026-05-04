@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { GestureResponderEvent, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AppTheme } from '../../../constants/theme';
@@ -15,7 +16,7 @@ type QuestionMemoRowProps = {
   onDelete: () => void;
 };
 
-export const QuestionMemoRow = ({
+export const QuestionMemoRow = memo(({
   entry,
   theme,
   accentColor,
@@ -154,7 +155,7 @@ export const QuestionMemoRow = ({
       </View>
     </Pressable>
   );
-};
+});
 
 const getStatusMeta = (status: QuestionMemoStatus) => {
   switch (status) {

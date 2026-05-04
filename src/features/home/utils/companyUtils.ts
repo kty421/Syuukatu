@@ -87,11 +87,21 @@ export const groupCompaniesByStatus = (
   type: ApplicationType
 ) => {
   const statuses = getStatusList(type);
+  const companiesByStatus = new Map<SelectionStatus, Company[]>();
 
-  return statuses
-    .map((status) => ({
-      status,
-      companies: companies.filter((company) => company.status === status)
-    }))
-    .filter((group) => group.companies.length > 0);
+  for (const status of statuses) {
+    companiesByStatus.set(status, []);
+  }
+
+  for (const company of companies) {
+    companiesByStatus.get(company.status)?.push(company);
+  }
+
+  return statuses.flatMap((status) => {
+    const groupedCompanies = companiesByStatus.get(status) ?? [];
+
+    return groupedCompanies.length > 0
+      ? [{ status, companies: groupedCompanies }]
+      : [];
+  });
 };

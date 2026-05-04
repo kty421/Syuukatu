@@ -46,13 +46,6 @@ export const getNativeAccessToken = async () => {
     throw error;
   }
 
-  if (__DEV__) {
-    console.log('[native auth session]', {
-      hasSession: Boolean(data.session),
-      accessTokenLength: data.session?.access_token?.length ?? 0
-    });
-  }
-
   return data.session?.access_token ?? null;
 };
 

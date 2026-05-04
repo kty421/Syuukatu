@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { FlashList, type FlashListRef } from '@shopify/flash-list';
-import { useState, type Ref } from 'react';
+import { memo, useCallback, useMemo, useState, type Ref } from 'react';
 import {
   Keyboard,
   Modal,
@@ -67,6 +67,57 @@ const sortOptions: {
   }
 ];
 
+const QUESTION_LIST_OVERRIDE_PROPS = { initialDrawBatchSize: 10 } as const;
+const DISABLED_MAINTAIN_VISIBLE_CONTENT_POSITION = { disabled: true } as const;
+const keyQuestionMemoEntry = (item: QuestionMemoEntry) =>
+  `${item.company.id}:${item.questionAnswer.id}`;
+const getQuestionListItemType = () => 'question';
+
+type QuestionMemoListItemProps = {
+  entry: QuestionMemoEntry;
+  theme: AppTheme;
+  accentColor: string;
+  containerStyle: ViewStyle;
+  onOpenQuestion: (entry: QuestionMemoEntry) => void;
+  onOpenCompany: (entry: QuestionMemoEntry) => void;
+  onDelete: (entry: QuestionMemoEntry) => void;
+};
+
+const QuestionMemoListItem = memo(
+  ({
+    entry,
+    theme,
+    accentColor,
+    containerStyle,
+    onOpenQuestion,
+    onOpenCompany,
+    onDelete
+  }: QuestionMemoListItemProps) => {
+    const handlePress = useCallback(
+      () => onOpenQuestion(entry),
+      [entry, onOpenQuestion]
+    );
+    const handleOpenCompany = useCallback(
+      () => onOpenCompany(entry),
+      [entry, onOpenCompany]
+    );
+    const handleDelete = useCallback(() => onDelete(entry), [entry, onDelete]);
+
+    return (
+      <View style={containerStyle}>
+        <QuestionMemoRow
+          entry={entry}
+          theme={theme}
+          accentColor={accentColor}
+          onPress={handlePress}
+          onOpenCompany={handleOpenCompany}
+          onDelete={handleDelete}
+        />
+      </View>
+    );
+  }
+);
+
 export const QuestionListView = ({
   entries,
   counts,
@@ -90,6 +141,14 @@ export const QuestionListView = ({
   onDelete
 }: QuestionListViewProps) => {
   const [sortMenuVisible, setSortMenuVisible] = useState(false);
+  const contentContainerStyle = useMemo(
+    () => ({
+      paddingBottom: bottomPadding,
+      paddingHorizontal: contentPadding,
+      paddingTop: 0
+    }),
+    [bottomPadding, contentPadding]
+  );
 
   const renderControls = () => (
     <View style={[styles.controlShell, { paddingHorizontal: contentPadding }]}>
@@ -196,7 +255,7 @@ export const QuestionListView = ({
     </View>
   );
 
-  const renderEmpty = () => {
+  const renderEmpty = useCallback(() => {
     if (isLoading) {
       return (
         <View style={[containerStyle, styles.emptyState]}>
@@ -256,7 +315,39 @@ export const QuestionListView = ({
         ) : null}
       </View>
     );
-  };
+  }, [
+    accentColor,
+    containerStyle,
+    counts.all,
+    filter,
+    isLoading,
+    onClearQuery,
+    onFilterChange,
+    query,
+    theme
+  ]);
+
+  const renderQuestionItem = useCallback(
+    ({ item }: { item: QuestionMemoEntry }) => (
+      <QuestionMemoListItem
+        entry={item}
+        theme={theme}
+        accentColor={accentColor}
+        containerStyle={containerStyle}
+        onOpenQuestion={onOpenQuestion}
+        onOpenCompany={onOpenCompany}
+        onDelete={onDelete}
+      />
+    ),
+    [
+      accentColor,
+      containerStyle,
+      onDelete,
+      onOpenCompany,
+      onOpenQuestion,
+      theme
+    ]
+  );
 
   return (
     <View style={styles.root}>
@@ -267,25 +358,16 @@ export const QuestionListView = ({
         keyboardDismissMode="on-drag"
         keyboardShouldPersistTaps="handled"
         ListEmptyComponent={renderEmpty}
-        contentContainerStyle={{
-          paddingBottom: bottomPadding,
-          paddingHorizontal: contentPadding,
-          paddingTop: 0
-        }}
+        contentContainerStyle={contentContainerStyle}
+        drawDistance={640}
+        getItemType={getQuestionListItemType}
+        keyExtractor={keyQuestionMemoEntry}
+        maintainVisibleContentPosition={
+          DISABLED_MAINTAIN_VISIBLE_CONTENT_POSITION
+        }
         onScrollBeginDrag={Keyboard.dismiss}
-        keyExtractor={(item) => `${item.company.id}:${item.questionAnswer.id}`}
-        renderItem={({ item }) => (
-          <View style={containerStyle}>
-            <QuestionMemoRow
-              entry={item}
-              theme={theme}
-              accentColor={accentColor}
-              onPress={() => onOpenQuestion(item)}
-              onOpenCompany={() => onOpenCompany(item)}
-              onDelete={() => onDelete(item)}
-            />
-          </View>
-        )}
+        overrideProps={QUESTION_LIST_OVERRIDE_PROPS}
+        renderItem={renderQuestionItem}
         showsVerticalScrollIndicator={false}
       />
     </View>
