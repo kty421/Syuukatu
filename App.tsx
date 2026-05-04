@@ -1,6 +1,7 @@
 import 'react-native-gesture-handler';
 import 'react-native-url-polyfill/auto';
 
+import { useMemo } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, Text, useColorScheme, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -14,7 +15,7 @@ import { HomeScreen } from './src/features/home/HomeScreen';
 
 const AppBody = () => {
   const colorScheme = useColorScheme();
-  const theme = getTheme(colorScheme);
+  const theme = useMemo(() => getTheme(colorScheme), [colorScheme]);
   const { user, isAuthLoading, signOut, getAccessToken } = useAuth();
 
   if (isAuthLoading) {

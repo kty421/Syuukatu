@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Keyboard,
@@ -31,8 +31,8 @@ const webCursor =
 
 export const AuthScreen = () => {
   const colorScheme = useColorScheme();
-  const theme = getTheme(colorScheme);
-  const { refreshUser } = useAuth();
+  const theme = useMemo(() => getTheme(colorScheme), [colorScheme]);
+  const { setAuthenticatedUser } = useAuth();
   const [mode, setMode] = useState<AuthMode>("signIn");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -55,7 +55,7 @@ export const AuthScreen = () => {
     (isSignIn ? password.length > 0 : password.length >= 8);
   const passwordAutoComplete = isSignIn ? "current-password" : "new-password";
 
-  const submit = async () => {
+  const submit = useCallback(async () => {
     if (isSubmitting) {
       return;
     }
@@ -87,7 +87,7 @@ export const AuthScreen = () => {
       setPassword("");
 
       if (authResponse?.user) {
-        await refreshUser();
+        setAuthenticatedUser(authResponse.user);
         return;
       }
 
@@ -113,9 +113,16 @@ export const AuthScreen = () => {
     } finally {
       setIsSubmitting(false);
     }
-  };
+  }, [
+    canSubmit,
+    email,
+    isSignIn,
+    isSubmitting,
+    password,
+    setAuthenticatedUser
+  ]);
 
-  const resendConfirmation = async () => {
+  const resendConfirmation = useCallback(async () => {
     const targetEmail = confirmationEmail ?? email.trim();
 
     if (!targetEmail || isResendingConfirmation) {
@@ -138,9 +145,9 @@ export const AuthScreen = () => {
     } finally {
       setIsResendingConfirmation(false);
     }
-  };
+  }, [confirmationEmail, email, isResendingConfirmation]);
 
-  const resetPassword = async () => {
+  const resetPassword = useCallback(async () => {
     if (!email.trim() || isResetting) {
       setError("メールアドレスを入力してください。");
       return;
@@ -162,7 +169,7 @@ export const AuthScreen = () => {
     } finally {
       setIsResetting(false);
     }
-  };
+  }, [email, isResetting]);
 
   return (
     <SafeAreaView

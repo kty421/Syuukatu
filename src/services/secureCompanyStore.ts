@@ -23,6 +23,20 @@ const secureOptions: SecureStore.SecureStoreOptions = {
   keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK
 };
 
+let secureStoreAvailabilityPromise: Promise<boolean> | null = null;
+
+const isNativeSecureStoreAvailable = () => {
+  if (Platform.OS === 'web') {
+    return Promise.resolve(false);
+  }
+
+  secureStoreAvailabilityPromise ??= SecureStore.isAvailableAsync().catch(
+    () => false
+  );
+
+  return secureStoreAvailabilityPromise;
+};
+
 const sanitizeSecureStoreKeyPart = (value: string) => {
   if (value && SECURE_STORE_KEY_PATTERN.test(value)) {
     return value;
@@ -85,9 +99,7 @@ const readLegacyCredential = async (id: string) => {
     return raw ? parseCredential(id, raw) : EMPTY_CREDENTIAL;
   }
 
-  const isSecureStoreAvailable = await SecureStore.isAvailableAsync().catch(
-    () => false
-  );
+  const isSecureStoreAvailable = await isNativeSecureStoreAvailable();
 
   if (!isSecureStoreAvailable) {
     return EMPTY_CREDENTIAL;
@@ -107,9 +119,7 @@ const writeNativePassword = async (id: string, password: string) => {
     return;
   }
 
-  const isSecureStoreAvailable = await SecureStore.isAvailableAsync().catch(
-    () => false
-  );
+  const isSecureStoreAvailable = await isNativeSecureStoreAvailable();
 
   if (!isSecureStoreAvailable) {
     return;
@@ -183,6 +193,12 @@ export const deleteCompanyCredential = async (id: string) => {
   try {
     if (Platform.OS === 'web') {
       await AsyncStorage.removeItem(getWebPreviewCredentialKey(id));
+      return;
+    }
+
+    const isSecureStoreAvailable = await isNativeSecureStoreAvailable();
+
+    if (!isSecureStoreAvailable) {
       return;
     }
 
