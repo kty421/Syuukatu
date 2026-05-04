@@ -11,15 +11,29 @@ import {
 
 const AUTH_STORAGE_PREFIX = "syuukatu_supabase-auth_";
 const SECURE_STORE_CHUNK_SIZE = 1800;
+const SECURE_STORE_KEY_PATTERN = /^[A-Za-z0-9._-]+$/;
 
 type ChunkMetadata = {
   chunkCount: number;
 };
 
-const getStorageKey = (key: string) => `${AUTH_STORAGE_PREFIX}${key}`;
-const getMetadataKey = (key: string) => `${getStorageKey(key)}:metadata`;
+const sanitizeSecureStoreKey = (value: string) => {
+  const fallback = Array.from(value)
+    .map((char) => char.charCodeAt(0).toString(16).padStart(4, "0"))
+    .join("");
+
+  if (value && SECURE_STORE_KEY_PATTERN.test(value)) {
+    return value;
+  }
+
+  return fallback || "empty";
+};
+
+const getStorageKey = (key: string) =>
+  `${AUTH_STORAGE_PREFIX}${sanitizeSecureStoreKey(key)}`;
+const getMetadataKey = (key: string) => `${getStorageKey(key)}_metadata`;
 const getChunkKey = (key: string, index: number) =>
-  `${getStorageKey(key)}:chunk:${index}`;
+  `${getStorageKey(key)}_chunk_${index}`;
 
 const secureStoreOptions = {
   keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK,

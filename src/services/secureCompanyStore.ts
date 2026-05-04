@@ -13,6 +13,7 @@ const COMPANIES_KEY = 'syuukatu:companies:v1';
 const MIGRATION_COMPLETE_PREFIX = 'syuukatu:local-migration-complete:';
 const SECURE_CREDENTIAL_PREFIX = 'syuukatu_credential_';
 const WEB_PREVIEW_CREDENTIAL_PREFIX = 'syuukatu:web-preview-credential:';
+const SECURE_STORE_KEY_PATTERN = /^[A-Za-z0-9._-]+$/;
 const EMPTY_CREDENTIAL: CompanyCredential = {
   loginId: '',
   password: ''
@@ -22,7 +23,20 @@ const secureOptions: SecureStore.SecureStoreOptions = {
   keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK
 };
 
-const getSecureCredentialKey = (id: string) => `${SECURE_CREDENTIAL_PREFIX}${id}`;
+const sanitizeSecureStoreKeyPart = (value: string) => {
+  if (value && SECURE_STORE_KEY_PATTERN.test(value)) {
+    return value;
+  }
+
+  const encoded = Array.from(value)
+    .map((char) => char.charCodeAt(0).toString(16).padStart(4, '0'))
+    .join('');
+
+  return encoded || 'empty';
+};
+
+const getSecureCredentialKey = (id: string) =>
+  `${SECURE_CREDENTIAL_PREFIX}${sanitizeSecureStoreKeyPart(id)}`;
 
 const getWebPreviewCredentialKey = (id: string) =>
   `${WEB_PREVIEW_CREDENTIAL_PREFIX}${id}`;
