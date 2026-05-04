@@ -1170,16 +1170,18 @@ export const HomeScreen = ({
               </Text>
             </View>
             <View style={styles.titleSide}>
-              <IconButton
-                icon="menu-outline"
-                label="サイドメニューを開く"
-                onPress={() => setMenuVisible(true)}
-                theme={theme}
-                tone="neutral"
-                size="compact"
-                variant="plain"
-                iconSize={22}
-              />
+              {homeView === 'companies' ? (
+                <IconButton
+                  icon="menu-outline"
+                  label="サイドメニューを開く"
+                  onPress={() => setMenuVisible(true)}
+                  theme={theme}
+                  tone="neutral"
+                  size="compact"
+                  variant="plain"
+                  iconSize={22}
+                />
+              ) : null}
             </View>
           </View>
         </View>
