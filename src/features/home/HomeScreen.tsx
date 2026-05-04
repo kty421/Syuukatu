@@ -9,6 +9,7 @@ import {
   Keyboard,
   Linking,
   PanResponder,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -20,6 +21,8 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { getContentMetrics, getTheme } from '../../constants/theme';
+import { AuthUser } from '../auth/types';
+import { AppButton } from '../../ui/AppButton';
 import { AppToast } from '../../ui/AppToast';
 import { DismissKeyboardView } from '../../ui/DismissKeyboardView';
 import { FloatingActionButton } from '../../ui/FloatingActionButton';
@@ -82,14 +85,42 @@ const runHapticsSafely = async (task: () => Promise<void>) => {
   } catch {}
 };
 
-export const HomeScreen = () => {
+type HomeScreenProps = {
+  user: AuthUser;
+  onSignOut: () => Promise<void>;
+  getAccessToken: () => Promise<string | null>;
+};
+
+const getSafeExternalUrl = (value: string) => {
+  try {
+    const url = new URL(value.trim());
+
+    if (url.protocol !== 'https:' && url.protocol !== 'http:') {
+      return null;
+    }
+
+    return url.toString();
+  } catch {
+    return null;
+  }
+};
+
+export const HomeScreen = ({
+  user,
+  onSignOut,
+  getAccessToken
+}: HomeScreenProps) => {
   const {
     companies,
     isLoading,
     storageError,
+    localMigrationAvailable,
+    isMigratingLocalData,
     upsertCompany,
-    deleteCompany
-  } = useCompanies();
+    deleteCompany,
+    importLocalCompanies,
+    dismissLocalMigration
+  } = useCompanies({ userId: user.id, getAccessToken });
 
   const colorScheme = useColorScheme();
   const theme = getTheme(colorScheme);
@@ -214,6 +245,7 @@ export const HomeScreen = () => {
       : { backgroundColor: theme.colors.background };
   const pageMotionStyle = homeView === 'companies' ? edgePullStyle : null;
   const fabBottom = navigationReservedHeight + 12;
+  const showPasswordControls = Platform.OS !== 'web';
   const showToast = useCallback(
     (message: string, tone: 'success' | 'error' = 'success') => {
       if (toastTimeoutRef.current) {
@@ -439,14 +471,24 @@ export const HomeScreen = () => {
       return;
     }
 
+    const safeUrl = getSafeExternalUrl(company.myPageUrl);
+
+    if (!safeUrl) {
+      Alert.alert(
+        'URLを開けませんでした',
+        'https:// または http:// から始まるURLを入力してください。'
+      );
+      return;
+    }
+
     try {
-      const canOpen = await Linking.canOpenURL(company.myPageUrl);
+      const canOpen = await Linking.canOpenURL(safeUrl);
       if (!canOpen) {
         Alert.alert('URLを開けませんでした', 'URLの形式を確認してください。');
         return;
       }
 
-      await Linking.openURL(company.myPageUrl);
+      await Linking.openURL(safeUrl);
     } catch {
       Alert.alert('URLを開けませんでした', 'しばらくしてからもう一度お試しください。');
     }
@@ -463,7 +505,9 @@ export const HomeScreen = () => {
   const handleDeleteCompany = (company: Company) => {
     Alert.alert(
       '企業を削除しますか？',
-      `${company.companyName}のIDとパスワードも削除されます。`,
+      showPasswordControls
+        ? `${company.companyName}のIDと端末内のパスワードも削除されます。`
+        : `${company.companyName}の登録情報を削除します。`,
       [
         { text: 'キャンセル', style: 'cancel' },
         {
@@ -483,6 +527,41 @@ export const HomeScreen = () => {
         }
       ]
     );
+  };
+
+  const handleImportLocalCompanies = async () => {
+    try {
+      await importLocalCompanies();
+      showToast('端末の保存データをアカウントへ移行しました');
+    } catch {
+      showToast('保存データの移行に失敗しました', 'error');
+    }
+  };
+
+  const handleDismissLocalMigration = async () => {
+    await dismissLocalMigration();
+    showToast('端末データの移行案内を閉じました');
+  };
+
+  const executeSignOut = async () => {
+    try {
+      await onSignOut();
+    } catch {
+      showToast('ログアウトに失敗しました', 'error');
+    }
+  };
+
+  const handleSignOut = () => {
+    Alert.alert('ログアウトしますか？', undefined, [
+      { text: 'キャンセル', style: 'cancel' },
+      {
+        text: 'ログアウト',
+        style: 'destructive',
+        onPress: () => {
+          void executeSignOut();
+        }
+      }
+    ]);
   };
 
   const handleToggleFavorite = async (company: Company) => {
@@ -708,9 +787,30 @@ export const HomeScreen = () => {
             { paddingHorizontal: metrics.contentPadding }
           ]}
         >
-          <Text style={[styles.compactTitle, { color: theme.colors.textPrimary }]}>
-            {homeView === 'companies' ? '企業一覧' : '質問一覧'}
-          </Text>
+          <View style={styles.titleRow}>
+            <View style={styles.titleSide} />
+            <View style={styles.titleCenter}>
+              <Text style={[styles.compactTitle, { color: theme.colors.textPrimary }]}>
+                {homeView === 'companies' ? '企業一覧' : '質問一覧'}
+              </Text>
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="ログアウト"
+              onPress={() => {
+                handleSignOut();
+              }}
+              style={({ pressed }) => [
+                styles.signOutButton,
+                { borderColor: theme.colors.border },
+                pressed && styles.pressed
+              ]}
+            >
+              <Text style={[styles.signOutText, { color: theme.colors.textSecondary }]}>
+                ログアウト
+              </Text>
+            </Pressable>
+          </View>
         </View>
 
         {homeView === 'companies' ? (
@@ -747,6 +847,67 @@ export const HomeScreen = () => {
             }}
           />
         </View>
+
+        {localMigrationAvailable ? (
+          <View
+            style={[
+              containerStyle,
+              styles.migrationArea,
+              { paddingHorizontal: metrics.contentPadding }
+            ]}
+          >
+            <View
+              style={[
+                styles.migrationBanner,
+                {
+                  backgroundColor: theme.colors.surface,
+                  borderColor: theme.colors.border
+                }
+              ]}
+            >
+              <View style={styles.migrationTextBlock}>
+                <Text
+                  style={[
+                    styles.migrationTitle,
+                    { color: theme.colors.textPrimary }
+                  ]}
+                >
+                  この端末の保存データがあります
+                </Text>
+                <Text
+                  style={[
+                    styles.migrationDescription,
+                    { color: theme.colors.textMuted }
+                  ]}
+                >
+                  パスワードはWebには移行されません。
+                </Text>
+              </View>
+              <View style={styles.migrationActions}>
+                <AppButton
+                  label="移行"
+                  size="compact"
+                  loading={isMigratingLocalData}
+                  disabled={isMigratingLocalData}
+                  onPress={() => {
+                    void handleImportLocalCompanies();
+                  }}
+                  theme={theme}
+                />
+                <AppButton
+                  label="閉じる"
+                  size="compact"
+                  disabled={isMigratingLocalData}
+                  onPress={() => {
+                    void handleDismissLocalMigration();
+                  }}
+                  theme={theme}
+                  variant="ghost"
+                />
+              </View>
+            </View>
+          </View>
+        ) : null}
       </Animated.View>
 
       <Animated.View
@@ -774,6 +935,7 @@ export const HomeScreen = () => {
                     title={item.status}
                     companies={item.companies}
                     theme={theme}
+                    showPasswordControls={showPasswordControls}
                     visiblePasswordIds={visiblePasswordIds}
                     onEdit={openEditModal}
                     onTogglePassword={togglePassword}
@@ -858,6 +1020,7 @@ export const HomeScreen = () => {
         type={editorType}
         company={editingCompany}
         theme={theme}
+        allowPasswordStorage={showPasswordControls}
         onClose={() => setEditorVisible(false)}
         onSave={handleSave}
       />
@@ -910,8 +1073,65 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     textAlign: 'center'
   },
+  titleRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 10
+  },
+  titleSide: {
+    width: 86
+  },
+  titleCenter: {
+    alignItems: 'center',
+    flex: 1,
+    minWidth: 0
+  },
+  signOutButton: {
+    alignItems: 'center',
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    justifyContent: 'center',
+    minHeight: 34,
+    paddingHorizontal: 10,
+    width: 86
+  },
+  signOutText: {
+    fontSize: 11,
+    fontWeight: '700',
+    lineHeight: 15
+  },
   searchArea: {
     paddingTop: 12
+  },
+  migrationArea: {
+    paddingTop: 10
+  },
+  migrationBanner: {
+    alignItems: 'center',
+    borderRadius: 18,
+    borderWidth: StyleSheet.hairlineWidth,
+    flexDirection: 'row',
+    gap: 12,
+    padding: 12
+  },
+  migrationTextBlock: {
+    flex: 1,
+    minWidth: 0
+  },
+  migrationTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    lineHeight: 18
+  },
+  migrationDescription: {
+    fontSize: 12,
+    fontWeight: '500',
+    lineHeight: 17,
+    marginTop: 2
+  },
+  migrationActions: {
+    flexDirection: 'row',
+    gap: 6
   },
   loadingText: {
     fontSize: 14,

@@ -10,6 +10,7 @@ type CompanySectionProps = {
   title: string;
   companies: Company[];
   theme: AppTheme;
+  showPasswordControls: boolean;
   visiblePasswordIds: Set<string>;
   onEdit: (company: Company) => void;
   onTogglePassword: (id: string) => void;
@@ -23,6 +24,7 @@ export const CompanySection = ({
   title,
   companies,
   theme,
+  showPasswordControls,
   visiblePasswordIds,
   onEdit,
   onTogglePassword,
@@ -64,6 +66,7 @@ export const CompanySection = ({
           <CompanyCard
             company={company}
             isPasswordVisible={visiblePasswordIds.has(company.id)}
+            showPasswordControls={showPasswordControls}
             theme={theme}
             onPress={() => onEdit(company)}
             onTogglePassword={() => onTogglePassword(company.id)}

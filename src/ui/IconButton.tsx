@@ -1,12 +1,22 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useState } from 'react';
 import {
   GestureResponderEvent,
   Platform,
   Pressable,
-  StyleSheet
+  StyleSheet,
+  ViewStyle
 } from 'react-native';
 
 import { AppTheme } from '../constants/theme';
+
+const getWebCursor = (disabled?: boolean) =>
+  Platform.OS === 'web'
+    ? ({
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        outlineStyle: 'none'
+      } as unknown as ViewStyle)
+    : null;
 
 type IconButtonProps = {
   icon: keyof typeof Ionicons.glyphMap;
@@ -39,6 +49,8 @@ export const IconButton = ({
   const plain = variant === 'plain';
   const palette = getPalette(theme, tone, accentColor, accentSurface);
   const foreground = disabled ? theme.colors.disabledText : palette.foreground;
+  const [hovered, setHovered] = useState(false);
+  const [focused, setFocused] = useState(false);
 
   return (
     <Pressable
@@ -46,6 +58,10 @@ export const IconButton = ({
       accessibilityRole="button"
       disabled={disabled}
       hitSlop={8}
+      onBlur={() => setFocused(false)}
+      onFocus={() => setFocused(true)}
+      onHoverIn={() => setHovered(true)}
+      onHoverOut={() => setHovered(false)}
       onPress={onPress}
       android_ripple={
         Platform.OS === 'android'
@@ -56,10 +72,16 @@ export const IconButton = ({
         styles.base,
         compact ? styles.compact : styles.default,
         plain ? styles.plain : styles.filled,
+        getWebCursor(disabled),
         {
           backgroundColor: plain ? 'transparent' : palette.background,
-          borderColor: plain ? 'transparent' : palette.border
+          borderColor: focused
+            ? theme.colors.focusRing
+            : plain
+              ? 'transparent'
+              : palette.border
         },
+        hovered && !disabled && { backgroundColor: palette.pressedBackground },
         pressed && !disabled && { backgroundColor: palette.pressedBackground },
         disabled &&
           !plain && {

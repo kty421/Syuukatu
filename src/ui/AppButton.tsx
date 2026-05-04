@@ -1,14 +1,24 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useState } from 'react';
 import {
   ActivityIndicator,
   GestureResponderEvent,
   Platform,
   Pressable,
   StyleSheet,
-  Text
+  Text,
+  ViewStyle
 } from 'react-native';
 
 import { AppTheme } from '../constants/theme';
+
+const getWebCursor = (inactive?: boolean) =>
+  Platform.OS === 'web'
+    ? ({
+        cursor: inactive ? 'not-allowed' : 'pointer',
+        outlineStyle: 'none'
+      } as unknown as ViewStyle)
+    : null;
 
 type AppButtonProps = {
   label: string;
@@ -35,11 +45,17 @@ export const AppButton = ({
   const compact = size === 'compact';
   const inactive = disabled || loading;
   const foreground = disabled ? theme.colors.disabledText : palette.foreground;
+  const [hovered, setHovered] = useState(false);
+  const [focused, setFocused] = useState(false);
 
   return (
     <Pressable
       accessibilityRole="button"
       disabled={inactive}
+      onBlur={() => setFocused(false)}
+      onFocus={() => setFocused(true)}
+      onHoverIn={() => setHovered(true)}
+      onHoverOut={() => setHovered(false)}
       onPress={onPress}
       android_ripple={
         Platform.OS === 'android'
@@ -49,9 +65,15 @@ export const AppButton = ({
       style={({ pressed }) => [
         styles.base,
         compact ? styles.compact : styles.default,
+        getWebCursor(inactive),
         {
           backgroundColor: palette.background,
-          borderColor: palette.border
+          borderColor: focused ? theme.colors.focusRing : palette.border
+        },
+        hovered &&
+          !inactive && {
+            backgroundColor: palette.hoverBackground,
+            borderColor: palette.hoverBorder
         },
         pressed && !inactive && {
           backgroundColor: palette.pressedBackground,
@@ -87,6 +109,8 @@ const getPalette = (
         background: theme.colors.surface,
         foreground: theme.colors.textPrimary,
         border: theme.colors.border,
+        hoverBackground: theme.colors.surfaceSubtle,
+        hoverBorder: theme.colors.primaryBorder,
         pressedBackground: theme.colors.surfaceSubtle,
         pressedBorder: theme.colors.primaryBorder
       };
@@ -95,6 +119,8 @@ const getPalette = (
         background: 'transparent',
         foreground: theme.colors.textSecondary,
         border: 'transparent',
+        hoverBackground: theme.colors.surfaceSubtle,
+        hoverBorder: 'transparent',
         pressedBackground: theme.colors.surfaceSubtle,
         pressedBorder: 'transparent'
       };
@@ -103,6 +129,8 @@ const getPalette = (
         background: theme.colors.danger,
         foreground: theme.colors.textOnDanger,
         border: theme.colors.danger,
+        hoverBackground: theme.colors.dangerHover,
+        hoverBorder: theme.colors.dangerHover,
         pressedBackground: theme.colors.dangerHover,
         pressedBorder: theme.colors.dangerHover
       };
@@ -112,6 +140,8 @@ const getPalette = (
         background: theme.colors.primary,
         foreground: theme.colors.textOnPrimary,
         border: theme.colors.primary,
+        hoverBackground: theme.colors.primaryHover,
+        hoverBorder: theme.colors.primaryHover,
         pressedBackground: theme.colors.primaryPressed,
         pressedBorder: theme.colors.primaryPressed
       };

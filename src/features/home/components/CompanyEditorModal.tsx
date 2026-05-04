@@ -51,6 +51,7 @@ type CompanyEditorModalProps = {
   type: ApplicationType;
   company?: Company | null;
   theme: AppTheme;
+  allowPasswordStorage: boolean;
   onClose: () => void;
   onSave: (draft: CompanyDraft) => Promise<void>;
 };
@@ -82,6 +83,7 @@ export const CompanyEditorModal = ({
   type,
   company,
   theme,
+  allowPasswordStorage,
   onClose,
   onSave
 }: CompanyEditorModalProps) => {
@@ -444,7 +446,7 @@ export const CompanyEditorModal = ({
       ...form,
       companyName,
       loginId: form.loginId.trim(),
-      password: form.password.trim(),
+      password: allowPasswordStorage ? form.password.trim() : '',
       myPageUrl: form.myPageUrl?.trim(),
       industry: form.industry?.trim(),
       role: form.role?.trim(),
@@ -459,8 +461,12 @@ export const CompanyEditorModal = ({
     try {
       await onSave(payload);
       requestClose();
-    } catch {
-      setError('保存に失敗しました。しばらくしてからもう一度お試しください。');
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : '保存に失敗しました。しばらくしてからもう一度お試しください。'
+      );
       setIsSaving(false);
     }
   };
@@ -637,28 +643,53 @@ export const CompanyEditorModal = ({
                     value={form.loginId}
                     placeholder="メールアドレスやID"
                     autoCapitalize="none"
+                    autoComplete="username"
+                    textContentType="username"
                     onChangeText={(value) => update('loginId', value)}
                   />
-                  <InputField
-                    label="パスワード"
-                    theme={theme}
-                    value={form.password}
-                    placeholder="未登録"
-                    autoCapitalize="none"
-                    secureTextEntry={!showPassword}
-                    onChangeText={(value) => update('password', value)}
-                    trailing={
-                      <IconButton
-                        icon={showPassword ? 'eye-off-outline' : 'eye-outline'}
-                        label={showPassword ? 'パスワードを隠す' : 'パスワードを表示'}
-                        onPress={() => setShowPassword((current) => !current)}
-                        theme={theme}
-                        tone="accent"
-                        size="compact"
-                        variant="plain"
-                      />
-                    }
-                  />
+                  {allowPasswordStorage ? (
+                    <InputField
+                      label="パスワード"
+                      theme={theme}
+                      value={form.password}
+                      placeholder="未登録"
+                      autoCapitalize="none"
+                      autoComplete="current-password"
+                      secureTextEntry={!showPassword}
+                      textContentType="password"
+                      onChangeText={(value) => update('password', value)}
+                      trailing={
+                        <IconButton
+                          icon={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                          label={showPassword ? 'パスワードを隠す' : 'パスワードを表示'}
+                          onPress={() => setShowPassword((current) => !current)}
+                          theme={theme}
+                          tone="accent"
+                          size="compact"
+                          variant="plain"
+                        />
+                      }
+                    />
+                  ) : (
+                    <View
+                      style={[
+                        styles.webPasswordNotice,
+                        {
+                          backgroundColor: theme.colors.primarySubtle,
+                          borderColor: theme.colors.primaryBorder
+                        }
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.webPasswordNoticeText,
+                          { color: theme.colors.textSecondary }
+                        ]}
+                      >
+                        パスワードは各企業サイトでブラウザの保存機能をご利用ください。
+                      </Text>
+                    </View>
+                  )}
                   <InputField
                     label="マイページURL"
                     theme={theme}
@@ -1009,5 +1040,16 @@ const styles = StyleSheet.create({
   },
   longTextInput: {
     minHeight: 148
+  },
+  webPasswordNotice: {
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 14,
+    paddingVertical: 12
+  },
+  webPasswordNoticeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    lineHeight: 18
   }
 });

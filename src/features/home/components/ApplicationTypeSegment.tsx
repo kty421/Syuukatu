@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Animated, Pressable, StyleSheet, View } from 'react-native';
+import { Animated, Platform, Pressable, StyleSheet, View, ViewStyle } from 'react-native';
 
 import { AppTheme } from '../../../constants/theme';
 import { ApplicationType, applicationTypeLabels } from '../types';
@@ -13,6 +13,11 @@ type ApplicationTypeSegmentProps = {
 };
 
 const options: ApplicationType[] = ['internship', 'fullTime'];
+
+const webCursor =
+  Platform.OS === 'web'
+    ? ({ cursor: 'pointer', outlineStyle: 'none' } as unknown as ViewStyle)
+    : null;
 
 export const ApplicationTypeSegment = ({
   value,
@@ -67,6 +72,7 @@ export const ApplicationTypeSegment = ({
             onPress={() => onChange(type)}
             style={({ pressed }) => [
               styles.option,
+              webCursor,
               pressed && { backgroundColor: theme.colors.surfaceSubtle }
             ]}
           >

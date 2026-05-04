@@ -15,6 +15,7 @@ type CompanyCardProps = {
   company: Company;
   theme: AppTheme;
   isPasswordVisible: boolean;
+  showPasswordControls: boolean;
   onPress: () => void;
   onTogglePassword: () => void;
   onToggleFavorite: () => void;
@@ -30,6 +31,7 @@ export const CompanyCard = memo(
     company,
     theme,
     isPasswordVisible,
+    showPasswordControls,
     onPress,
     onTogglePassword,
     onToggleFavorite,
@@ -148,54 +150,60 @@ export const CompanyCard = memo(
               </View>
             }
           />
-          <View
-            style={[
-              styles.credentialDivider,
-              { backgroundColor: theme.colors.divider },
-            ]}
-          />
-          <CredentialRow
-            label="PW"
-            value={
-              isPasswordVisible
-                ? company.password || "未登録"
-                : maskPassword(company.password)
-            }
-            isPlaceholder={!company.password}
-            theme={theme}
-            iconButtons={
-              <View style={styles.credentialActionsSlot}>
-                <View style={styles.passwordActions}>
-                  <IconButton
-                    icon={isPasswordVisible ? "eye-off-outline" : "eye-outline"}
-                    label={
-                      isPasswordVisible
-                        ? "パスワードを隠す"
-                        : "パスワードを表示"
-                    }
-                    onPress={runChildAction(onTogglePassword)}
-                    theme={theme}
-                    tone="accent"
-                    size="compact"
-                    variant="plain"
-                    disabled={!company.password}
-                  />
-                  <IconButton
-                    icon="copy-outline"
-                    label="パスワードをコピー"
-                    onPress={runChildAction(() =>
-                      onCopy(company.password, "パスワード"),
-                    )}
-                    theme={theme}
-                    tone="accent"
-                    size="compact"
-                    variant="plain"
-                    disabled={!company.password}
-                  />
-                </View>
-              </View>
-            }
-          />
+          {showPasswordControls ? (
+            <>
+              <View
+                style={[
+                  styles.credentialDivider,
+                  { backgroundColor: theme.colors.divider },
+                ]}
+              />
+              <CredentialRow
+                label="PW"
+                value={
+                  isPasswordVisible
+                    ? company.password || "未登録"
+                    : maskPassword(company.password)
+                }
+                isPlaceholder={!company.password}
+                theme={theme}
+                iconButtons={
+                  <View style={styles.credentialActionsSlot}>
+                    <View style={styles.passwordActions}>
+                      <IconButton
+                        icon={
+                          isPasswordVisible ? "eye-off-outline" : "eye-outline"
+                        }
+                        label={
+                          isPasswordVisible
+                            ? "パスワードを隠す"
+                            : "パスワードを表示"
+                        }
+                        onPress={runChildAction(onTogglePassword)}
+                        theme={theme}
+                        tone="accent"
+                        size="compact"
+                        variant="plain"
+                        disabled={!company.password}
+                      />
+                      <IconButton
+                        icon="copy-outline"
+                        label="パスワードをコピー"
+                        onPress={runChildAction(() =>
+                          onCopy(company.password, "パスワード"),
+                        )}
+                        theme={theme}
+                        tone="accent"
+                        size="compact"
+                        variant="plain"
+                        disabled={!company.password}
+                      />
+                    </View>
+                  </View>
+                }
+              />
+            </>
+          ) : null}
         </View>
       </Pressable>
     );

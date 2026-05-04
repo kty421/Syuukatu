@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
+import { useState } from 'react';
+import { Platform, Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 
 import { AppTheme } from '../../../constants/theme';
 
@@ -20,6 +21,11 @@ const items: {
   { value: 'companies', label: '企業', icon: 'business-outline' },
   { value: 'questions', label: '質問', icon: 'chatbubbles-outline' }
 ];
+
+const webCursor =
+  Platform.OS === 'web'
+    ? ({ cursor: 'pointer', outlineStyle: 'none' } as unknown as ViewStyle)
+    : null;
 
 export const BottomNavigation = ({
   value,
@@ -45,35 +51,72 @@ export const BottomNavigation = ({
         const selected = item.value === value;
 
         return (
-          <Pressable
+          <NavigationItem
             key={item.value}
-            accessibilityRole="tab"
-            accessibilityState={{ selected }}
-            accessibilityLabel={`${item.label}タブ`}
+            icon={item.icon}
+            label={item.label}
+            selected={selected}
+            theme={theme}
+            palette={palette}
             onPress={() => onChange(item.value)}
-            style={({ pressed }) => [
-              styles.item,
-              selected && { backgroundColor: palette.selectedBackground },
-              pressed && styles.pressed
-            ]}
-          >
-            <Ionicons
-              name={item.icon}
-              size={20}
-              color={selected ? palette.selected : theme.colors.textDisabled}
-            />
-            <Text
-              style={[
-                styles.label,
-                { color: selected ? palette.selected : theme.colors.textMuted }
-              ]}
-            >
-              {item.label}
-            </Text>
-          </Pressable>
+          />
         );
       })}
     </View>
+  );
+};
+
+const NavigationItem = ({
+  icon,
+  label,
+  selected,
+  theme,
+  palette,
+  onPress
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  selected: boolean;
+  theme: AppTheme;
+  palette: ReturnType<typeof getNavigationPalette>;
+  onPress: () => void;
+}) => {
+  const [hovered, setHovered] = useState(false);
+  const [focused, setFocused] = useState(false);
+
+  return (
+    <Pressable
+      accessibilityRole="tab"
+      accessibilityState={{ selected }}
+      accessibilityLabel={`${label}タブ`}
+      onBlur={() => setFocused(false)}
+      onFocus={() => setFocused(true)}
+      onHoverIn={() => setHovered(true)}
+      onHoverOut={() => setHovered(false)}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.item,
+        webCursor,
+        selected && { backgroundColor: palette.selectedBackground },
+        hovered && !selected && { backgroundColor: theme.colors.surfaceSubtle },
+        focused && { borderColor: theme.colors.focusRing, borderWidth: 1 },
+        pressed && styles.pressed
+      ]}
+    >
+      <Ionicons
+        name={icon}
+        size={20}
+        color={selected ? palette.selected : theme.colors.textDisabled}
+      />
+      <Text
+        style={[
+          styles.label,
+          { color: selected ? palette.selected : theme.colors.textMuted }
+        ]}
+      >
+        {label}
+      </Text>
+    </Pressable>
   );
 };
 

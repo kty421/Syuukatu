@@ -1,6 +1,12 @@
-import { Platform, Pressable, StyleSheet, Text } from 'react-native';
+import { useState } from 'react';
+import { Platform, Pressable, StyleSheet, Text, ViewStyle } from 'react-native';
 
 import { AppTheme } from '../constants/theme';
+
+const webCursor =
+  Platform.OS === 'web'
+    ? ({ cursor: 'pointer', outlineStyle: 'none' } as unknown as ViewStyle)
+    : null;
 
 type FilterChipProps = {
   label: string;
@@ -20,37 +26,51 @@ export const FilterChip = ({
   surface,
   border,
   onPress
-}: FilterChipProps) => (
-  <Pressable
-    accessibilityRole="button"
-    accessibilityState={{ selected }}
-    onPress={onPress}
-    android_ripple={
-      Platform.OS === 'android'
-        ? { color: theme.colors.surfacePressed, borderless: false }
-        : undefined
-    }
-    style={({ pressed }) => [
-      styles.chip,
-      {
-        backgroundColor: selected ? surface : theme.colors.surface,
-        borderColor: selected ? border : theme.colors.border
-      },
-      pressed && {
-        backgroundColor: selected ? surface : theme.colors.surfaceSubtle
+}: FilterChipProps) => {
+  const [hovered, setHovered] = useState(false);
+  const [focused, setFocused] = useState(false);
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
+      onBlur={() => setFocused(false)}
+      onFocus={() => setFocused(true)}
+      onHoverIn={() => setHovered(true)}
+      onHoverOut={() => setHovered(false)}
+      onPress={onPress}
+      android_ripple={
+        Platform.OS === 'android'
+          ? { color: theme.colors.surfacePressed, borderless: false }
+          : undefined
       }
-    ]}
-  >
-    <Text
-      style={[
-        styles.label,
-        { color: selected ? tint : theme.colors.textSecondary }
+      style={({ pressed }) => [
+        styles.chip,
+        webCursor,
+        {
+          backgroundColor: selected ? surface : theme.colors.surface,
+          borderColor: focused
+            ? theme.colors.focusRing
+            : selected
+              ? border
+              : theme.colors.border
+        },
+        (hovered || pressed) && {
+          backgroundColor: selected ? surface : theme.colors.surfaceSubtle
+        }
       ]}
     >
-      {label}
-    </Text>
-  </Pressable>
-);
+      <Text
+        style={[
+          styles.label,
+          { color: selected ? tint : theme.colors.textSecondary }
+        ]}
+      >
+        {label}
+      </Text>
+    </Pressable>
+  );
+};
 
 const styles = StyleSheet.create({
   chip: {
