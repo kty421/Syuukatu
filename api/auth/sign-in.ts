@@ -1,6 +1,11 @@
 import { z } from 'zod';
 
 import { setSessionCookies, toAuthUser } from '../_lib/auth';
+import {
+  getAuthErrorStatus,
+  isSupabaseConfigError,
+  normalizeAuthErrorMessage
+} from '../_lib/authErrors';
 import { handleApiError, parseRequestBody, requireMethod, sendJson } from '../_lib/http';
 import { createSupabaseServerClient } from '../_lib/supabase';
 import type { VercelRequest, VercelResponse } from '../_lib/vercel';
@@ -19,6 +24,13 @@ export default async function handler(
     const body = bodySchema.parse(parseRequestBody(req.body));
     const supabase = createSupabaseServerClient();
     const { data, error } = await supabase.auth.signInWithPassword(body);
+
+    if (error && isSupabaseConfigError(error.message)) {
+      sendJson(res, getAuthErrorStatus(error.message, 500), {
+        error: normalizeAuthErrorMessage(error.message)
+      });
+      return;
+    }
 
     if (error || !data.user || !data.session) {
       sendJson(res, 401, {

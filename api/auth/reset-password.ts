@@ -1,5 +1,9 @@
 import { z } from 'zod';
 
+import {
+  getAuthErrorStatus,
+  normalizeAuthErrorMessage
+} from '../_lib/authErrors';
 import { handleApiError, parseRequestBody, requireMethod, sendJson } from '../_lib/http';
 import { createSupabaseServerClient } from '../_lib/supabase';
 import type { VercelRequest, VercelResponse } from '../_lib/vercel';
@@ -19,7 +23,9 @@ export default async function handler(
     const { error } = await supabase.auth.resetPasswordForEmail(body.email);
 
     if (error) {
-      sendJson(res, 400, { error: error.message });
+      sendJson(res, getAuthErrorStatus(error.message), {
+        error: normalizeAuthErrorMessage(error.message)
+      });
       return;
     }
 

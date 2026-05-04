@@ -10,8 +10,9 @@ type ApiRequestOptions = {
 };
 
 type ApiErrorPayload = {
-  error?: string;
+  error?: string | { code?: string; message?: string };
   message?: string;
+  code?: string;
 };
 
 type ParsedApiResponse = {
@@ -58,6 +59,15 @@ const getNonJsonApiMessage = (
   requestUrl: string
 ) => {
   const text = typeof payload === 'string' ? payload : '';
+  const isVercelUrl = /^https:\/\/[^/]+\.vercel\.app/i.test(requestUrl);
+
+  if (
+    status === 404 &&
+    isVercelUrl &&
+    /page could not be found|not_found/i.test(text)
+  ) {
+    return 'VercelのProduction URLでアプリまたはAPIが見つかりません。Production Branch、Build Command、Output Directory、最新デプロイの状態を確認してください。';
+  }
 
   if (
     status === 401 &&
@@ -75,6 +85,62 @@ const getNonJsonApiMessage = (
   }
 
   return 'APIからJSONではない応答が返りました。.env の EXPO_PUBLIC_API_BASE_URL にVercel URLを設定してください。';
+};
+
+const asString = (value: unknown) =>
+  typeof value === 'string' ? value : undefined;
+
+const getJsonApiErrorMessage = (
+  payload: unknown,
+  status: number,
+  requestUrl: string
+) => {
+  const errorPayload =
+    payload && typeof payload === 'object'
+      ? (payload as ApiErrorPayload)
+      : {};
+  const nestedError =
+    errorPayload.error && typeof errorPayload.error === 'object'
+      ? errorPayload.error
+      : undefined;
+  const code =
+    asString(errorPayload.code) ??
+    asString(nestedError?.code);
+  const message =
+    asString(errorPayload.message) ??
+    asString(errorPayload.error) ??
+    asString(nestedError?.message);
+  const isVercelUrl = /^https:\/\/[^/]+\.vercel\.app/i.test(requestUrl);
+
+  if (
+    status === 404 &&
+    isVercelUrl &&
+    (code === 'NOT_FOUND' || /page could not be found|not_found/i.test(message ?? ''))
+  ) {
+    return 'VercelのProduction URLでアプリまたはAPIが見つかりません。Production Branch、Build Command、Output Directory、最新デプロイの状態を確認してください。';
+  }
+
+  if (/invalid api key|invalid apikey/i.test(message ?? '')) {
+    return 'SupabaseのAPIキーが正しくありません。VercelのSUPABASE_ANON_KEYとEXPO_PUBLIC_SUPABASE_ANON_KEYを確認してから再デプロイしてください。';
+  }
+
+  return (
+    message ??
+    '通信に失敗しました。しばらくしてからもう一度お試しください。'
+  );
+};
+
+const logApiRequest = (method: string, path: string, requestUrl: string) => {
+  if (!__DEV__) {
+    return;
+  }
+
+  console.log('[api request]', {
+    platform: Platform.OS,
+    method,
+    path,
+    requestUrl
+  });
 };
 
 export const apiRequest = async <T>(
@@ -102,6 +168,7 @@ export const apiRequest = async <T>(
 
   try {
     const requestUrl = getApiUrl(path);
+    logApiRequest(method, path, requestUrl);
     const response = await fetch(requestUrl, {
       method,
       headers,
@@ -119,14 +186,8 @@ export const apiRequest = async <T>(
     }
 
     if (!response.ok) {
-      const errorPayload =
-        payload && typeof payload === 'object'
-          ? (payload as ApiErrorPayload)
-          : {};
       throw new ApiError(
-        errorPayload.message ??
-          errorPayload.error ??
-          '通信に失敗しました。しばらくしてからもう一度お試しください。',
+        getJsonApiErrorMessage(payload, response.status, requestUrl),
         response.status
       );
     }
