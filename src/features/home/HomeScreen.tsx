@@ -69,6 +69,7 @@ import {
   QuestionMemoSort,
   sortQuestionMemos
 } from './utils/questionMemoUtils';
+import { confirmDestructiveAction } from './utils/confirmAction';
 
 const transitionValueByType: Record<ApplicationType, number> = {
   internship: 0,
@@ -802,30 +803,22 @@ export const HomeScreen = ({
   }, [showToast, upsertCompany]);
 
   const handleDeleteCompany = useCallback((company: Company) => {
-    Alert.alert(
-      '企業を削除しますか？',
-      showPasswordControls
+    confirmDestructiveAction({
+      title: '企業を削除しますか？',
+      message: showPasswordControls
         ? `${company.companyName}のIDと端末内のパスワードも削除されます。`
         : `${company.companyName}の登録情報を削除します。`,
-      [
-        { text: 'キャンセル', style: 'cancel' },
-        {
-          text: '削除',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteCompany(company.id);
-              void runHapticsSafely(() =>
-                Haptics.notificationAsync(
-                  Haptics.NotificationFeedbackType.Warning
-                )
-              );
-              showToast('削除しました');
-            } catch {}
-          }
-        }
-      ]
-    );
+      confirmLabel: '削除',
+      onConfirm: async () => {
+        try {
+          await deleteCompany(company.id);
+          void runHapticsSafely(() =>
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning)
+          );
+          showToast('削除しました');
+        } catch {}
+      }
+    });
   }, [deleteCompany, showPasswordControls, showToast]);
 
   const handleImportLocalCompanies = useCallback(async () => {
@@ -851,16 +844,11 @@ export const HomeScreen = ({
   }, [onSignOut, showToast]);
 
   const handleSignOut = useCallback(() => {
-    Alert.alert('ログアウトしますか？', undefined, [
-      { text: 'キャンセル', style: 'cancel' },
-      {
-        text: 'ログアウト',
-        style: 'destructive',
-        onPress: () => {
-          void executeSignOut();
-        }
-      }
-    ]);
+    confirmDestructiveAction({
+      title: 'ログアウトしますか？',
+      confirmLabel: 'ログアウト',
+      onConfirm: executeSignOut
+    });
   }, [executeSignOut]);
 
   const openQuestionCompanyPicker = useCallback(() => {
@@ -1013,46 +1001,38 @@ export const HomeScreen = ({
   ]);
 
   const deleteQuestionMemo = useCallback((entry: QuestionMemoEntry) => {
-    Alert.alert(
-      '質問メモを削除しますか？',
-      `${entry.company.companyName}の「${
+    confirmDestructiveAction({
+      title: '質問メモを削除しますか？',
+      message: `${entry.company.companyName}の「${
         entry.questionAnswer.question || '題目未入力'
       }」を削除します。`,
-      [
-        { text: 'キャンセル', style: 'cancel' },
-        {
-          text: '削除',
-          style: 'destructive',
-          onPress: async () => {
-            const targetCompany = companies.find(
-              (company) => company.id === entry.company.id
-            );
+      confirmLabel: '削除',
+      onConfirm: async () => {
+        const targetCompany = companies.find(
+          (company) => company.id === entry.company.id
+        );
 
-            if (!targetCompany) {
-              showToast('企業が見つかりませんでした', 'error');
-              return;
-            }
-
-            try {
-              await upsertCompany({
-                ...targetCompany,
-                questionAnswers: (targetCompany.questionAnswers ?? []).filter(
-                  (item) => item.id !== entry.questionAnswer.id
-                )
-              });
-              void runHapticsSafely(() =>
-                Haptics.notificationAsync(
-                  Haptics.NotificationFeedbackType.Warning
-                )
-              );
-              showToast('質問メモを削除しました');
-            } catch {
-              showToast('質問メモの削除に失敗しました', 'error');
-            }
-          }
+        if (!targetCompany) {
+          showToast('企業が見つかりませんでした', 'error');
+          return;
         }
-      ]
-    );
+
+        try {
+          await upsertCompany({
+            ...targetCompany,
+            questionAnswers: (targetCompany.questionAnswers ?? []).filter(
+              (item) => item.id !== entry.questionAnswer.id
+            )
+          });
+          void runHapticsSafely(() =>
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning)
+          );
+          showToast('質問メモを削除しました');
+        } catch {
+          showToast('質問メモの削除に失敗しました', 'error');
+        }
+      }
+    });
   }, [companies, showToast, upsertCompany]);
 
   const renderEmptyCompanies = useCallback(() => {
@@ -1170,18 +1150,16 @@ export const HomeScreen = ({
               </Text>
             </View>
             <View style={styles.titleSide}>
-              {homeView === 'companies' ? (
-                <IconButton
-                  icon="menu-outline"
-                  label="サイドメニューを開く"
-                  onPress={() => setMenuVisible(true)}
-                  theme={theme}
-                  tone="neutral"
-                  size="compact"
-                  variant="plain"
-                  iconSize={22}
-                />
-              ) : null}
+              <IconButton
+                icon="menu-outline"
+                label="サイドメニューを開く"
+                onPress={() => setMenuVisible(true)}
+                theme={theme}
+                tone="neutral"
+                size="compact"
+                variant="plain"
+                iconSize={22}
+              />
             </View>
           </View>
         </View>
