@@ -179,12 +179,6 @@ export const QuestionListView = ({
             />
           ))}
         </ScrollView>
-        <QuestionSortMenu
-          value={sort}
-          theme={theme}
-          accentColor={accentColor}
-          onChange={onSortChange}
-        />
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="ラベルを追加"
@@ -200,6 +194,12 @@ export const QuestionListView = ({
         >
           <Ionicons name="add" size={18} color={accentColor} />
         </Pressable>
+        <QuestionSortMenu
+          value={sort}
+          theme={theme}
+          accentColor={accentColor}
+          onChange={onSortChange}
+        />
       </View>
     </View>
   );

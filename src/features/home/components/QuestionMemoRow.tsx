@@ -97,34 +97,36 @@ export const QuestionMemoRow = memo(({
         </View>
 
         <View style={styles.actions}>
+          <View style={styles.actionButtons}>
+            {company ? (
+              <IconButton
+                icon="business-outline"
+                label={`${company.companyName}を編集`}
+                onPress={runChildAction(onOpenCompany)}
+                theme={theme}
+                tone="accent"
+                variant="plain"
+                accentColor={accentColor}
+                size="compact"
+                iconSize={17}
+              />
+            ) : null}
+            <IconButton
+              icon="trash-outline"
+              label="質問メモを削除"
+              onPress={runChildAction(onDelete)}
+              theme={theme}
+              tone="danger"
+              variant="plain"
+              size="compact"
+              iconSize={17}
+            />
+          </View>
           {updatedAt ? (
             <Text style={[styles.updatedAt, { color: theme.colors.textDisabled }]}>
               {updatedAt}
             </Text>
           ) : null}
-          {company ? (
-            <IconButton
-              icon="business-outline"
-              label={`${company.companyName}を編集`}
-              onPress={runChildAction(onOpenCompany)}
-              theme={theme}
-              tone="accent"
-              variant="plain"
-              accentColor={accentColor}
-              size="compact"
-              iconSize={17}
-            />
-          ) : null}
-          <IconButton
-            icon="trash-outline"
-            label="質問メモを削除"
-            onPress={runChildAction(onDelete)}
-            theme={theme}
-            tone="danger"
-            variant="plain"
-            size="compact"
-            iconSize={17}
-          />
         </View>
       </View>
     </Pressable>
@@ -188,17 +190,21 @@ const styles = StyleSheet.create({
     lineHeight: 14
   },
   actions: {
+    alignItems: 'flex-end',
+    marginRight: -4,
+    minHeight: 30
+  },
+  actionButtons: {
     alignItems: 'flex-start',
     flexDirection: 'row',
     gap: 0,
-    marginRight: -4,
-    minHeight: 30
+    marginTop: -3
   },
   updatedAt: {
     fontSize: 10,
     fontWeight: '600',
     lineHeight: 14,
-    marginRight: 4,
-    marginTop: 1
+    marginRight: 6,
+    marginTop: -1
   }
 });

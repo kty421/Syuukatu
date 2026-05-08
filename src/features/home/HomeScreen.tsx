@@ -50,6 +50,7 @@ import {
   QuestionListView
 } from './components/QuestionListView';
 import { QuestionLabelCreateDialog } from './components/QuestionLabelCreateDialog';
+import { QuestionLabelSettingsModal } from './components/QuestionLabelSettingsModal';
 import { QuestionMemoDialog } from './components/QuestionMemoDialog';
 import { useCompanies } from './hooks/useCompanies';
 import {
@@ -57,6 +58,7 @@ import {
   applicationTypeLabels,
   Company,
   CompanyDraft,
+  QuestionLabel,
   QuestionMemo,
   SelectionStatus
 } from './types';
@@ -387,6 +389,8 @@ export const HomeScreen = ({
     useState(false);
   const [questionLabelDialogVisible, setQuestionLabelDialogVisible] =
     useState(false);
+  const [questionLabelSettingsVisible, setQuestionLabelSettingsVisible] =
+    useState(false);
   const [menuVisible, setMenuVisible] = useState(false);
   const [passwordDefaultVisible, setPasswordDefaultVisible] = useState(false);
   const [passwordPreferenceHydrated, setPasswordPreferenceHydrated] =
@@ -399,7 +403,7 @@ export const HomeScreen = ({
   const [questionSaveNoticeKey, setQuestionSaveNoticeKey] = useState(0);
   const [toast, setToast] = useState<{
     message: string;
-    tone: 'success' | 'error';
+    tone: 'success' | 'error' | 'warning';
   } | null>(null);
   const typeTransition = useRef(new Animated.Value(0)).current;
   const edgePullX = useRef(new Animated.Value(0)).current;
@@ -544,7 +548,7 @@ export const HomeScreen = ({
     [bottomPadding, metrics.contentPadding]
   );
   const showToast = useCallback(
-    (message: string, tone: 'success' | 'error' = 'success') => {
+    (message: string, tone: 'success' | 'error' | 'warning' = 'success') => {
       if (toastTimeoutRef.current) {
         clearTimeout(toastTimeoutRef.current);
       }
@@ -632,7 +636,10 @@ export const HomeScreen = ({
       return;
     }
 
-    showToast(storageError, 'error');
+    showToast(
+      storageError,
+      storageError.startsWith('ローカルプレビュー') ? 'warning' : 'error'
+    );
   }, [showToast, storageError]);
 
   const openCreateModal = useCallback((type: ApplicationType) => {
@@ -1006,26 +1013,13 @@ export const HomeScreen = ({
     setQuestionCreateCompanyId(null);
   }, []);
 
-  const moveQuestionLabel = useCallback(
-    (labelId: string, direction: -1 | 1) => {
-      const currentIndex = questionLabels.findIndex(
-        (label) => label.id === labelId
-      );
-      const nextIndex = currentIndex + direction;
-
-      if (currentIndex < 0 || nextIndex < 0 || nextIndex >= questionLabels.length) {
-        return;
-      }
-
-      const nextLabels = [...questionLabels];
-      const [movedLabel] = nextLabels.splice(currentIndex, 1);
-      nextLabels.splice(nextIndex, 0, movedLabel);
-
+  const handleReorderQuestionLabels = useCallback(
+    (nextLabels: QuestionLabel[]) => {
       void reorderQuestionLabels(nextLabels).catch(() => {
         showToast('ラベルの並び替えに失敗しました', 'error');
       });
     },
-    [questionLabels, reorderQuestionLabels, showToast]
+    [reorderQuestionLabels, showToast]
   );
 
   const handleDeleteQuestionLabel = useCallback(
@@ -1505,6 +1499,16 @@ export const HomeScreen = ({
         onCreateLabel={createQuestionLabel}
       />
 
+      <QuestionLabelSettingsModal
+        visible={questionLabelSettingsVisible}
+        labels={questionLabels}
+        theme={theme}
+        onClose={() => setQuestionLabelSettingsVisible(false)}
+        onCreateLabel={() => setQuestionLabelDialogVisible(true)}
+        onReorderLabels={handleReorderQuestionLabels}
+        onDeleteLabel={handleDeleteQuestionLabel}
+      />
+
       <QuestionLabelCreateDialog
         visible={questionLabelDialogVisible}
         labels={questionLabels}
@@ -1529,7 +1533,6 @@ export const HomeScreen = ({
         userEmail={user.email}
         showPasswordControls={showPasswordControls}
         passwordDefaultVisible={passwordDefaultVisible}
-        questionLabels={questionLabels}
         theme={theme}
         onOpen={() => setMenuVisible(true)}
         onViewChange={(view) => {
@@ -1541,9 +1544,7 @@ export const HomeScreen = ({
         onCreateQuestion={() => {
           void openQuestionCompanyPicker();
         }}
-        onCreateQuestionLabel={() => setQuestionLabelDialogVisible(true)}
-        onMoveQuestionLabel={moveQuestionLabel}
-        onDeleteQuestionLabel={handleDeleteQuestionLabel}
+        onOpenQuestionLabelSettings={() => setQuestionLabelSettingsVisible(true)}
         onPasswordDefaultVisibleChange={changePasswordDefaultVisibility}
         onClose={() => setMenuVisible(false)}
         onSignOut={() => {

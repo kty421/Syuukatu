@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Platform } from 'react-native';
 
 import {
   deleteRemoteCompany,
@@ -36,6 +37,9 @@ const createQuestionId = () =>
   `qa-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 const createLabelId = () =>
   `label-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+const LOCAL_QUESTION_LABEL_PREVIEW_NOTICE =
+  'ローカルプレビューとして反映しました。API反映後に再確認してください。';
+const shouldKeepLocalQuestionLabelPreview = __DEV__ && Platform.OS === 'ios';
 
 const sortCompanies = (companies: Company[]) =>
   [...companies].sort(
@@ -554,6 +558,11 @@ export const useCompanies = ({
           setStorageError(null);
           return savedLabel;
         } catch (error) {
+          if (shouldKeepLocalQuestionLabelPreview) {
+            setStorageError(LOCAL_QUESTION_LABEL_PREVIEW_NOTICE);
+            return optimisticLabel;
+          }
+
           setQuestionLabelsState((currentLabels) =>
             currentLabels.filter((label) => label.id !== optimisticLabel.id)
           );
@@ -606,6 +615,11 @@ export const useCompanies = ({
         setQuestionLabelsState(sortQuestionLabels(savedLabels));
         setStorageError(null);
       } catch (error) {
+        if (shouldKeepLocalQuestionLabelPreview) {
+          setStorageError(LOCAL_QUESTION_LABEL_PREVIEW_NOTICE);
+          return;
+        }
+
         setQuestionLabelsState(previousLabels);
         setStorageError('ラベルの並び替えに失敗しました。');
         throw error;
@@ -633,6 +647,11 @@ export const useCompanies = ({
         await deleteRemoteQuestionLabel(id, accessToken);
         setStorageError(null);
       } catch (error) {
+        if (shouldKeepLocalQuestionLabelPreview) {
+          setStorageError(LOCAL_QUESTION_LABEL_PREVIEW_NOTICE);
+          return;
+        }
+
         setQuestionLabelsState(previousLabels);
         setQuestionMemosState(previousQuestionMemos);
         setStorageError('ラベルの削除に失敗しました。');
