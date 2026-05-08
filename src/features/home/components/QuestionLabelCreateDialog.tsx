@@ -1,13 +1,13 @@
-import { useEffect, useRef, useState } from 'react';
-import { StyleSheet, TextInput, View } from 'react-native';
-import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
+import { useEffect, useRef, useState } from "react";
+import { StyleSheet, TextInput, View } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 
-import { AppTheme } from '../../../constants/theme';
-import { AppButton } from '../../../ui/AppButton';
-import { DismissKeyboardView } from '../../../ui/DismissKeyboardView';
-import { FullScreenModalShell } from '../../../ui/FullScreenModalShell';
-import { InputField } from '../../../ui/InputField';
-import { QuestionLabel } from '../types';
+import { AppTheme } from "../../../constants/theme";
+import { AppButton } from "../../../ui/AppButton";
+import { DismissKeyboardView } from "../../../ui/DismissKeyboardView";
+import { FullScreenModalShell } from "../../../ui/FullScreenModalShell";
+import { InputField } from "../../../ui/InputField";
+import { QuestionLabel } from "../types";
 
 type QuestionLabelCreateDialogProps = {
   visible: boolean;
@@ -22,9 +22,9 @@ export const QuestionLabelCreateDialog = ({
   labels,
   theme,
   onClose,
-  onCreate
+  onCreate,
 }: QuestionLabelCreateDialogProps) => {
-  const [name, setName] = useState('');
+  const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const inputRef = useRef<TextInput>(null);
@@ -34,7 +34,7 @@ export const QuestionLabelCreateDialog = ({
       return;
     }
 
-    setName('');
+    setName("");
     setError(null);
     setIsCreating(false);
     requestAnimationFrame(() => {
@@ -46,7 +46,7 @@ export const QuestionLabelCreateDialog = ({
     const trimmedName = name.trim();
 
     if (!trimmedName) {
-      setError('ラベル名を入力してください');
+      setError("ラベル名を入力してください");
       requestAnimationFrame(() => {
         inputRef.current?.focus();
       });
@@ -54,7 +54,7 @@ export const QuestionLabelCreateDialog = ({
     }
 
     if (labels.some((label) => label.name === trimmedName)) {
-      setError('同じ名前のラベルがあります');
+      setError("同じ名前のラベルがあります");
       requestAnimationFrame(() => {
         inputRef.current?.focus();
       });
@@ -68,7 +68,7 @@ export const QuestionLabelCreateDialog = ({
       await onCreate(trimmedName);
       onClose();
     } catch {
-      setError('ラベルを作成できませんでした');
+      setError("ラベルを作成できませんでした");
     } finally {
       setIsCreating(false);
     }
@@ -79,15 +79,13 @@ export const QuestionLabelCreateDialog = ({
       visible={visible}
       title="ラベル追加"
       theme={theme}
-      onClose={onClose}
-    >
+      onClose={onClose}>
       <KeyboardAwareScrollView
         bottomOffset={28}
         contentContainerStyle={styles.body}
         keyboardDismissMode="interactive"
         keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
+        showsVerticalScrollIndicator={false}>
         <DismissKeyboardView style={styles.form}>
           <InputField
             ref={inputRef}
@@ -96,7 +94,7 @@ export const QuestionLabelCreateDialog = ({
             theme={theme}
             value={name}
             errorMessage={error}
-            placeholder="例：面接で聞く"
+            placeholder="ガクチカ、自己PR"
             onChangeText={(value) => {
               setName(value);
               if (error) {
@@ -126,14 +124,14 @@ export const QuestionLabelCreateDialog = ({
 
 const styles = StyleSheet.create({
   body: {
-    alignSelf: 'center',
+    alignSelf: "center",
     maxWidth: 760,
     paddingBottom: 28,
     paddingHorizontal: 18,
     paddingTop: 18,
-    width: '100%'
+    width: "100%",
   },
   form: {
-    gap: 16
-  }
+    gap: 16,
+  },
 });

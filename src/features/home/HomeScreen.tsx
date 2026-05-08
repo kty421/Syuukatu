@@ -1420,7 +1420,6 @@ export const HomeScreen = ({
             containerStyle={containerStyle}
             listRef={questionListRef}
             onLabelFilterChange={setSelectedQuestionLabelId}
-            onCreateLabelPress={() => setQuestionLabelDialogVisible(true)}
             onSortChange={(sort) => {
               setQuestionSort(sort);
               scrollQuestionListToTop(false);

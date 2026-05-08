@@ -1,13 +1,19 @@
-import { memo } from 'react';
-import { GestureResponderEvent, Pressable, StyleSheet, Text, View } from 'react-native';
+import { memo } from "react";
+import {
+  GestureResponderEvent,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 
-import { AppTheme } from '../../../constants/theme';
-import { IconButton } from '../../../ui/IconButton';
-import { formatUpdatedAt } from '../utils/companyUtils';
+import { AppTheme } from "../../../constants/theme";
+import { IconButton } from "../../../ui/IconButton";
+import { formatUpdatedAt } from "../utils/companyUtils";
 import {
   QuestionMemoEntry,
-  UNASSIGNED_COMPANY_TITLE
-} from '../utils/questionMemoUtils';
+  UNASSIGNED_COMPANY_TITLE,
+} from "../utils/questionMemoUtils";
 
 type QuestionMemoRowProps = {
   entry: QuestionMemoEntry;
@@ -18,120 +24,127 @@ type QuestionMemoRowProps = {
   onDelete: () => void;
 };
 
-export const QuestionMemoRow = memo(({
-  entry,
-  theme,
-  accentColor,
-  onPress,
-  onOpenCompany,
-  onDelete
-}: QuestionMemoRowProps) => {
-  const { company, questionMemo, labels } = entry;
-  const updatedAt = formatUpdatedAt(
-    questionMemo.updatedAt || questionMemo.createdAt
-  );
-  const companyName = company?.companyName ?? UNASSIGNED_COMPANY_TITLE;
+export const QuestionMemoRow = memo(
+  ({
+    entry,
+    theme,
+    accentColor,
+    onPress,
+    onOpenCompany,
+    onDelete,
+  }: QuestionMemoRowProps) => {
+    const { company, questionMemo, labels } = entry;
+    const updatedAt = formatUpdatedAt(
+      questionMemo.updatedAt || questionMemo.createdAt,
+    );
+    const companyName = company?.companyName ?? UNASSIGNED_COMPANY_TITLE;
 
-  const runChildAction =
-    (handler: () => void) => (event: GestureResponderEvent) => {
-      event.stopPropagation();
-      handler();
-    };
+    const runChildAction =
+      (handler: () => void) => (event: GestureResponderEvent) => {
+        event.stopPropagation();
+        handler();
+      };
 
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={`${questionMemo.question || '題目未入力'}を開く`}
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.card,
-        {
-          backgroundColor: theme.colors.surface,
-          borderColor: theme.colors.border
-        },
-        pressed && { backgroundColor: theme.colors.surfaceSubtle }
-      ]}
-    >
-      <View style={styles.headerRow}>
-        <View style={styles.titleBlock}>
-          <Text
-            numberOfLines={2}
-            style={[styles.questionTitle, { color: theme.colors.textPrimary }]}
-          >
-            {questionMemo.question.trim() || '題目未入力'}
-          </Text>
-          <View style={styles.metaRow}>
+    return (
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${questionMemo.question || "題目未入力"}を開く`}
+        onPress={onPress}
+        style={({ pressed }) => [
+          styles.card,
+          {
+            backgroundColor: theme.colors.surface,
+            borderColor: theme.colors.border,
+          },
+          pressed && { backgroundColor: theme.colors.surfaceSubtle },
+        ]}>
+        <View style={styles.headerRow}>
+          <View style={styles.titleBlock}>
             <Text
-              numberOfLines={1}
+              numberOfLines={2}
               style={[
-                styles.companyName,
-                { color: company ? accentColor : theme.colors.textMuted }
-              ]}
-            >
-              {companyName}
+                styles.questionTitle,
+                { color: theme.colors.textPrimary },
+              ]}>
+              {questionMemo.question.trim() || "題目未入力"}
             </Text>
-            {labels.length > 0 ? (
-              <View style={styles.labelPills}>
-                {labels.map((label) => (
-                  <View
-                    key={label.id}
-                    style={[
-                      styles.labelPill,
-                      {
-                        backgroundColor: theme.colors.surface,
-                        borderColor: theme.colors.primaryBorder
-                      }
-                    ]}
-                  >
-                    <Text
-                      numberOfLines={1}
-                      style={[styles.labelText, { color: theme.colors.primary }]}
-                    >
-                      {label.name}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            ) : null}
+            <View style={styles.metaRow}>
+              <Text
+                numberOfLines={1}
+                style={[
+                  styles.companyName,
+                  { color: company ? accentColor : theme.colors.textMuted },
+                ]}>
+                {companyName}
+              </Text>
+              {labels.length > 0 ? (
+                <View style={styles.labelPills}>
+                  {labels.map((label) => (
+                    <View
+                      key={label.id}
+                      style={[
+                        styles.labelPill,
+                        {
+                          backgroundColor: theme.colors.surface,
+                          borderColor: theme.colors.primaryBorder,
+                        },
+                      ]}>
+                      <Text
+                        numberOfLines={1}
+                        style={[
+                          styles.labelText,
+                          { color: theme.colors.primary },
+                        ]}>
+                        {label.name}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              ) : null}
+            </View>
           </View>
-        </View>
 
-        <View style={styles.actions}>
-          <View style={styles.actionButtons}>
-            {company ? (
+          <View style={styles.actions}>
+            <View style={styles.actionButtons}>
+              {company ? (
+                <IconButton
+                  icon="business-outline"
+                  label={`${company.companyName}を編集`}
+                  onPress={runChildAction(onOpenCompany)}
+                  theme={theme}
+                  tone="accent"
+                  variant="plain"
+                  accentColor={accentColor}
+                  size="compact"
+                  iconSize={17}
+                />
+              ) : null}
               <IconButton
-                icon="business-outline"
-                label={`${company.companyName}を編集`}
-                onPress={runChildAction(onOpenCompany)}
+                icon="trash-outline"
+                label="質問メモを削除"
+                onPress={runChildAction(onDelete)}
                 theme={theme}
-                tone="accent"
+                tone="danger"
                 variant="plain"
-                accentColor={accentColor}
                 size="compact"
                 iconSize={17}
               />
+            </View>
+            {updatedAt ? (
+              <Text
+                style={[
+                  styles.updatedAt,
+                  { color: theme.colors.textDisabled },
+                ]}>
+                {updatedAt}
+              </Text>
             ) : null}
-            <IconButton
-              icon="trash-outline"
-              label="質問メモを削除"
-              onPress={runChildAction(onDelete)}
-              theme={theme}
-              tone="danger"
-              variant="plain"
-              size="compact"
-              iconSize={17}
-            />
           </View>
-          {updatedAt ? (
-            <Text style={[styles.updatedAt, { color: theme.colors.textDisabled }]}>
-              {updatedAt}
-            </Text>
-          ) : null}
         </View>
-      </View>
-    </Pressable>
-  );
-});
+      </Pressable>
+    );
+  },
+);
 
 const styles = StyleSheet.create({
   card: {
@@ -139,72 +152,72 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     marginBottom: 7,
     paddingHorizontal: 14,
-    paddingVertical: 9
+    paddingTop: 9,
   },
   headerRow: {
-    alignItems: 'flex-start',
-    flexDirection: 'row',
-    gap: 8
+    alignItems: "flex-start",
+    flexDirection: "row",
+    gap: 8,
   },
   titleBlock: {
     flex: 1,
-    minWidth: 0
+    minWidth: 0,
   },
   questionTitle: {
     fontSize: 14,
-    fontWeight: '700',
-    lineHeight: 19
+    fontWeight: "700",
+    lineHeight: 19,
   },
   metaRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
+    alignItems: "center",
+    flexDirection: "row",
     gap: 6,
     marginTop: 4,
-    minHeight: 17
+    minHeight: 17,
   },
   companyName: {
     flexShrink: 1,
-    fontSize: 11,
-    fontWeight: '700',
+    fontSize: 10,
+    fontWeight: "700",
     lineHeight: 15,
-    minWidth: 0
+    minWidth: 0,
   },
   labelPills: {
-    alignItems: 'center',
+    alignItems: "center",
     flex: 1,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: 5,
-    minWidth: 0
+    minWidth: 0,
   },
   labelPill: {
     borderRadius: 999,
     borderWidth: StyleSheet.hairlineWidth,
     maxWidth: 120,
     paddingHorizontal: 7,
-    paddingVertical: 1
+    paddingVertical: 1,
   },
   labelText: {
     fontSize: 10,
-    fontWeight: '700',
-    lineHeight: 14
+    fontWeight: "700",
+    lineHeight: 14,
   },
   actions: {
-    alignItems: 'flex-end',
+    alignItems: "flex-end",
     marginRight: -4,
-    minHeight: 30
+    minHeight: 30,
   },
   actionButtons: {
-    alignItems: 'flex-start',
-    flexDirection: 'row',
+    alignItems: "flex-start",
+    flexDirection: "row",
     gap: 0,
-    marginTop: -3
+    marginTop: -3,
   },
   updatedAt: {
     fontSize: 10,
-    fontWeight: '600',
+    fontWeight: "600",
     lineHeight: 14,
     marginRight: 6,
-    marginTop: -1
-  }
+    marginTop: -1,
+  },
 });

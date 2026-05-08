@@ -339,16 +339,26 @@ export const HomeMenuModal = ({
             />
           </View>
 
-          <View style={styles.menuSection}>
-            <MenuActionRow
-              icon="pricetags-outline"
-              label="質問ラベル詳細設定"
+          <View style={[styles.menuSection, styles.settingsSection]}>
+            <View
+              style={[
+                styles.divider,
+                styles.settingsDivider,
+                { backgroundColor: theme.colors.divider },
+              ]}
+            />
+            <Text
+              style={[
+                styles.sectionTitle,
+                { color: theme.colors.textPrimary },
+              ]}>
+              詳細設定
+            </Text>
+            <SettingsLinkRow
+              label="質問ラベル"
               theme={theme}
               onPress={() => runMenuAction(onOpenQuestionLabelSettings)}
             />
-          </View>
-
-          <View style={styles.menuSection}>
             <View style={styles.passwordRow}>
               <Text
                 style={[
@@ -485,6 +495,34 @@ const MenuActionRow = ({
   </Pressable>
 );
 
+const SettingsLinkRow = ({
+  label,
+  theme,
+  onPress,
+}: {
+  label: string;
+  theme: AppTheme;
+  onPress: () => void;
+}) => (
+  <Pressable
+    accessibilityRole="button"
+    onPress={onPress}
+    style={({ pressed }) => [
+      styles.settingsRow,
+      webCursor,
+      pressed && styles.pressed,
+    ]}>
+    <Text style={[styles.sectionTitle, { color: theme.colors.textPrimary }]}>
+      {label}
+    </Text>
+    <Ionicons
+      name="chevron-forward"
+      size={16}
+      color={theme.colors.textMuted}
+    />
+  </Pressable>
+);
+
 const PasswordSegmentButton = ({
   label,
   selected,
@@ -574,6 +612,12 @@ const styles = StyleSheet.create({
   menuSection: {
     gap: 8,
   },
+  settingsSection: {
+    marginTop: 2,
+  },
+  settingsDivider: {
+    marginBottom: 2,
+  },
   row: {
     alignItems: "center",
     flexDirection: "row",
@@ -635,6 +679,13 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   passwordRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 10,
+    justifyContent: "space-between",
+    minHeight: 42,
+  },
+  settingsRow: {
     alignItems: "center",
     flexDirection: "row",
     gap: 10,
