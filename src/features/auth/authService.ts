@@ -1,6 +1,9 @@
 import { Platform } from 'react-native';
 
-import { nativeAuthCallbackUrl } from '../../config/env';
+import {
+  confirmEmailRedirectUrl,
+  resetPasswordRedirectUrl
+} from '../../config/env';
 import { apiRequest } from '../../services/apiClient';
 import { requireNativeSupabase } from '../../services/nativeSupabase';
 import { normalizeAuthError } from './authErrors';
@@ -9,6 +12,19 @@ import { AuthUser } from './types';
 type AuthResponse = {
   user: AuthUser | null;
   message?: string;
+};
+
+const CONFIRMATION_SENT_MESSAGE =
+  '確認メールを送信しました。メール内のリンクから認証を完了してください。';
+
+const isUserLookupError = (message: string) => {
+  const normalized = message.toLowerCase();
+
+  return (
+    normalized.includes('user not found') ||
+    normalized.includes('email not found') ||
+    normalized.includes('not found')
+  );
 };
 
 export const getCurrentUser = async (): Promise<AuthUser | null> => {
@@ -90,11 +106,12 @@ export const signUp = async (
     });
   }
 
-  const { data, error } = await requireNativeSupabase().auth.signUp({
+  const supabase = requireNativeSupabase();
+  const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
-      emailRedirectTo: nativeAuthCallbackUrl
+      emailRedirectTo: confirmEmailRedirectUrl
     }
   });
 
@@ -102,16 +119,13 @@ export const signUp = async (
     throw normalizeAuthError(error);
   }
 
+  if (data.session) {
+    await supabase.auth.signOut({ scope: 'local' });
+  }
+
   return {
-    user: data.session && data.user
-      ? {
-          id: data.user.id,
-          email: data.user.email ?? null
-        }
-      : null,
-    message: data.session
-      ? undefined
-      : '確認メールを送信しました。メール内のリンクから登録を完了してください。'
+    user: null,
+    message: CONFIRMATION_SENT_MESSAGE
   };
 };
 
@@ -156,10 +170,17 @@ export const sendPasswordReset = async (email: string) => {
   }
 
   const { error } = await requireNativeSupabase().auth.resetPasswordForEmail(
-    email
+    email,
+    {
+      redirectTo: resetPasswordRedirectUrl
+    }
   );
 
   if (error) {
+    if (isUserLookupError(error.message)) {
+      return;
+    }
+
     throw normalizeAuthError(error);
   }
 };
@@ -177,7 +198,7 @@ export const resendConfirmationEmail = async (email: string) => {
     type: 'signup',
     email,
     options: {
-      emailRedirectTo: nativeAuthCallbackUrl
+      emailRedirectTo: confirmEmailRedirectUrl
     }
   });
 

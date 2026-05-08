@@ -3,4 +3,4 @@ export type AuthUser = {
   email: string | null;
 };
 
-export type AuthMode = 'signIn' | 'signUp';
+export type AuthMode = 'signIn' | 'signUp' | 'forgotPassword';

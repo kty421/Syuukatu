@@ -152,3 +152,5 @@ export const useAuth = () => {
 
   return value;
 };
+
+export const useOptionalAuth = () => useContext(AuthContext);

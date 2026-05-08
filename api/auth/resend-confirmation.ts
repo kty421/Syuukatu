@@ -12,7 +12,7 @@ import {
   sendJson
 } from '../_lib/http';
 import { createSupabaseServerClient } from '../_lib/supabase';
-import { getWebAuthCallbackUrl } from '../_lib/url';
+import { getConfirmEmailRedirectUrl } from '../_lib/url';
 import type { VercelRequest, VercelResponse } from '../_lib/vercel';
 
 const bodySchema = z.object({
@@ -35,7 +35,7 @@ export default async function handler(
       type: 'signup',
       email: body.email,
       options: {
-        emailRedirectTo: getWebAuthCallbackUrl(req)
+        emailRedirectTo: getConfirmEmailRedirectUrl()
       }
     });
 

@@ -22,6 +22,8 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
         '/api/auth/session',
         '/api/auth/sign-in',
         '/api/auth/sign-up',
+        '/api/auth/reset-password',
+        '/api/auth/resend-confirmation',
         '/api/companies'
       ]
     });
