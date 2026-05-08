@@ -17,6 +17,10 @@ type QuestionLabelResponse = {
   label: QuestionLabel;
 };
 
+type QuestionLabelsResponse = {
+  labels: QuestionLabel[];
+};
+
 export const fetchRemoteQuestionData = async (
   accessToken: string | null
 ) => {
@@ -30,7 +34,10 @@ export const fetchRemoteQuestionData = async (
       companyId: memo.companyId ?? null,
       labelIds: memo.labelIds ?? []
     })),
-    questionLabels: response.questionLabels
+    questionLabels: response.questionLabels.map((label) => ({
+      ...label,
+      sortOrder: label.sortOrder ?? 0
+    }))
   };
 };
 
@@ -80,5 +87,42 @@ export const createRemoteQuestionLabel = async (
     }
   );
 
-  return response.label;
+  return {
+    ...response.label,
+    sortOrder: response.label.sortOrder ?? 0
+  };
+};
+
+export const reorderRemoteQuestionLabels = async (
+  labels: QuestionLabel[],
+  accessToken: string | null
+) => {
+  const response = await apiRequest<QuestionLabelsResponse>(
+    '/api/question-labels',
+    {
+      method: 'PUT',
+      accessToken,
+      body: {
+        labels: labels.map((label, index) => ({
+          id: label.id,
+          sortOrder: index
+        }))
+      }
+    }
+  );
+
+  return response.labels.map((label) => ({
+    ...label,
+    sortOrder: label.sortOrder ?? 0
+  }));
+};
+
+export const deleteRemoteQuestionLabel = async (
+  id: string,
+  accessToken: string | null
+) => {
+  await apiRequest(`/api/question-labels?id=${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    accessToken
+  });
 };

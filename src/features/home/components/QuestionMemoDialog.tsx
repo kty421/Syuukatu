@@ -13,6 +13,7 @@ import {
   QuestionLabel,
   QuestionMemo
 } from '../types';
+import { QuestionLabelCreateDialog } from './QuestionLabelCreateDialog';
 
 type QuestionMemoDialogProps<T extends CompanyQuestionAnswer | QuestionMemo> = {
   item: T | null;
@@ -38,10 +39,8 @@ export const QuestionMemoDialog = <
   const [question, setQuestion] = useState('');
   const [answer, setAnswer] = useState('');
   const [selectedLabelIds, setSelectedLabelIds] = useState<string[]>([]);
-  const [newLabelName, setNewLabelName] = useState('');
   const [titleError, setTitleError] = useState<string | null>(null);
-  const [labelError, setLabelError] = useState<string | null>(null);
-  const [isCreatingLabel, setIsCreatingLabel] = useState(false);
+  const [labelCreateVisible, setLabelCreateVisible] = useState(false);
   const [saveNoticeVisible, setSaveNoticeVisible] = useState(false);
   const questionInputRef = useRef<TextInput>(null);
 
@@ -53,10 +52,8 @@ export const QuestionMemoDialog = <
     setQuestion(item.question);
     setAnswer(item.answer);
     setSelectedLabelIds(item.labelIds ?? []);
-    setNewLabelName('');
     setTitleError(null);
-    setLabelError(null);
-    setIsCreatingLabel(false);
+    setLabelCreateVisible(false);
   }, [item]);
 
   useEffect(() => {
@@ -82,43 +79,6 @@ export const QuestionMemoDialog = <
         ? current.filter((id) => id !== labelId)
         : [...current, labelId]
     );
-  };
-
-  const addLabel = async () => {
-    const trimmedName = newLabelName.trim();
-
-    if (!trimmedName) {
-      setLabelError('ラベル名を入力してください');
-      return;
-    }
-
-    const existing = labels.find((label) => label.name === trimmedName);
-
-    if (existing) {
-      setSelectedLabelIds((current) =>
-        current.includes(existing.id) ? current : [...current, existing.id]
-      );
-      setNewLabelName('');
-      setLabelError(null);
-      return;
-    }
-
-    setIsCreatingLabel(true);
-    setLabelError(null);
-
-    try {
-      const createdLabel = await onCreateLabel(trimmedName);
-      setSelectedLabelIds((current) =>
-        current.includes(createdLabel.id)
-          ? current
-          : [...current, createdLabel.id]
-      );
-      setNewLabelName('');
-    } catch {
-      setLabelError('ラベルを作成できませんでした');
-    } finally {
-      setIsCreatingLabel(false);
-    }
   };
 
   const save = () => {
@@ -168,7 +128,7 @@ export const QuestionMemoDialog = <
               color={theme.colors.primary}
             />
             <Text style={[styles.saveNoticeText, { color: theme.colors.textPrimary }]}>
-              保存しました。続けて入力できます。
+              保存中です。続けて入力できます。
             </Text>
           </View>
         ) : null}
@@ -212,9 +172,26 @@ export const QuestionMemoDialog = <
             </View>
 
             <View>
-              <Text style={[styles.fieldLabel, { color: theme.colors.textSecondary }]}>
-                ラベル
-              </Text>
+              <View style={styles.labelHeader}>
+                <Text style={[styles.fieldLabel, { color: theme.colors.textSecondary }]}>
+                  ラベル
+                </Text>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="ラベルを追加"
+                  onPress={() => setLabelCreateVisible(true)}
+                  style={({ pressed }) => [
+                    styles.addLabelButton,
+                    {
+                      backgroundColor: theme.colors.surfaceElevated,
+                      borderColor: theme.colors.border
+                    },
+                    pressed && styles.pressed
+                  ]}
+                >
+                  <Ionicons name="add" size={17} color={theme.colors.primary} />
+                </Pressable>
+              </View>
               {labels.length > 0 ? (
                 <View style={styles.labelChips}>
                   {labels.map((label) => {
@@ -257,38 +234,6 @@ export const QuestionMemoDialog = <
                   })}
                 </View>
               ) : null}
-              <View style={styles.newLabelRow}>
-                <View style={styles.newLabelInput}>
-                  <InputField
-                    label="新しいラベル"
-                    theme={theme}
-                    value={newLabelName}
-                    errorMessage={labelError}
-                    placeholder="ラベル名"
-                    onChangeText={(value) => {
-                      setNewLabelName(value);
-                      if (labelError) {
-                        setLabelError(null);
-                      }
-                    }}
-                    onSubmitEditing={() => {
-                      void addLabel();
-                    }}
-                  />
-                </View>
-                <AppButton
-                  label="追加"
-                  icon="add"
-                  size="compact"
-                  loading={isCreatingLabel}
-                  disabled={isCreatingLabel}
-                  onPress={() => {
-                    void addLabel();
-                  }}
-                  theme={theme}
-                  variant="secondary"
-                />
-              </View>
             </View>
 
             <AppButton
@@ -299,6 +244,21 @@ export const QuestionMemoDialog = <
             />
           </DismissKeyboardView>
         </KeyboardAwareScrollView>
+        <QuestionLabelCreateDialog
+          visible={labelCreateVisible}
+          labels={labels}
+          theme={theme}
+          onClose={() => setLabelCreateVisible(false)}
+          onCreate={async (name) => {
+            const createdLabel = await onCreateLabel(name);
+            setSelectedLabelIds((current) =>
+              current.includes(createdLabel.id)
+                ? current
+                : [...current, createdLabel.id]
+            );
+            return createdLabel;
+          }}
+        />
       </View>
     </FullScreenModalShell>
   );
@@ -353,7 +313,21 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     lineHeight: 16,
+  },
+  labelHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 8,
+    justifyContent: 'space-between',
     marginBottom: 8
+  },
+  addLabelButton: {
+    alignItems: 'center',
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    height: 30,
+    justifyContent: 'center',
+    width: 32
   },
   labelChips: {
     flexDirection: 'row',
@@ -373,15 +347,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     lineHeight: 16
-  },
-  newLabelRow: {
-    alignItems: 'flex-end',
-    flexDirection: 'row',
-    gap: 10
-  },
-  newLabelInput: {
-    flex: 1,
-    minWidth: 0
   },
   pressed: {
     opacity: 0.72

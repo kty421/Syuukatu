@@ -41,6 +41,7 @@ export default async function handler(
         supabase
           .from('question_labels')
           .select('*')
+          .order('sort_order', { ascending: true })
           .order('created_at', { ascending: true })
       ]);
 

@@ -14,6 +14,7 @@ create table if not exists public.question_labels (
   id text primary key,
   user_id uuid not null references auth.users (id) on delete cascade,
   name text not null,
+  sort_order integer not null default 0,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint question_labels_user_name_key unique (user_id, name)

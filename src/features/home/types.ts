@@ -41,6 +41,7 @@ export type QuestionMemoDraft = Omit<
 export type QuestionLabel = {
   id: string;
   name: string;
+  sortOrder: number;
   createdAt: string;
   updatedAt: string;
 };

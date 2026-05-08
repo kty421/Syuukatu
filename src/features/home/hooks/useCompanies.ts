@@ -7,8 +7,10 @@ import {
 } from '../../../services/companyApi';
 import {
   createRemoteQuestionLabel,
+  deleteRemoteQuestionLabel,
   deleteRemoteQuestionMemo,
   fetchRemoteQuestionData,
+  reorderRemoteQuestionLabels,
   upsertRemoteQuestionMemo
 } from '../../../services/questionApi';
 import {
@@ -47,6 +49,12 @@ const sortQuestionMemosByUpdate = (questionMemos: QuestionMemo[]) =>
 
 const sortQuestionLabels = (labels: QuestionLabel[]) =>
   [...labels].sort((a, b) => {
+    const sortOrderDiff = (a.sortOrder ?? 0) - (b.sortOrder ?? 0);
+
+    if (sortOrderDiff !== 0) {
+      return sortOrderDiff;
+    }
+
     const timeOrder =
       new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
 
@@ -59,6 +67,10 @@ const sortQuestionLabels = (labels: QuestionLabel[]) =>
 
 const unique = (values: string[]) =>
   [...new Set(values.map((value) => value.trim()).filter(Boolean))];
+
+const areStringArraysEqual = (first: string[], second: string[]) =>
+  first.length === second.length &&
+  first.every((value, index) => value === second[index]);
 
 const mergeByNewestUpdate = (current: Company[], local: Company[]) => {
   const byId = new Map<string, Company>();
@@ -133,6 +145,10 @@ export const useCompanies = ({
   const companiesRef = useRef<Company[]>([]);
   const questionMemosRef = useRef<QuestionMemo[]>([]);
   const questionLabelsRef = useRef<QuestionLabel[]>([]);
+  const pendingQuestionLabelSavesRef = useRef(
+    new Map<string, Promise<QuestionLabel>>()
+  );
+  const questionLabelIdAliasesRef = useRef(new Map<string, string>());
 
   const setCompaniesState = useCallback(
     (nextCompanies: Company[] | ((current: Company[]) => Company[])) => {
@@ -184,6 +200,27 @@ export const useCompanies = ({
     },
     []
   );
+
+  const resolveQuestionLabelIds = useCallback(async (labelIds: string[]) => {
+    const uniqueLabelIds = unique(labelIds);
+    const pendingSaves = uniqueLabelIds
+      .map((labelId) => pendingQuestionLabelSavesRef.current.get(labelId))
+      .filter((promise): promise is Promise<QuestionLabel> => Boolean(promise));
+
+    if (pendingSaves.length > 0) {
+      await Promise.all(pendingSaves);
+    }
+
+    const availableLabelIds = new Set(
+      questionLabelsRef.current.map((label) => label.id)
+    );
+
+    return unique(
+      uniqueLabelIds.map(
+        (labelId) => questionLabelIdAliasesRef.current.get(labelId) ?? labelId
+      )
+    ).filter((labelId) => availableLabelIds.has(labelId));
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -345,8 +382,31 @@ export const useCompanies = ({
       setStorageError(null);
 
       try {
-        const accessToken = await getAccessToken();
-        await upsertRemoteQuestionMemo(nextQuestionMemo, accessToken);
+        const [accessToken, resolvedLabelIds] = await Promise.all([
+          getAccessToken(),
+          resolveQuestionLabelIds(nextQuestionMemo.labelIds)
+        ]);
+        const remoteQuestionMemo = {
+          ...nextQuestionMemo,
+          labelIds: resolvedLabelIds
+        };
+
+        if (
+          !areStringArraysEqual(resolvedLabelIds, nextQuestionMemo.labelIds)
+        ) {
+          setQuestionMemosState((latestQuestionMemos) =>
+            sortQuestionMemosByUpdate(
+              latestQuestionMemos.map((questionMemo) =>
+                questionMemo.id === nextQuestionMemo.id &&
+                questionMemo.updatedAt === nextQuestionMemo.updatedAt
+                  ? { ...questionMemo, labelIds: resolvedLabelIds }
+                  : questionMemo
+              )
+            )
+          );
+        }
+
+        await upsertRemoteQuestionMemo(remoteQuestionMemo, accessToken);
         setStorageError(null);
       } catch (error) {
         setQuestionMemosState((latestQuestionMemos) => {
@@ -377,7 +437,7 @@ export const useCompanies = ({
 
       return nextQuestionMemo;
     },
-    [getAccessToken, setQuestionMemosState]
+    [getAccessToken, resolveQuestionLabelIds, setQuestionMemosState]
   );
 
   const deleteQuestionMemo = useCallback(
@@ -440,6 +500,7 @@ export const useCompanies = ({
       const optimisticLabel: QuestionLabel = {
         id: createLabelId(),
         name: trimmedName,
+        sortOrder: questionLabelsRef.current.length,
         createdAt: now,
         updatedAt: now
       };
@@ -449,34 +510,136 @@ export const useCompanies = ({
       );
       setStorageError(null);
 
+      const savePromise = (async () => {
+        try {
+          const accessToken = await getAccessToken();
+          const savedLabel = await createRemoteQuestionLabel(
+            optimisticLabel,
+            accessToken
+          );
+
+          if (savedLabel.id !== optimisticLabel.id) {
+            questionLabelIdAliasesRef.current.set(
+              optimisticLabel.id,
+              savedLabel.id
+            );
+            setQuestionMemosState((currentQuestionMemos) =>
+              currentQuestionMemos.map((questionMemo) =>
+                questionMemo.labelIds.includes(optimisticLabel.id)
+                  ? {
+                      ...questionMemo,
+                      labelIds: unique(
+                        questionMemo.labelIds.map((labelId) =>
+                          labelId === optimisticLabel.id
+                            ? savedLabel.id
+                            : labelId
+                        )
+                      )
+                    }
+                  : questionMemo
+              )
+            );
+          }
+
+          setQuestionLabelsState((currentLabels) =>
+            sortQuestionLabels(
+              savedLabel.id !== optimisticLabel.id &&
+                currentLabels.some((label) => label.id === savedLabel.id)
+                ? currentLabels.filter((label) => label.id !== optimisticLabel.id)
+                : currentLabels.map((label) =>
+                    label.id === optimisticLabel.id ? savedLabel : label
+                  )
+            )
+          );
+          setStorageError(null);
+          return savedLabel;
+        } catch (error) {
+          setQuestionLabelsState((currentLabels) =>
+            currentLabels.filter((label) => label.id !== optimisticLabel.id)
+          );
+          setQuestionMemosState((currentQuestionMemos) =>
+            currentQuestionMemos.map((questionMemo) =>
+              questionMemo.labelIds.includes(optimisticLabel.id)
+                ? {
+                    ...questionMemo,
+                    labelIds: questionMemo.labelIds.filter(
+                      (labelId) => labelId !== optimisticLabel.id
+                    )
+                  }
+                : questionMemo
+            )
+          );
+          setStorageError('ラベルの作成に失敗しました。');
+          throw error;
+        }
+      })();
+      pendingQuestionLabelSavesRef.current.set(optimisticLabel.id, savePromise);
+      void savePromise
+        .finally(() => {
+          pendingQuestionLabelSavesRef.current.delete(optimisticLabel.id);
+        })
+        .catch(() => undefined);
+
+      return optimisticLabel;
+    },
+    [getAccessToken, setQuestionLabelsState, setQuestionMemosState]
+  );
+
+  const reorderQuestionLabels = useCallback(
+    async (nextLabels: QuestionLabel[]) => {
+      const previousLabels = questionLabelsRef.current;
+      const normalizedLabels = nextLabels.map((label, index) => ({
+        ...label,
+        sortOrder: index
+      }));
+
+      setQuestionLabelsState(sortQuestionLabels(normalizedLabels));
+      setStorageError(null);
+
       try {
         const accessToken = await getAccessToken();
-        const savedLabel = await createRemoteQuestionLabel(
-          optimisticLabel,
+        const savedLabels = await reorderRemoteQuestionLabels(
+          normalizedLabels,
           accessToken
         );
 
-        setQuestionLabelsState((currentLabels) =>
-          sortQuestionLabels(
-            savedLabel.id !== optimisticLabel.id &&
-              currentLabels.some((label) => label.id === savedLabel.id)
-              ? currentLabels.filter((label) => label.id !== optimisticLabel.id)
-              : currentLabels.map((label) =>
-                  label.id === optimisticLabel.id ? savedLabel : label
-                )
-          )
-        );
+        setQuestionLabelsState(sortQuestionLabels(savedLabels));
         setStorageError(null);
-        return savedLabel;
       } catch (error) {
-        setQuestionLabelsState((currentLabels) =>
-          currentLabels.filter((label) => label.id !== optimisticLabel.id)
-        );
-        setStorageError('ラベルの作成に失敗しました。');
+        setQuestionLabelsState(previousLabels);
+        setStorageError('ラベルの並び替えに失敗しました。');
         throw error;
       }
     },
     [getAccessToken, setQuestionLabelsState]
+  );
+
+  const deleteQuestionLabel = useCallback(
+    async (id: string) => {
+      const previousLabels = questionLabelsRef.current;
+      const previousQuestionMemos = questionMemosRef.current;
+
+      setQuestionLabelsState(previousLabels.filter((label) => label.id !== id));
+      setQuestionMemosState(
+        previousQuestionMemos.map((questionMemo) => ({
+          ...questionMemo,
+          labelIds: questionMemo.labelIds.filter((labelId) => labelId !== id)
+        }))
+      );
+      setStorageError(null);
+
+      try {
+        const accessToken = await getAccessToken();
+        await deleteRemoteQuestionLabel(id, accessToken);
+        setStorageError(null);
+      } catch (error) {
+        setQuestionLabelsState(previousLabels);
+        setQuestionMemosState(previousQuestionMemos);
+        setStorageError('ラベルの削除に失敗しました。');
+        throw error;
+      }
+    },
+    [getAccessToken, setQuestionLabelsState, setQuestionMemosState]
   );
 
   const deleteCompany = useCallback(
@@ -643,6 +806,8 @@ export const useCompanies = ({
     upsertQuestionMemo,
     deleteQuestionMemo,
     createQuestionLabel,
+    reorderQuestionLabels,
+    deleteQuestionLabel,
     deleteCompany,
     importLocalCompanies,
     dismissLocalMigration,

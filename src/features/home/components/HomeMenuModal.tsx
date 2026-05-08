@@ -22,6 +22,7 @@ import Animated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppTheme } from "../../../constants/theme";
+import { QuestionLabel } from "../types";
 import { MainTab } from "./BottomNavigation";
 
 type HomeMenuModalProps = {
@@ -30,11 +31,15 @@ type HomeMenuModalProps = {
   userEmail: string | null;
   showPasswordControls: boolean;
   passwordDefaultVisible: boolean;
+  questionLabels: QuestionLabel[];
   theme: AppTheme;
   onOpen: () => void;
   onViewChange: (view: MainTab) => void;
   onCreateCompany: () => void;
   onCreateQuestion: () => void;
+  onCreateQuestionLabel: () => void;
+  onMoveQuestionLabel: (labelId: string, direction: -1 | 1) => void;
+  onDeleteQuestionLabel: (labelId: string) => void;
   onPasswordDefaultVisibleChange: (visible: boolean) => void;
   onSignOut: () => void;
   onClose: () => void;
@@ -72,11 +77,15 @@ export const HomeMenuModal = ({
   userEmail,
   showPasswordControls,
   passwordDefaultVisible,
+  questionLabels,
   theme,
   onOpen,
   onViewChange,
   onCreateCompany,
   onCreateQuestion,
+  onCreateQuestionLabel,
+  onMoveQuestionLabel,
+  onDeleteQuestionLabel,
   onPasswordDefaultVisibleChange,
   onSignOut,
   onClose,
@@ -338,6 +347,82 @@ export const HomeMenuModal = ({
           </View>
 
           <View style={styles.menuSection}>
+            <View style={styles.labelSectionHeader}>
+              <Text
+                style={[
+                  styles.sectionTitle,
+                  { color: theme.colors.textPrimary },
+                ]}>
+                ラベル詳細
+              </Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="ラベルを追加"
+                onPress={() => runMenuAction(onCreateQuestionLabel)}
+                style={({ pressed }) => [
+                  styles.labelHeaderButton,
+                  webCursor,
+                  {
+                    backgroundColor: theme.colors.surfaceElevated,
+                    borderColor: theme.colors.border,
+                  },
+                  pressed && styles.pressed,
+                ]}>
+                <Ionicons name="add" size={16} color={theme.colors.primary} />
+              </Pressable>
+            </View>
+            {questionLabels.length > 0 ? (
+              <View style={styles.labelList}>
+                {questionLabels.map((label, index) => (
+                  <View
+                    key={label.id}
+                    style={[
+                      styles.labelManageRow,
+                      {
+                        backgroundColor: theme.colors.surface,
+                        borderColor: theme.colors.border,
+                      },
+                    ]}>
+                    <Text
+                      numberOfLines={1}
+                      style={[
+                        styles.labelManageText,
+                        { color: theme.colors.textPrimary },
+                      ]}>
+                      {label.name}
+                    </Text>
+                    <LabelIconButton
+                      icon="chevron-up-outline"
+                      label={`${label.name}を上へ移動`}
+                      disabled={index === 0}
+                      theme={theme}
+                      onPress={() => onMoveQuestionLabel(label.id, -1)}
+                    />
+                    <LabelIconButton
+                      icon="chevron-down-outline"
+                      label={`${label.name}を下へ移動`}
+                      disabled={index === questionLabels.length - 1}
+                      theme={theme}
+                      onPress={() => onMoveQuestionLabel(label.id, 1)}
+                    />
+                    <LabelIconButton
+                      icon="trash-outline"
+                      label={`${label.name}を削除`}
+                      danger
+                      theme={theme}
+                      onPress={() => onDeleteQuestionLabel(label.id)}
+                    />
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <Text style={[styles.emptyLabelText, { color: theme.colors.textMuted }]}>
+                ラベルはありません
+              </Text>
+            )}
+          </View>
+
+          <View style={styles.menuSection}>
             <View style={styles.passwordRow}>
               <Text
                 style={[
@@ -511,6 +596,46 @@ const PasswordSegmentButton = ({
   </Pressable>
 );
 
+const LabelIconButton = ({
+  icon,
+  label,
+  disabled,
+  danger,
+  theme,
+  onPress,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  disabled?: boolean;
+  danger?: boolean;
+  theme: AppTheme;
+  onPress: () => void;
+}) => (
+  <Pressable
+    accessibilityRole="button"
+    accessibilityLabel={label}
+    disabled={disabled}
+    onPress={onPress}
+    style={({ pressed }) => [
+      styles.labelIconButton,
+      webCursor,
+      disabled && styles.disabled,
+      pressed && !disabled && styles.pressed,
+    ]}>
+    <Ionicons
+      name={icon}
+      size={15}
+      color={
+        disabled
+          ? theme.colors.textDisabled
+          : danger
+            ? theme.colors.danger
+            : theme.colors.textSecondary
+      }
+    />
+  </Pressable>
+);
+
 const styles = StyleSheet.create({
   root: {
     ...StyleSheet.absoluteFillObject,
@@ -562,6 +687,52 @@ const styles = StyleSheet.create({
   },
   menuSection: {
     gap: 8,
+  },
+  labelSectionHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    minHeight: 34,
+  },
+  labelHeaderButton: {
+    alignItems: "center",
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    height: 30,
+    justifyContent: "center",
+    width: 32,
+  },
+  labelList: {
+    gap: 6,
+  },
+  labelManageRow: {
+    alignItems: "center",
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    flexDirection: "row",
+    gap: 2,
+    minHeight: 38,
+    paddingLeft: 10,
+    paddingRight: 4,
+  },
+  labelManageText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: "800",
+    lineHeight: 17,
+    minWidth: 0,
+  },
+  labelIconButton: {
+    alignItems: "center",
+    borderRadius: 9,
+    height: 28,
+    justifyContent: "center",
+    width: 28,
+  },
+  emptyLabelText: {
+    fontSize: 12,
+    fontWeight: "700",
+    lineHeight: 17,
   },
   row: {
     alignItems: "center",
@@ -670,5 +841,8 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.72,
+  },
+  disabled: {
+    opacity: 0.38,
   },
 });

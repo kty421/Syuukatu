@@ -97,6 +97,11 @@ export const QuestionMemoRow = memo(({
         </View>
 
         <View style={styles.actions}>
+          {updatedAt ? (
+            <Text style={[styles.updatedAt, { color: theme.colors.textDisabled }]}>
+              {updatedAt}
+            </Text>
+          ) : null}
           {company ? (
             <IconButton
               icon="business-outline"
@@ -122,14 +127,6 @@ export const QuestionMemoRow = memo(({
           />
         </View>
       </View>
-
-      {updatedAt ? (
-        <View style={styles.footerRow}>
-          <Text style={[styles.updatedAt, { color: theme.colors.textDisabled }]}>
-            {updatedAt}
-          </Text>
-        </View>
-      ) : null}
     </Pressable>
   );
 });
@@ -138,9 +135,9 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: 14,
     borderWidth: StyleSheet.hairlineWidth,
-    marginBottom: 8,
+    marginBottom: 7,
     paddingHorizontal: 14,
-    paddingVertical: 10
+    paddingVertical: 9
   },
   headerRow: {
     alignItems: 'flex-start',
@@ -157,11 +154,11 @@ const styles = StyleSheet.create({
     lineHeight: 19
   },
   metaRow: {
-    alignItems: 'flex-start',
+    alignItems: 'center',
     flexDirection: 'row',
     gap: 6,
-    marginTop: 5,
-    minHeight: 20
+    marginTop: 4,
+    minHeight: 17
   },
   companyName: {
     flexShrink: 1,
@@ -171,6 +168,7 @@ const styles = StyleSheet.create({
     minWidth: 0
   },
   labelPills: {
+    alignItems: 'center',
     flex: 1,
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -181,8 +179,8 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     borderWidth: StyleSheet.hairlineWidth,
     maxWidth: 120,
-    paddingHorizontal: 8,
-    paddingVertical: 3
+    paddingHorizontal: 7,
+    paddingVertical: 1
   },
   labelText: {
     fontSize: 10,
@@ -190,18 +188,17 @@ const styles = StyleSheet.create({
     lineHeight: 14
   },
   actions: {
-    alignItems: 'center',
+    alignItems: 'flex-start',
     flexDirection: 'row',
     gap: 0,
-    marginRight: -4
-  },
-  footerRow: {
-    alignItems: 'flex-end',
-    marginTop: 8
+    marginRight: -4,
+    minHeight: 30
   },
   updatedAt: {
     fontSize: 10,
     fontWeight: '600',
-    lineHeight: 14
+    lineHeight: 14,
+    marginRight: 4,
+    marginTop: 1
   }
 });

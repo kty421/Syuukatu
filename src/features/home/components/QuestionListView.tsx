@@ -14,12 +14,10 @@ import {
 
 import { AppTheme } from '../../../constants/theme';
 import { FilterChip } from '../../../ui/FilterChip';
-import { SectionHeader } from '../../../ui/SectionHeader';
 import { QuestionLabel } from '../types';
 import {
   QuestionMemoEntry,
-  QuestionMemoSort,
-  UNASSIGNED_COMPANY_TITLE
+  QuestionMemoSort
 } from '../utils/questionMemoUtils';
 import { QuestionMemoRow } from './QuestionMemoRow';
 import { QuestionSortMenu } from './QuestionSortMenu';
@@ -50,66 +48,25 @@ type QuestionListViewProps = {
 };
 
 export type QuestionListItem =
-  | {
-      kind: 'section';
-      id: string;
-      title: string;
-      count: number;
-    }
-  | {
-      kind: 'question';
-      id: string;
-      entry: QuestionMemoEntry;
-    };
+  {
+    kind: 'question';
+    id: string;
+    entry: QuestionMemoEntry;
+  };
 
 const QUESTION_LIST_OVERRIDE_PROPS = { initialDrawBatchSize: 10 } as const;
 const DISABLED_MAINTAIN_VISIBLE_CONTENT_POSITION = { disabled: true } as const;
 const getQuestionListItemType = (item: QuestionListItem) => item.kind;
 const keyQuestionListItem = (item: QuestionListItem) => item.id;
 
-const getGroupKey = (entry: QuestionMemoEntry) =>
-  entry.company?.id ?? '__unassigned__';
-
-const getGroupTitle = (entry: QuestionMemoEntry) =>
-  entry.company?.companyName ?? UNASSIGNED_COMPANY_TITLE;
-
 const buildQuestionListItems = (
   entries: QuestionMemoEntry[]
-): QuestionListItem[] => {
-  const grouped = new Map<
-    string,
-    { title: string; entries: QuestionMemoEntry[] }
-  >();
-
-  for (const entry of entries) {
-    const key = getGroupKey(entry);
-    const group = grouped.get(key);
-
-    if (group) {
-      group.entries.push(entry);
-      continue;
-    }
-
-    grouped.set(key, {
-      title: getGroupTitle(entry),
-      entries: [entry]
-    });
-  }
-
-  return [...grouped.entries()].flatMap(([id, group]) => [
-    {
-      kind: 'section' as const,
-      id: `section:${id}`,
-      title: group.title,
-      count: group.entries.length
-    },
-    ...group.entries.map((entry) => ({
-      kind: 'question' as const,
-      id: `question:${entry.questionMemo.id}`,
-      entry
-    }))
-  ]);
-};
+): QuestionListItem[] =>
+  entries.map((entry) => ({
+    kind: 'question' as const,
+    id: `question:${entry.questionMemo.id}`,
+    entry
+  }));
 
 type QuestionMemoListItemProps = {
   entry: QuestionMemoEntry;
@@ -193,6 +150,15 @@ export const QuestionListView = ({
   const renderControls = () => (
     <View style={[styles.controlShell, { paddingHorizontal: contentPadding }]}>
       <View style={[containerStyle, styles.filterBar]}>
+        <FilterChip
+          label={`すべて ${totalCount}`}
+          theme={theme}
+          selected={!selectedLabelId}
+          tint={accentColor}
+          surface={accentSurface}
+          border={accentBorder}
+          onPress={() => onLabelFilterChange(null)}
+        />
         <ScrollView
           horizontal
           keyboardShouldPersistTaps="handled"
@@ -200,30 +166,6 @@ export const QuestionListView = ({
           contentContainerStyle={styles.filterChips}
           style={styles.filterScroll}
         >
-          <FilterChip
-            label={`すべて ${totalCount}`}
-            theme={theme}
-            selected={!selectedLabelId}
-            tint={accentColor}
-            surface={accentSurface}
-            border={accentBorder}
-            onPress={() => onLabelFilterChange(null)}
-          />
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="ラベルを追加"
-            onPress={onCreateLabelPress}
-            style={({ pressed }) => [
-              styles.addLabelButton,
-              {
-                backgroundColor: theme.colors.surface,
-                borderColor: theme.colors.border
-              },
-              pressed && styles.pressed
-            ]}
-          >
-            <Ionicons name="add" size={18} color={accentColor} />
-          </Pressable>
           {labels.map((label) => (
             <FilterChip
               key={label.id}
@@ -243,6 +185,21 @@ export const QuestionListView = ({
           accentColor={accentColor}
           onChange={onSortChange}
         />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="ラベルを追加"
+          onPress={onCreateLabelPress}
+          style={({ pressed }) => [
+            styles.addLabelButton,
+            {
+              backgroundColor: theme.colors.surface,
+              borderColor: theme.colors.border
+            },
+            pressed && styles.pressed
+          ]}
+        >
+          <Ionicons name="add" size={18} color={accentColor} />
+        </Pressable>
       </View>
     </View>
   );
@@ -321,14 +278,6 @@ export const QuestionListView = ({
 
   const renderQuestionItem = useCallback(
     ({ item }: { item: QuestionListItem }) => {
-      if (item.kind === 'section') {
-        return (
-          <View style={[containerStyle, styles.sectionHeader]}>
-            <SectionHeader title={item.title} count={item.count} theme={theme} />
-          </View>
-        );
-      }
-
       return (
         <QuestionMemoListItem
           entry={item.entry}
@@ -413,9 +362,6 @@ const styles = StyleSheet.create({
     minWidth: 36,
     overflow: 'hidden',
     ...(webPointer ?? {})
-  },
-  sectionHeader: {
-    marginTop: 14
   },
   emptyState: {
     alignItems: 'center',

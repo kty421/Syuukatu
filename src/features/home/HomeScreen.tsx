@@ -340,6 +340,8 @@ export const HomeScreen = ({
     upsertQuestionMemo,
     deleteQuestionMemo: deleteQuestionMemoById,
     createQuestionLabel,
+    reorderQuestionLabels,
+    deleteQuestionLabel,
     deleteCompany,
     importLocalCompanies,
     dismissLocalMigration
@@ -851,8 +853,8 @@ export const HomeScreen = ({
       draftQuestionAnswers.map((questionAnswer) => questionAnswer.id)
     );
 
-    try {
-      await Promise.all(
+    const questionSyncPromise = Promise.all([
+      Promise.all(
         draftQuestionAnswers
           .filter((questionAnswer) => questionAnswer.question.trim())
           .map((questionAnswer) =>
@@ -866,16 +868,17 @@ export const HomeScreen = ({
               updatedAt: questionAnswer.updatedAt
             })
           )
-      );
-      await Promise.all(
+      ),
+      Promise.all(
         [...previousQuestionIds]
           .filter((id) => !nextQuestionIds.has(id))
           .map(deleteQuestionMemoById)
-      );
-    } catch (error) {
+      )
+    ]);
+
+    void questionSyncPromise.catch(() => {
       showToast('企業は保存しましたが、質問メモの保存に失敗しました', 'error');
-      throw error;
-    }
+    });
     void runHapticsSafely(() =>
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
     );
@@ -1003,7 +1006,63 @@ export const HomeScreen = ({
     setQuestionCreateCompanyId(null);
   }, []);
 
-  const saveQuestionMemo = useCallback(async (item: QuestionMemo) => {
+  const moveQuestionLabel = useCallback(
+    (labelId: string, direction: -1 | 1) => {
+      const currentIndex = questionLabels.findIndex(
+        (label) => label.id === labelId
+      );
+      const nextIndex = currentIndex + direction;
+
+      if (currentIndex < 0 || nextIndex < 0 || nextIndex >= questionLabels.length) {
+        return;
+      }
+
+      const nextLabels = [...questionLabels];
+      const [movedLabel] = nextLabels.splice(currentIndex, 1);
+      nextLabels.splice(nextIndex, 0, movedLabel);
+
+      void reorderQuestionLabels(nextLabels).catch(() => {
+        showToast('ラベルの並び替えに失敗しました', 'error');
+      });
+    },
+    [questionLabels, reorderQuestionLabels, showToast]
+  );
+
+  const handleDeleteQuestionLabel = useCallback(
+    (labelId: string) => {
+      const label = questionLabels.find((item) => item.id === labelId);
+
+      if (!label) {
+        return;
+      }
+
+      confirmDestructiveAction({
+        title: 'ラベルを削除しますか？',
+        message: `「${label.name}」を削除します。質問メモ自体は削除されません。`,
+        confirmLabel: 'OK',
+        onConfirm: async () => {
+          try {
+            await deleteQuestionLabel(labelId);
+            if (selectedQuestionLabelId === labelId) {
+              setSelectedQuestionLabelId(null);
+            }
+            showToast('ラベルを削除しました');
+          } catch {
+            showToast('ラベルの削除に失敗しました', 'error');
+          }
+        }
+      });
+    },
+    [
+      confirmDestructiveAction,
+      deleteQuestionLabel,
+      questionLabels,
+      selectedQuestionLabelId,
+      showToast
+    ]
+  );
+
+  const saveQuestionMemo = useCallback((item: QuestionMemo) => {
     if (!editingQuestionMemo) {
       return;
     }
@@ -1029,11 +1088,10 @@ export const HomeScreen = ({
     );
 
     try {
-      await upsertQuestionMemo(nextItem);
+      const savePromise = upsertQuestionMemo(nextItem);
       void runHapticsSafely(() =>
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
       );
-      showToast('質問メモを保存しました');
       const shouldContinueCreating =
         !isExistingQuestionMemo &&
         questionCreateCompanyId === nextItem.companyId;
@@ -1042,6 +1100,9 @@ export const HomeScreen = ({
         setQuestionSaveNoticeKey((current) => current + 1);
         setEditingQuestionMemo({
           item: createQuestionMemoDraft(nextItem.companyId)
+        });
+        void savePromise.catch(() => {
+          showToast('質問メモの保存に失敗しました', 'error');
         });
         return;
       }
@@ -1054,6 +1115,14 @@ export const HomeScreen = ({
         setQuestionQuery('');
         scrollQuestionListToTop();
       }
+
+      void savePromise
+        .then(() => {
+          showToast('質問メモを保存しました');
+        })
+        .catch(() => {
+          showToast('質問メモの保存に失敗しました', 'error');
+        });
     } catch {
       showToast('質問メモの保存に失敗しました', 'error');
     }
@@ -1460,6 +1529,7 @@ export const HomeScreen = ({
         userEmail={user.email}
         showPasswordControls={showPasswordControls}
         passwordDefaultVisible={passwordDefaultVisible}
+        questionLabels={questionLabels}
         theme={theme}
         onOpen={() => setMenuVisible(true)}
         onViewChange={(view) => {
@@ -1471,6 +1541,9 @@ export const HomeScreen = ({
         onCreateQuestion={() => {
           void openQuestionCompanyPicker();
         }}
+        onCreateQuestionLabel={() => setQuestionLabelDialogVisible(true)}
+        onMoveQuestionLabel={moveQuestionLabel}
+        onDeleteQuestionLabel={handleDeleteQuestionLabel}
         onPasswordDefaultVisibleChange={changePasswordDefaultVisibility}
         onClose={() => setMenuVisible(false)}
         onSignOut={() => {

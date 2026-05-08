@@ -17,12 +17,22 @@ export const upsertQuestionMemoBodySchema = z.object({
 export const questionLabelSchema = z.object({
   id: z.string().min(1),
   name: z.string(),
+  sortOrder: z.number().int().optional().default(0),
   createdAt: z.string().optional(),
   updatedAt: z.string().optional()
 });
 
 export const upsertQuestionLabelBodySchema = z.object({
   label: questionLabelSchema
+});
+
+export const reorderQuestionLabelsBodySchema = z.object({
+  labels: z.array(
+    z.object({
+      id: z.string().min(1),
+      sortOrder: z.number().int()
+    })
+  )
 });
 
 export type QuestionMemoPayload = z.infer<typeof questionMemoSchema>;
@@ -46,6 +56,7 @@ export type QuestionLabelRow = {
   id: string;
   user_id: string;
   name: string;
+  sort_order: number | null;
   created_at: string;
   updated_at: string;
 };
@@ -86,6 +97,7 @@ export const toQuestionLabelRow = (
   id: label.id,
   user_id: userId,
   name: label.name.trim(),
+  sort_order: label.sortOrder,
   created_at: label.createdAt,
   updated_at: label.updatedAt
 });
@@ -95,6 +107,7 @@ export const fromQuestionLabelRow = (
 ): QuestionLabelPayload => ({
   id: row.id,
   name: row.name,
+  sortOrder: row.sort_order ?? 0,
   createdAt: row.created_at,
   updatedAt: row.updated_at
 });
