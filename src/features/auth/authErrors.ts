@@ -1,5 +1,5 @@
 const RATE_LIMIT_MESSAGE =
-  '確認メールの送信回数が上限に達しました。時間をおいて再度お試しください。';
+  'メールの送信回数が上限に達しました。時間をおいて再度お試しください。';
 const SUPABASE_CONFIG_MESSAGE =
   'SupabaseのAPIキーが正しくありません。VercelのSUPABASE_ANON_KEYとEXPO_PUBLIC_SUPABASE_ANON_KEYを確認してから再デプロイしてください。';
 const INVALID_CREDENTIALS_MESSAGE =

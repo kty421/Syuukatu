@@ -114,9 +114,9 @@ Auth URL Configuration は確認メールリンクの遷移先に直接影響し
 
 - Site URL: 本番 Web URL（例: `https://your-domain.vercel.app`）にする
 - Redirect URLs:
-  - 本番 Web の `https://your-domain.vercel.app/api/auth/callback`
-  - Vercel Preview の `https://your-preview-domain.vercel.app/api/auth/callback`
-  - ネイティブアプリ用の `syuukatu://auth/callback`
+  - 本番 Web の `https://syuukatu.vercel.app/auth/confirm`
+  - 本番 Web の `https://syuukatu.vercel.app/auth/reset-password`
+  - ネイティブアプリ用の `syuukatu://auth/callback`（既存 deep link 用）
 
 Site URL が `http://localhost:3000` のままだと、iOS / Android の確認メールリンクから localhost に遷移してしまいます。Preview Deploy を使う場合は、Preview 用URLも Supabase の Redirect URLs に追加してください。
 
@@ -131,22 +131,27 @@ Supabase 側で `Could not find the table 'public.companies' in the schema cache
 - `EXPO_PUBLIC_API_BASE_URL`: iOS / Android から呼び出す API のベース URL。Production では保護されていない Vercel Production URL、Preview検証時のみ保護を解除した Preview URLを設定します。Web本番は同一オリジンの `/api` を使えるため空でも動きます。
 - `EXPO_PUBLIC_SUPABASE_URL`: Supabase Project URL。現在のプロジェクトは `https://vzvoajnhbksbvbwbgjji.supabase.co` です。クライアントに公開されます。
 - `EXPO_PUBLIC_SUPABASE_ANON_KEY`: Supabase anon public key。クライアントに公開されます。
-- `EXPO_PUBLIC_WEB_AUTH_CALLBACK_URL`: Web の確認メール callback URL。通常は `https://your-domain.vercel.app/api/auth/callback`。
+- `EXPO_PUBLIC_WEB_BASE_URL`: Web の本番 URL。既定値は `https://syuukatu.vercel.app`。
+- `EXPO_PUBLIC_CONFIRM_EMAIL_REDIRECT_URL`: 新規登録確認メールの遷移先。既定値は `https://syuukatu.vercel.app/auth/confirm`。
+- `EXPO_PUBLIC_RESET_PASSWORD_REDIRECT_URL`: パスワード再設定メールの遷移先。既定値は `https://syuukatu.vercel.app/auth/reset-password`。
 - `EXPO_PUBLIC_NATIVE_AUTH_CALLBACK_URL`: iOS / Android の確認メール callback URL。既定値は `syuukatu://auth/callback`。
 - `SUPABASE_URL`: Vercel Functions 用の Supabase Project URL。現在のプロジェクトは `https://vzvoajnhbksbvbwbgjji.supabase.co` です。
 - `SUPABASE_ANON_KEY`: Vercel Functions 用の Supabase anon public key。
-- `WEB_AUTH_CALLBACK_URL`: Vercel Functions が Supabase に渡す Web callback URL。未設定時はリクエスト元オリジンから `/api/auth/callback` を組み立てます。
+- `WEB_BASE_URL`: Vercel Functions が認証リダイレクト URL を組み立てる Web URL。既定値は `https://syuukatu.vercel.app`。
+- `CONFIRM_EMAIL_REDIRECT_URL`: Vercel Functions が `signUp` / 確認メール再送で Supabase に渡す URL。
+- `RESET_PASSWORD_REDIRECT_URL`: Vercel Functions が `resetPasswordForEmail` で Supabase に渡す URL。
 
 `EXPO_PUBLIC_` はビルド済み JavaScript に埋め込まれます。Service role key、管理者トークン、シークレットは絶対に入れないでください。
 
-Vercel には Production と Preview の両方へ `SUPABASE_URL`、`SUPABASE_ANON_KEY`、`EXPO_PUBLIC_SUPABASE_URL`、`EXPO_PUBLIC_SUPABASE_ANON_KEY`、`EXPO_PUBLIC_NATIVE_AUTH_CALLBACK_URL` を設定してください。Production では `WEB_AUTH_CALLBACK_URL` と `EXPO_PUBLIC_WEB_AUTH_CALLBACK_URL` を `https://<Production URL>/api/auth/callback` にします。Preview の確認メールも使う場合は、その Preview URL 用の callback を Supabase Redirect URLs に追加してください。
+Vercel には Production と Preview の両方へ `SUPABASE_URL`、`SUPABASE_ANON_KEY`、`EXPO_PUBLIC_SUPABASE_URL`、`EXPO_PUBLIC_SUPABASE_ANON_KEY`、`EXPO_PUBLIC_NATIVE_AUTH_CALLBACK_URL` を設定してください。Production では `WEB_BASE_URL`、`CONFIRM_EMAIL_REDIRECT_URL`、`RESET_PASSWORD_REDIRECT_URL` と対応する `EXPO_PUBLIC_*` を本番 URL にします。Preview の確認メールや再設定メールも使う場合は、その Preview URL 用の `/auth/confirm` と `/auth/reset-password` を Supabase Redirect URLs に追加してください。
 
 ### 認証とログイン情報保存
 
 - アプリへのログインは Supabase Auth のメール + パスワードです。
 - Web は Vercel API 経由で認証し、session を `HttpOnly` Cookie に保存します。
 - iOS / Android は Supabase session を `expo-secure-store` に保存します。
-- 新規登録では確認メールを送信します。Web は `/api/auth/callback` で session Cookie を作成し、iOS / Android は `syuukatu://auth/callback` の deep link から session を取得します。
+- 新規登録では確認メールを送信し、登録直後はホームへ遷移せず確認メール案内を表示します。確認後は `/auth/confirm` で完了表示を出し、ログイン画面へ誘導します。
+- パスワード再設定メールは `/auth/reset-password` に戻り、Web 専用 Supabase client が recovery session を検出して新しいパスワードを更新します。
 - 会社ごとのログイン ID は Supabase に保存します。
 - Web では会社ごとのパスワードを localStorage / AsyncStorage 相当 / 独自ストレージへ保存しません。
 - Web で企業サイトのパスワードを扱う場合は、ブラウザのパスワードマネージャーを利用してください。
@@ -154,7 +159,9 @@ Vercel には Production と Preview の両方へ `SUPABASE_URL`、`SUPABASE_ANO
 
 共有端末ではログイン ID 保存を使わないでください。ログアウト時は Web Cookie またはネイティブ session を削除します。
 
-Supabase Free プランや既定メール送信では、短時間に新規登録や確認メール送信を繰り返すと `email rate limit exceeded` になることがあります。この場合、アプリでは「確認メールの送信回数が上限に達しました。時間をおいて再度お試しください。」と表示します。解除はアプリコードではできないため、時間をおくか、Supabase の Auth SMTP 設定で本番用メール送信基盤を設定してください。すでに登録済みのアカウントは通常どおりログインできます。
+Supabase Free プランや既定メール送信では、短時間に新規登録や確認メール送信を繰り返すと `email rate limit exceeded` になることがあります。この場合、アプリでは「メールの送信回数が上限に達しました。時間をおいて再度お試しください。」と表示します。解除はアプリコードではできないため、時間をおくか、Supabase の Auth SMTP 設定で本番用メール送信基盤を設定してください。すでに登録済みのアカウントは通常どおりログインできます。
+
+Confirm signup と Reset password のメールテンプレートでは `{{ .ConfirmationURL }}` を使います。テンプレート内で独自 URL を組み立てないでください。実際の遷移先は、アプリコードの `signUp` の `emailRedirectTo` と `resetPasswordForEmail` の `redirectTo` で指定します。Supabase 公式では `{{ .ConfirmationURL }}` は verify 用 URL を含み、その URL の `redirect_to` に指定 URL が入る形式です。
 
 ### Web と iOS / Android の差分
 

@@ -1,6 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
 import {
-  ActivityIndicator,
   Keyboard,
   Platform,
   Pressable,
@@ -23,17 +22,28 @@ import {
   signUp,
 } from "./authService";
 import { normalizeAuthErrorMessage } from "./authErrors";
-import { useAuth } from "./AuthProvider";
+import { useOptionalAuth } from "./AuthProvider";
 import { AuthMode } from "./types";
 
 const webCursor =
   Platform.OS === "web" ? ({ cursor: "pointer" } as unknown as object) : null;
 
-export const AuthScreen = () => {
+type AuthScreenProps = {
+  initialMode?: AuthMode;
+  onAuthenticated?: () => void;
+  onBackToSignIn?: () => void;
+};
+
+export const AuthScreen = ({
+  initialMode = "signIn",
+  onAuthenticated,
+  onBackToSignIn,
+}: AuthScreenProps) => {
   const colorScheme = useColorScheme();
   const theme = useMemo(() => getTheme(colorScheme), [colorScheme]);
-  const { setAuthenticatedUser } = useAuth();
-  const [mode, setMode] = useState<AuthMode>("signIn");
+  const auth = useOptionalAuth();
+  const setAuthenticatedUser = auth?.setAuthenticatedUser;
+  const [mode, setMode] = useState<AuthMode>(initialMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [passwordVisible, setPasswordVisible] = useState(false);
@@ -47,12 +57,22 @@ export const AuthScreen = () => {
   const [error, setError] = useState<string | null>(null);
 
   const isSignIn = mode === "signIn";
-  const title = isSignIn ? "ログイン" : "新規登録";
-  const isConfirmationState = !isSignIn && Boolean(confirmationEmail);
+  const isSignUp = mode === "signUp";
+  const isForgotPassword = mode === "forgotPassword";
+  const title = isForgotPassword
+    ? "パスワード再設定"
+    : isSignIn
+      ? "ログイン"
+      : "新規登録";
+  const isConfirmationState = isSignUp && Boolean(confirmationEmail);
   const submitLabel = isSignIn ? "ログインする" : "登録する";
   const canSubmit =
     email.trim().length > 0 &&
-    (isSignIn ? password.length > 0 : password.length >= 8);
+    (isForgotPassword
+      ? true
+      : isSignIn
+        ? password.length > 0
+        : password.length >= 8);
   const passwordAutoComplete = isSignIn ? "current-password" : "new-password";
 
   const submit = useCallback(async () => {
@@ -65,7 +85,7 @@ export const AuthScreen = () => {
       return;
     }
 
-    if (!isSignIn && password.length < 8) {
+    if (isSignUp && password.length < 8) {
       setError("パスワードは8文字以上で入力してください。");
       return;
     }
@@ -84,15 +104,16 @@ export const AuthScreen = () => {
       const authResponse = isSignIn
         ? await signIn(trimmedEmail, password)
         : await signUp(trimmedEmail, password);
-      setPassword("");
 
-      if (authResponse?.user) {
-        setAuthenticatedUser(authResponse.user);
+      if (isSignUp) {
+        setConfirmationEmail(trimmedEmail);
         return;
       }
 
-      if (!isSignIn) {
-        setConfirmationEmail(trimmedEmail);
+      if (authResponse?.user) {
+        setPassword("");
+        setAuthenticatedUser?.(authResponse.user);
+        onAuthenticated?.();
         return;
       }
 
@@ -101,7 +122,7 @@ export const AuthScreen = () => {
           "ログイン状態を確認できませんでした。もう一度ログインしてください。",
       );
     } catch (caughtError) {
-      if (!isSignIn) {
+      if (isSignUp) {
         setPassword("");
       }
 
@@ -117,10 +138,21 @@ export const AuthScreen = () => {
     canSubmit,
     email,
     isSignIn,
+    isSignUp,
     isSubmitting,
     password,
+    onAuthenticated,
     setAuthenticatedUser
   ]);
+
+  const backToSignIn = useCallback(() => {
+    setMode("signIn");
+    setPasswordVisible(false);
+    setConfirmationEmail(null);
+    setError(null);
+    setMessage(null);
+    onBackToSignIn?.();
+  }, [onBackToSignIn]);
 
   const resendConfirmation = useCallback(async () => {
     const targetEmail = confirmationEmail ?? email.trim();
@@ -148,18 +180,25 @@ export const AuthScreen = () => {
   }, [confirmationEmail, email, isResendingConfirmation]);
 
   const resetPassword = useCallback(async () => {
-    if (!email.trim() || isResetting) {
+    if (isResetting) {
+      return;
+    }
+
+    if (!email.trim()) {
       setError("メールアドレスを入力してください。");
       return;
     }
 
+    Keyboard.dismiss();
     setIsResetting(true);
     setError(null);
     setMessage(null);
 
     try {
       await sendPasswordReset(email.trim());
-      setMessage("パスワード再設定用のメールを送信しました。");
+      setMessage(
+        "パスワード再設定用のメールを送信しました。メールをご確認ください。",
+      );
     } catch (caughtError) {
       setError(
         caughtError instanceof Error
@@ -208,7 +247,7 @@ export const AuthScreen = () => {
                     styles.confirmationText,
                     { color: theme.colors.textMuted },
                   ]}>
-                  メール内のリンクを開くと登録が完了します。
+                  確認メールを送信しました。メール内のリンクから認証を完了してください。
                 </Text>
                 <View
                   style={[
@@ -278,16 +317,76 @@ export const AuthScreen = () => {
                 />
                 <AppButton
                   label="ログイン画面へ"
-                  onPress={() => {
-                    setMode("signIn");
-                    setConfirmationEmail(null);
-                    setMessage(null);
-                    setError(null);
-                  }}
+                  onPress={backToSignIn}
                   theme={theme}
                   variant="secondary"
                 />
               </View>
+            ) : isForgotPassword ? (
+              <>
+                <View style={styles.form}>
+                  <InputField
+                    label="メールアドレス"
+                    theme={theme}
+                    value={email}
+                    placeholder="登録済みのメールアドレスを入力"
+                    autoCapitalize="none"
+                    autoComplete="email"
+                    keyboardType="email-address"
+                    textContentType="username"
+                    onChangeText={setEmail}
+                    onSubmitEditing={() => {
+                      void resetPassword();
+                    }}
+                  />
+
+                  {error ? (
+                    <Text
+                      style={[
+                        styles.errorText,
+                        { color: theme.colors.danger },
+                      ]}>
+                      {error}
+                    </Text>
+                  ) : null}
+                  {message ? (
+                    <Text
+                      style={[
+                        styles.messageText,
+                        { color: theme.colors.success },
+                      ]}>
+                      {message}
+                    </Text>
+                  ) : null}
+
+                  <AppButton
+                    label="再設定メールを送信"
+                    loading={isResetting}
+                    disabled={email.trim().length === 0 || isResetting}
+                    onPress={() => {
+                      void resetPassword();
+                    }}
+                    theme={theme}
+                  />
+                </View>
+
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={backToSignIn}
+                  style={({ pressed }) => [
+                    styles.modeSwitch,
+                    webCursor,
+                    pressed && styles.pressed,
+                  ]}>
+                  <Text
+                    style={[
+                      styles.modeSwitchText,
+                      { color: theme.colors.textSecondary },
+                    ]}>
+                    ログイン画面に戻る
+                  </Text>
+                </Pressable>
+              </>
             ) : (
               <>
                 <View style={styles.form}>
@@ -374,24 +473,25 @@ export const AuthScreen = () => {
                     <Pressable
                       accessibilityRole="button"
                       onPress={() => {
-                        void resetPassword();
+                        setMode("forgotPassword");
+                        setPassword("");
+                        setPasswordVisible(false);
+                        setConfirmationEmail(null);
+                        setError(null);
+                        setMessage(null);
                       }}
                       style={({ pressed }) => [
                         styles.textButton,
                         webCursor,
                         pressed && styles.pressed,
                       ]}>
-                      {isResetting ? (
-                        <ActivityIndicator color={theme.colors.primary} />
-                      ) : (
-                        <Text
-                          style={[
-                            styles.textButtonLabel,
-                            { color: theme.colors.primary },
-                          ]}>
-                          パスワードを再設定する
-                        </Text>
-                      )}
+                      <Text
+                        style={[
+                          styles.textButtonLabel,
+                          { color: theme.colors.primary },
+                        ]}>
+                        パスワードを忘れた場合
+                      </Text>
                     </Pressable>
                   ) : null}
                 </View>

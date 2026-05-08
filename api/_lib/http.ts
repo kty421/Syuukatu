@@ -19,6 +19,12 @@ const getConfiguredCorsOrigins = () =>
   [
     process.env.CORS_ALLOWED_ORIGINS,
     process.env.WEB_ALLOWED_ORIGINS,
+    process.env.WEB_BASE_URL,
+    process.env.EXPO_PUBLIC_WEB_BASE_URL,
+    process.env.CONFIRM_EMAIL_REDIRECT_URL,
+    process.env.EXPO_PUBLIC_CONFIRM_EMAIL_REDIRECT_URL,
+    process.env.RESET_PASSWORD_REDIRECT_URL,
+    process.env.EXPO_PUBLIC_RESET_PASSWORD_REDIRECT_URL,
     process.env.EXPO_PUBLIC_WEB_ORIGIN,
     process.env.WEB_AUTH_CALLBACK_URL,
     process.env.EXPO_PUBLIC_WEB_AUTH_CALLBACK_URL,

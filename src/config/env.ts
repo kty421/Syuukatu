@@ -7,9 +7,14 @@ type ExpoExtra = {
   apiBaseUrl?: unknown;
   supabaseUrl?: unknown;
   supabaseAnonKey?: unknown;
+  webBaseUrl?: unknown;
+  confirmEmailRedirectUrl?: unknown;
+  resetPasswordRedirectUrl?: unknown;
   webAuthCallbackUrl?: unknown;
   nativeAuthCallbackUrl?: unknown;
 };
+
+const DEFAULT_WEB_BASE_URL = 'https://syuukatu.vercel.app';
 
 const extra = (Constants.expoConfig?.extra ?? {}) as ExpoExtra;
 
@@ -40,6 +45,18 @@ const rawSupabaseAnonKey = readEnvValue(
   process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
   extra.supabaseAnonKey
 );
+const rawWebBaseUrl = readEnvValue(
+  process.env.EXPO_PUBLIC_WEB_BASE_URL,
+  extra.webBaseUrl
+);
+const rawConfirmEmailRedirectUrl = readEnvValue(
+  process.env.EXPO_PUBLIC_CONFIRM_EMAIL_REDIRECT_URL,
+  extra.confirmEmailRedirectUrl
+);
+const rawResetPasswordRedirectUrl = readEnvValue(
+  process.env.EXPO_PUBLIC_RESET_PASSWORD_REDIRECT_URL,
+  extra.resetPasswordRedirectUrl
+);
 const rawWebAuthCallbackUrl = readEnvValue(
   process.env.EXPO_PUBLIC_WEB_AUTH_CALLBACK_URL,
   extra.webAuthCallbackUrl
@@ -55,6 +72,15 @@ export const apiBaseUrl = rawApiBaseUrl
 
 export const supabaseUrl = rawSupabaseUrl;
 export const supabaseAnonKey = rawSupabaseAnonKey;
+export const webBaseUrl = rawWebBaseUrl
+  ? trimTrailingSlash(rawWebBaseUrl)
+  : DEFAULT_WEB_BASE_URL;
+export const confirmEmailRedirectUrl = rawConfirmEmailRedirectUrl
+  ? trimTrailingSlash(rawConfirmEmailRedirectUrl)
+  : `${webBaseUrl}/auth/confirm`;
+export const resetPasswordRedirectUrl = rawResetPasswordRedirectUrl
+  ? trimTrailingSlash(rawResetPasswordRedirectUrl)
+  : `${webBaseUrl}/auth/reset-password`;
 export const webAuthCallbackUrl = rawWebAuthCallbackUrl;
 export const nativeAuthCallbackUrl =
   rawNativeAuthCallbackUrl || 'syuukatu://auth/callback';
