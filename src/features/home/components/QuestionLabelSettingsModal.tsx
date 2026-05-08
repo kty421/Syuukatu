@@ -1,5 +1,5 @@
-import { Ionicons } from '@expo/vector-icons';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Ionicons } from "@expo/vector-icons";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   PanResponder,
   Platform,
@@ -8,12 +8,12 @@ import {
   StyleSheet,
   Text,
   View,
-  ViewStyle
-} from 'react-native';
+  ViewStyle,
+} from "react-native";
 
-import { AppTheme } from '../../../constants/theme';
-import { FullScreenModalShell } from '../../../ui/FullScreenModalShell';
-import { QuestionLabel } from '../types';
+import { AppTheme } from "../../../constants/theme";
+import { FullScreenModalShell } from "../../../ui/FullScreenModalShell";
+import { QuestionLabel } from "../types";
 
 type QuestionLabelSettingsModalProps = {
   visible: boolean;
@@ -38,7 +38,9 @@ type LabelRowProps = {
 const ROW_DRAG_DISTANCE = 52;
 
 const webCursor =
-  Platform.OS === 'web' ? ({ cursor: 'grab' } as unknown as ViewStyle) : null;
+  Platform.OS === "web" ? ({ cursor: "grab" } as unknown as ViewStyle) : null;
+const webDraggingCursor =
+  Platform.OS === "web" ? ({ cursor: "grabbing" } as unknown as ViewStyle) : null;
 
 const clampIndex = (value: number, max: number) =>
   Math.min(Math.max(value, 0), max);
@@ -50,7 +52,7 @@ export const QuestionLabelSettingsModal = ({
   onClose,
   onCreateLabel,
   onReorderLabels,
-  onDeleteLabel
+  onDeleteLabel,
 }: QuestionLabelSettingsModalProps) => {
   const [orderedLabels, setOrderedLabels] = useState(labels);
   const [draggingLabelId, setDraggingLabelId] = useState<string | null>(null);
@@ -62,13 +64,10 @@ export const QuestionLabelSettingsModal = ({
     moved: boolean;
   } | null>(null);
 
-  const setOrderedLabelsState = useCallback(
-    (nextLabels: QuestionLabel[]) => {
-      orderedLabelsRef.current = nextLabels;
-      setOrderedLabels(nextLabels);
-    },
-    []
-  );
+  const setOrderedLabelsState = useCallback((nextLabels: QuestionLabel[]) => {
+    orderedLabelsRef.current = nextLabels;
+    setOrderedLabels(nextLabels);
+  }, []);
 
   useEffect(() => {
     if (!visible || draggingLabelId) {
@@ -80,7 +79,7 @@ export const QuestionLabelSettingsModal = ({
 
   const startDrag = useCallback((labelId: string) => {
     const startIndex = orderedLabelsRef.current.findIndex(
-      (label) => label.id === labelId
+      (label) => label.id === labelId,
     );
 
     if (startIndex < 0) {
@@ -91,7 +90,7 @@ export const QuestionLabelSettingsModal = ({
       labelId,
       startIndex,
       lastTargetIndex: startIndex,
-      moved: false
+      moved: false,
     };
     setDraggingLabelId(labelId);
   }, []);
@@ -107,10 +106,10 @@ export const QuestionLabelSettingsModal = ({
       const maxIndex = orderedLabelsRef.current.length - 1;
       const targetIndex = clampIndex(
         dragState.startIndex + Math.round(dy / ROW_DRAG_DISTANCE),
-        maxIndex
+        maxIndex,
       );
       const currentIndex = orderedLabelsRef.current.findIndex(
-        (label) => label.id === labelId
+        (label) => label.id === labelId,
       );
 
       if (
@@ -129,7 +128,7 @@ export const QuestionLabelSettingsModal = ({
       dragState.moved = true;
       setOrderedLabelsState(nextLabels);
     },
-    [setOrderedLabelsState]
+    [setOrderedLabelsState],
   );
 
   const finishDrag = useCallback(() => {
@@ -145,7 +144,7 @@ export const QuestionLabelSettingsModal = ({
   return (
     <FullScreenModalShell
       visible={visible}
-      title="質問ラベル詳細設定"
+      title="質問ラベルの追加・編集"
       theme={theme}
       onClose={onClose}
       right={
@@ -155,18 +154,16 @@ export const QuestionLabelSettingsModal = ({
           onPress={onCreateLabel}
           style={({ pressed }) => [
             styles.headerAddButton,
-            pressed && styles.pressed
-          ]}
-        >
+            pressed && styles.pressed,
+          ]}>
           <Ionicons name="add" size={21} color={theme.colors.primary} />
         </Pressable>
-      }
-    >
+      }>
       <ScrollView
         contentContainerStyle={styles.body}
         keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
+        scrollEnabled={!draggingLabelId}
+        showsVerticalScrollIndicator={false}>
         {orderedLabels.length > 0 ? (
           <View style={styles.list}>
             {orderedLabels.map((label) => (
@@ -188,14 +185,18 @@ export const QuestionLabelSettingsModal = ({
               styles.emptyState,
               {
                 backgroundColor: theme.colors.surface,
-                borderColor: theme.colors.border
-              }
-            ]}
-          >
-            <Text style={[styles.emptyTitle, { color: theme.colors.textPrimary }]}>
+                borderColor: theme.colors.border,
+              },
+            ]}>
+            <Text
+              style={[styles.emptyTitle, { color: theme.colors.textPrimary }]}>
               ラベルはありません
             </Text>
-            <Text style={[styles.emptyDescription, { color: theme.colors.textMuted }]}>
+            <Text
+              style={[
+                styles.emptyDescription,
+                { color: theme.colors.textMuted },
+              ]}>
               右上の追加ボタンから作成できます
             </Text>
           </View>
@@ -212,47 +213,46 @@ const LabelRow = ({
   onDragStart,
   onDragMove,
   onDragEnd,
-  onDelete
+  onDelete,
 }: LabelRowProps) => {
   const panResponder = useMemo(
     () =>
       PanResponder.create({
         onStartShouldSetPanResponder: () => true,
+        onStartShouldSetPanResponderCapture: () => true,
         onMoveShouldSetPanResponder: (_event, gestureState) =>
+          Math.abs(gestureState.dy) > 2,
+        onMoveShouldSetPanResponderCapture: (_event, gestureState) =>
           Math.abs(gestureState.dy) > 2,
         onPanResponderGrant: () => onDragStart(label.id),
         onPanResponderMove: (_event, gestureState) =>
           onDragMove(label.id, gestureState.dy),
         onPanResponderRelease: onDragEnd,
-        onPanResponderTerminate: onDragEnd
+        onPanResponderTerminate: onDragEnd,
+        onPanResponderTerminationRequest: () => false,
+        onShouldBlockNativeResponder: () => true,
       }),
-    [label.id, onDragEnd, onDragMove, onDragStart]
+    [label.id, onDragEnd, onDragMove, onDragStart],
   );
 
   return (
     <View
       style={[
         styles.row,
+        dragging && styles.draggingRow,
+        dragging && theme.shadows.floating,
         {
           backgroundColor: dragging
             ? theme.colors.primarySubtle
             : theme.colors.surface,
-          borderColor: dragging ? theme.colors.primaryBorder : theme.colors.border
-        }
-      ]}
-    >
-      <View
-        accessibilityLabel={`${label.name}を並び替え`}
-        accessibilityRole="adjustable"
-        style={[styles.dragHandle, webCursor]}
-        {...panResponder.panHandlers}
-      >
-        <Ionicons name="menu" size={19} color={theme.colors.textSecondary} />
-      </View>
+          borderColor: dragging
+            ? theme.colors.primaryBorder
+            : theme.colors.border,
+        },
+      ]}>
       <Text
         numberOfLines={1}
-        style={[styles.labelName, { color: theme.colors.textPrimary }]}
-      >
+        style={[styles.labelName, { color: theme.colors.textPrimary }]}>
         {label.name}
       </Text>
       <Pressable
@@ -261,84 +261,120 @@ const LabelRow = ({
         onPress={() => onDelete(label.id)}
         style={({ pressed }) => [
           styles.deleteButton,
-          pressed && styles.pressed
-        ]}
-      >
+          pressed && styles.pressed,
+        ]}>
         <Ionicons name="trash-outline" size={18} color={theme.colors.danger} />
       </Pressable>
+      <View
+        accessibilityLabel={`${label.name}を並び替え`}
+        accessibilityRole="adjustable"
+        style={[
+          styles.dragHandle,
+          webCursor,
+          dragging && webDraggingCursor,
+          dragging && {
+            backgroundColor: theme.colors.surface,
+          },
+        ]}
+        {...panResponder.panHandlers}>
+        <View style={styles.handleGlyph}>
+          <Ionicons
+            name="chevron-up"
+            size={8}
+            color={theme.colors.textMuted}
+          />
+          <Ionicons name="menu" size={20} color={theme.colors.textSecondary} />
+          <Ionicons
+            name="chevron-down"
+            size={8}
+            color={theme.colors.textMuted}
+          />
+        </View>
+      </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   body: {
-    alignSelf: 'center',
+    alignSelf: "center",
     maxWidth: 760,
     paddingBottom: 28,
     paddingHorizontal: 18,
     paddingTop: 18,
-    width: '100%'
+    width: "100%",
   },
   headerAddButton: {
-    alignItems: 'center',
+    alignItems: "center",
     borderRadius: 12,
     height: 34,
-    justifyContent: 'center',
-    width: 34
+    justifyContent: "center",
+    width: 34,
   },
   list: {
-    gap: 8
+    gap: 8,
   },
   row: {
-    alignItems: 'center',
+    alignItems: "center",
     borderRadius: 14,
     borderWidth: StyleSheet.hairlineWidth,
-    flexDirection: 'row',
+    flexDirection: "row",
+    gap: 4,
     minHeight: 52,
-    paddingHorizontal: 8
+    paddingLeft: 12,
+    paddingRight: 6,
+  },
+  draggingRow: {
+    opacity: 0.94,
+    transform: [{ scale: 1.02 }],
+    zIndex: 5,
   },
   dragHandle: {
-    alignItems: 'center',
+    alignItems: "center",
     borderRadius: 10,
     height: 38,
-    justifyContent: 'center',
-    width: 38
+    justifyContent: "center",
+    width: 38,
+  },
+  handleGlyph: {
+    alignItems: "center",
+    justifyContent: "center",
   },
   labelName: {
     flex: 1,
     fontSize: 14,
-    fontWeight: '800',
+    fontWeight: "800",
     lineHeight: 19,
-    minWidth: 0
+    minWidth: 0,
   },
   deleteButton: {
-    alignItems: 'center',
+    alignItems: "center",
     borderRadius: 10,
     height: 38,
-    justifyContent: 'center',
-    width: 38
+    justifyContent: "center",
+    width: 38,
   },
   emptyState: {
-    alignItems: 'center',
+    alignItems: "center",
     borderRadius: 14,
     borderWidth: StyleSheet.hairlineWidth,
     gap: 6,
     paddingHorizontal: 18,
-    paddingVertical: 24
+    paddingVertical: 24,
   },
   emptyTitle: {
     fontSize: 15,
-    fontWeight: '800',
+    fontWeight: "800",
     lineHeight: 20,
-    textAlign: 'center'
+    textAlign: "center",
   },
   emptyDescription: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: "600",
     lineHeight: 17,
-    textAlign: 'center'
+    textAlign: "center",
   },
   pressed: {
-    opacity: 0.72
-  }
+    opacity: 0.72,
+  },
 });

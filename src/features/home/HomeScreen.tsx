@@ -1538,12 +1538,17 @@ export const HomeScreen = ({
           void changeHomeView(view);
         }}
         onCreateCompany={() => {
+          setMenuVisible(false);
           void openCreateModal(activeType);
         }}
         onCreateQuestion={() => {
+          setMenuVisible(false);
           void openQuestionCompanyPicker();
         }}
-        onOpenQuestionLabelSettings={() => setQuestionLabelSettingsVisible(true)}
+        onOpenQuestionLabelSettings={() => {
+          setMenuVisible(false);
+          setQuestionLabelSettingsVisible(true);
+        }}
         onPasswordDefaultVisibleChange={changePasswordDefaultVisibility}
         onClose={() => setMenuVisible(false)}
         onSignOut={() => {
