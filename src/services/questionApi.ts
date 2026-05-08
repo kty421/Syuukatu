@@ -61,7 +61,7 @@ export const deleteRemoteQuestionMemo = async (
   id: string,
   accessToken: string | null
 ) => {
-  await apiRequest(`/api/questions/${encodeURIComponent(id)}`, {
+  await apiRequest(`/api/questions?id=${encodeURIComponent(id)}`, {
     method: 'DELETE',
     accessToken
   });
