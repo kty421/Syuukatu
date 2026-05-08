@@ -43,7 +43,7 @@ export const formatUpdatedAt = (value: string) => {
     return '';
   }
 
-  return `${date.getMonth() + 1}/${date.getDate()}更新`;
+  return `${date.getFullYear()} ${date.getMonth() + 1}/${date.getDate()}更新`;
 };
 
 export const filterAndSortCompanies = (

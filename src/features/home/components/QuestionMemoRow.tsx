@@ -3,9 +3,11 @@ import { GestureResponderEvent, Pressable, StyleSheet, Text, View } from 'react-
 
 import { AppTheme } from '../../../constants/theme';
 import { IconButton } from '../../../ui/IconButton';
-import { applicationTypeLabels } from '../types';
 import { formatUpdatedAt } from '../utils/companyUtils';
-import { QuestionMemoEntry, QuestionMemoStatus } from '../utils/questionMemoUtils';
+import {
+  QuestionMemoEntry,
+  UNASSIGNED_COMPANY_TITLE
+} from '../utils/questionMemoUtils';
 
 type QuestionMemoRowProps = {
   entry: QuestionMemoEntry;
@@ -24,11 +26,11 @@ export const QuestionMemoRow = memo(({
   onOpenCompany,
   onDelete
 }: QuestionMemoRowProps) => {
-  const { company, questionAnswer } = entry;
-  const statusMeta = getStatusMeta(entry.status);
+  const { company, questionMemo, labels } = entry;
   const updatedAt = formatUpdatedAt(
-    questionAnswer.updatedAt || questionAnswer.createdAt || company.updatedAt
+    questionMemo.updatedAt || questionMemo.createdAt
   );
+  const companyName = company?.companyName ?? UNASSIGNED_COMPANY_TITLE;
 
   const runChildAction =
     (handler: () => void) => (event: GestureResponderEvent) => {
@@ -39,7 +41,7 @@ export const QuestionMemoRow = memo(({
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${questionAnswer.question || '題目未入力'}を開く`}
+      accessibilityLabel={`${questionMemo.question || '題目未入力'}を開く`}
       onPress={onPress}
       style={({ pressed }) => [
         styles.card,
@@ -56,44 +58,58 @@ export const QuestionMemoRow = memo(({
             numberOfLines={2}
             style={[styles.questionTitle, { color: theme.colors.textPrimary }]}
           >
-            {questionAnswer.question.trim() || '題目未入力'}
+            {questionMemo.question.trim() || '題目未入力'}
           </Text>
           <View style={styles.metaRow}>
             <Text
               numberOfLines={1}
-              style={[styles.companyName, { color: accentColor }]}
+              style={[
+                styles.companyName,
+                { color: company ? accentColor : theme.colors.textMuted }
+              ]}
             >
-              {company.companyName}
+              {companyName}
             </Text>
-            <Text style={[styles.dot, { color: theme.colors.textDisabled }]}>/</Text>
-            <Text
-              numberOfLines={1}
-              style={[styles.metaText, { color: theme.colors.textMuted }]}
-            >
-              {applicationTypeLabels[company.type]}
-            </Text>
-            <Text style={[styles.dot, { color: theme.colors.textDisabled }]}>/</Text>
-            <Text
-              numberOfLines={1}
-              style={[styles.metaText, { color: theme.colors.textMuted }]}
-            >
-              {company.status}
-            </Text>
+            {labels.length > 0 ? (
+              <View style={styles.labelPills}>
+                {labels.map((label) => (
+                  <View
+                    key={label.id}
+                    style={[
+                      styles.labelPill,
+                      {
+                        backgroundColor: theme.colors.surface,
+                        borderColor: theme.colors.primaryBorder
+                      }
+                    ]}
+                  >
+                    <Text
+                      numberOfLines={1}
+                      style={[styles.labelText, { color: theme.colors.primary }]}
+                    >
+                      {label.name}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            ) : null}
           </View>
         </View>
 
         <View style={styles.actions}>
-          <IconButton
-            icon="business-outline"
-            label={`${company.companyName}を編集`}
-            onPress={runChildAction(onOpenCompany)}
-            theme={theme}
-            tone="accent"
-            variant="plain"
-            accentColor={accentColor}
-            size="compact"
-            iconSize={17}
-          />
+          {company ? (
+            <IconButton
+              icon="business-outline"
+              label={`${company.companyName}を編集`}
+              onPress={runChildAction(onOpenCompany)}
+              theme={theme}
+              tone="accent"
+              variant="plain"
+              accentColor={accentColor}
+              size="compact"
+              iconSize={17}
+            />
+          ) : null}
           <IconButton
             icon="trash-outline"
             label="質問メモを削除"
@@ -107,75 +123,16 @@ export const QuestionMemoRow = memo(({
         </View>
       </View>
 
-      <View style={styles.footerRow}>
-        <View style={styles.footerLeft}>
-          <View
-            style={[
-              styles.statePill,
-              {
-                backgroundColor: statusMeta.background(theme),
-                borderColor: statusMeta.border(theme)
-              }
-            ]}
-          >
-            <Text
-              style={[
-                styles.statePillText,
-                { color: statusMeta.foreground(theme) }
-              ]}
-            >
-              {statusMeta.label}
-            </Text>
-          </View>
-          {company.tags.slice(0, 2).map((tag) => (
-            <View
-              key={tag}
-              style={[
-                styles.tagPill,
-                {
-                  backgroundColor: theme.colors.surfaceSubtle,
-                  borderColor: theme.colors.border
-                }
-              ]}
-            >
-              <Text
-                numberOfLines={1}
-                style={[styles.tagText, { color: theme.colors.textMuted }]}
-              >
-                {tag}
-              </Text>
-            </View>
-          ))}
-        </View>
-        {updatedAt ? (
+      {updatedAt ? (
+        <View style={styles.footerRow}>
           <Text style={[styles.updatedAt, { color: theme.colors.textDisabled }]}>
             {updatedAt}
           </Text>
-        ) : null}
-      </View>
+        </View>
+      ) : null}
     </Pressable>
   );
 });
-
-const getStatusMeta = (status: QuestionMemoStatus) => {
-  switch (status) {
-    case 'answered':
-      return {
-        label: '回答済み',
-        background: (theme: AppTheme) => theme.colors.primary,
-        border: (theme: AppTheme) => theme.colors.primary,
-        foreground: (theme: AppTheme) => theme.colors.textOnPrimary
-      };
-    case 'unanswered':
-    default:
-      return {
-        label: '未回答',
-        background: (theme: AppTheme) => theme.colors.surface,
-        border: (theme: AppTheme) => theme.colors.primaryBorder,
-        foreground: (theme: AppTheme) => theme.colors.primary
-      };
-  }
-};
 
 const styles = StyleSheet.create({
   card: {
@@ -200,11 +157,11 @@ const styles = StyleSheet.create({
     lineHeight: 19
   },
   metaRow: {
-    alignItems: 'center',
+    alignItems: 'flex-start',
     flexDirection: 'row',
     gap: 6,
     marginTop: 5,
-    minHeight: 17
+    minHeight: 20
   },
   companyName: {
     flexShrink: 1,
@@ -213,16 +170,24 @@ const styles = StyleSheet.create({
     lineHeight: 15,
     minWidth: 0
   },
-  dot: {
-    fontSize: 11,
-    fontWeight: '600',
-    lineHeight: 15
+  labelPills: {
+    flex: 1,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 5,
+    minWidth: 0
   },
-  metaText: {
-    flexShrink: 0,
-    fontSize: 11,
-    fontWeight: '600',
-    lineHeight: 15
+  labelPill: {
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    maxWidth: 120,
+    paddingHorizontal: 8,
+    paddingVertical: 3
+  },
+  labelText: {
+    fontSize: 10,
+    fontWeight: '700',
+    lineHeight: 14
   },
   actions: {
     alignItems: 'center',
@@ -231,47 +196,12 @@ const styles = StyleSheet.create({
     marginRight: -4
   },
   footerRow: {
-    alignItems: 'flex-start',
-    flexDirection: 'row',
-    gap: 10,
-    justifyContent: 'space-between',
+    alignItems: 'flex-end',
     marginTop: 8
-  },
-  footerLeft: {
-    alignItems: 'center',
-    flex: 1,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    minWidth: 0
-  },
-  statePill: {
-    borderRadius: 999,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: 8,
-    paddingVertical: 3
-  },
-  statePillText: {
-    fontSize: 10,
-    fontWeight: '700',
-    lineHeight: 14
-  },
-  tagPill: {
-    borderRadius: 999,
-    borderWidth: StyleSheet.hairlineWidth,
-    maxWidth: 104,
-    paddingHorizontal: 7,
-    paddingVertical: 2
-  },
-  tagText: {
-    fontSize: 10,
-    fontWeight: '700',
-    lineHeight: 14
   },
   updatedAt: {
     fontSize: 10,
     fontWeight: '600',
-    lineHeight: 14,
-    marginTop: 3
+    lineHeight: 14
   }
 });

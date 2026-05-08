@@ -1,8 +1,11 @@
+import { Ionicons } from '@expo/vector-icons';
 import { FlashList, type FlashListRef } from '@shopify/flash-list';
 import { memo, useCallback, useMemo, type Ref } from 'react';
 import {
   Keyboard,
+  Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -11,18 +14,21 @@ import {
 
 import { AppTheme } from '../../../constants/theme';
 import { FilterChip } from '../../../ui/FilterChip';
+import { SectionHeader } from '../../../ui/SectionHeader';
+import { QuestionLabel } from '../types';
 import {
   QuestionMemoEntry,
-  QuestionMemoFilter,
-  QuestionMemoSort
+  QuestionMemoSort,
+  UNASSIGNED_COMPANY_TITLE
 } from '../utils/questionMemoUtils';
 import { QuestionMemoRow } from './QuestionMemoRow';
 import { QuestionSortMenu } from './QuestionSortMenu';
 
 type QuestionListViewProps = {
   entries: QuestionMemoEntry[];
-  counts: Record<QuestionMemoFilter, number>;
-  filter: QuestionMemoFilter;
+  labels: QuestionLabel[];
+  totalCount: number;
+  selectedLabelId: string | null;
   sort: QuestionMemoSort;
   query: string;
   isLoading: boolean;
@@ -33,8 +39,9 @@ type QuestionListViewProps = {
   contentPadding: number;
   bottomPadding: number;
   containerStyle: ViewStyle;
-  listRef?: Ref<FlashListRef<QuestionMemoEntry>>;
-  onFilterChange: (filter: QuestionMemoFilter) => void;
+  listRef?: Ref<FlashListRef<QuestionListItem>>;
+  onLabelFilterChange: (labelId: string | null) => void;
+  onCreateLabelPress: () => void;
   onSortChange: (sort: QuestionMemoSort) => void;
   onClearQuery: () => void;
   onOpenQuestion: (entry: QuestionMemoEntry) => void;
@@ -42,17 +49,67 @@ type QuestionListViewProps = {
   onDelete: (entry: QuestionMemoEntry) => void;
 };
 
-const filterOptions: { value: QuestionMemoFilter; label: string }[] = [
-  { value: 'all', label: 'すべて' },
-  { value: 'unanswered', label: '未回答' },
-  { value: 'answered', label: '回答済み' }
-];
+export type QuestionListItem =
+  | {
+      kind: 'section';
+      id: string;
+      title: string;
+      count: number;
+    }
+  | {
+      kind: 'question';
+      id: string;
+      entry: QuestionMemoEntry;
+    };
 
 const QUESTION_LIST_OVERRIDE_PROPS = { initialDrawBatchSize: 10 } as const;
 const DISABLED_MAINTAIN_VISIBLE_CONTENT_POSITION = { disabled: true } as const;
-const keyQuestionMemoEntry = (item: QuestionMemoEntry) =>
-  `${item.company.id}:${item.questionAnswer.id}`;
-const getQuestionListItemType = () => 'question';
+const getQuestionListItemType = (item: QuestionListItem) => item.kind;
+const keyQuestionListItem = (item: QuestionListItem) => item.id;
+
+const getGroupKey = (entry: QuestionMemoEntry) =>
+  entry.company?.id ?? '__unassigned__';
+
+const getGroupTitle = (entry: QuestionMemoEntry) =>
+  entry.company?.companyName ?? UNASSIGNED_COMPANY_TITLE;
+
+const buildQuestionListItems = (
+  entries: QuestionMemoEntry[]
+): QuestionListItem[] => {
+  const grouped = new Map<
+    string,
+    { title: string; entries: QuestionMemoEntry[] }
+  >();
+
+  for (const entry of entries) {
+    const key = getGroupKey(entry);
+    const group = grouped.get(key);
+
+    if (group) {
+      group.entries.push(entry);
+      continue;
+    }
+
+    grouped.set(key, {
+      title: getGroupTitle(entry),
+      entries: [entry]
+    });
+  }
+
+  return [...grouped.entries()].flatMap(([id, group]) => [
+    {
+      kind: 'section' as const,
+      id: `section:${id}`,
+      title: group.title,
+      count: group.entries.length
+    },
+    ...group.entries.map((entry) => ({
+      kind: 'question' as const,
+      id: `question:${entry.questionMemo.id}`,
+      entry
+    }))
+  ]);
+};
 
 type QuestionMemoListItemProps = {
   entry: QuestionMemoEntry;
@@ -101,8 +158,9 @@ const QuestionMemoListItem = memo(
 
 export const QuestionListView = ({
   entries,
-  counts,
-  filter,
+  labels,
+  totalCount,
+  selectedLabelId,
   sort,
   query,
   isLoading,
@@ -114,13 +172,15 @@ export const QuestionListView = ({
   bottomPadding,
   containerStyle,
   listRef,
-  onFilterChange,
+  onLabelFilterChange,
+  onCreateLabelPress,
   onSortChange,
   onClearQuery,
   onOpenQuestion,
   onOpenCompany,
   onDelete
 }: QuestionListViewProps) => {
+  const listItems = useMemo(() => buildQuestionListItems(entries), [entries]);
   const contentContainerStyle = useMemo(
     () => ({
       paddingBottom: bottomPadding,
@@ -133,24 +193,50 @@ export const QuestionListView = ({
   const renderControls = () => (
     <View style={[styles.controlShell, { paddingHorizontal: contentPadding }]}>
       <View style={[containerStyle, styles.filterBar]}>
-        <View style={styles.filterChips}>
-          {filterOptions.map((option) => (
+        <ScrollView
+          horizontal
+          keyboardShouldPersistTaps="handled"
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filterChips}
+          style={styles.filterScroll}
+        >
+          <FilterChip
+            label={`すべて ${totalCount}`}
+            theme={theme}
+            selected={!selectedLabelId}
+            tint={accentColor}
+            surface={accentSurface}
+            border={accentBorder}
+            onPress={() => onLabelFilterChange(null)}
+          />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="ラベルを追加"
+            onPress={onCreateLabelPress}
+            style={({ pressed }) => [
+              styles.addLabelButton,
+              {
+                backgroundColor: theme.colors.surface,
+                borderColor: theme.colors.border
+              },
+              pressed && styles.pressed
+            ]}
+          >
+            <Ionicons name="add" size={18} color={accentColor} />
+          </Pressable>
+          {labels.map((label) => (
             <FilterChip
-              key={option.value}
-              label={`${option.label} ${counts[option.value]}`}
+              key={label.id}
+              label={label.name}
               theme={theme}
-              selected={filter === option.value}
+              selected={selectedLabelId === label.id}
               tint={accentColor}
               surface={accentSurface}
               border={accentBorder}
-              onPress={() => {
-                if (filter !== option.value) {
-                  onFilterChange(option.value);
-                }
-              }}
+              onPress={() => onLabelFilterChange(label.id)}
             />
           ))}
-        </View>
+        </ScrollView>
         <QuestionSortMenu
           value={sort}
           theme={theme}
@@ -172,7 +258,7 @@ export const QuestionListView = ({
       );
     }
 
-    if (!query.trim() && counts.all === 0) {
+    if (!query.trim() && totalCount === 0) {
       return (
         <View style={[containerStyle, styles.emptyState]}>
           <Text style={[styles.emptyTitle, { color: theme.colors.textPrimary }]}>
@@ -204,11 +290,11 @@ export const QuestionListView = ({
               検索をクリア
             </Text>
           </Pressable>
-        ) : filter !== 'all' ? (
+        ) : selectedLabelId ? (
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="質問フィルタをリセット"
-            onPress={() => onFilterChange('all')}
+            onPress={() => onLabelFilterChange(null)}
             style={({ pressed }) => [
               styles.clearSearchButton,
               pressed && styles.pressed
@@ -224,27 +310,37 @@ export const QuestionListView = ({
   }, [
     accentColor,
     containerStyle,
-    counts.all,
-    filter,
     isLoading,
     onClearQuery,
-    onFilterChange,
+    onLabelFilterChange,
     query,
-    theme
+    selectedLabelId,
+    theme,
+    totalCount
   ]);
 
   const renderQuestionItem = useCallback(
-    ({ item }: { item: QuestionMemoEntry }) => (
-      <QuestionMemoListItem
-        entry={item}
-        theme={theme}
-        accentColor={accentColor}
-        containerStyle={containerStyle}
-        onOpenQuestion={onOpenQuestion}
-        onOpenCompany={onOpenCompany}
-        onDelete={onDelete}
-      />
-    ),
+    ({ item }: { item: QuestionListItem }) => {
+      if (item.kind === 'section') {
+        return (
+          <View style={[containerStyle, styles.sectionHeader]}>
+            <SectionHeader title={item.title} count={item.count} theme={theme} />
+          </View>
+        );
+      }
+
+      return (
+        <QuestionMemoListItem
+          entry={item.entry}
+          theme={theme}
+          accentColor={accentColor}
+          containerStyle={containerStyle}
+          onOpenQuestion={onOpenQuestion}
+          onOpenCompany={onOpenCompany}
+          onDelete={onDelete}
+        />
+      );
+    },
     [
       accentColor,
       containerStyle,
@@ -260,14 +356,14 @@ export const QuestionListView = ({
       {renderControls()}
       <FlashList
         ref={listRef}
-        data={entries}
+        data={listItems}
         keyboardDismissMode="on-drag"
         keyboardShouldPersistTaps="handled"
         ListEmptyComponent={renderEmpty}
         contentContainerStyle={contentContainerStyle}
         drawDistance={640}
         getItemType={getQuestionListItemType}
-        keyExtractor={keyQuestionMemoEntry}
+        keyExtractor={keyQuestionListItem}
         maintainVisibleContentPosition={
           DISABLED_MAINTAIN_VISIBLE_CONTENT_POSITION
         }
@@ -279,6 +375,11 @@ export const QuestionListView = ({
     </View>
   );
 };
+
+const webPointer =
+  Platform.OS === 'web'
+    ? ({ cursor: 'pointer' } as unknown as ViewStyle)
+    : null;
 
 const styles = StyleSheet.create({
   root: {
@@ -293,12 +394,28 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingBottom: 12
   },
-  filterChips: {
+  filterScroll: {
     flex: 1,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
     minWidth: 0
+  },
+  filterChips: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 8,
+    paddingRight: 4
+  },
+  addLabelButton: {
+    alignItems: 'center',
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    justifyContent: 'center',
+    minHeight: 34,
+    minWidth: 36,
+    overflow: 'hidden',
+    ...(webPointer ?? {})
+  },
+  sectionHeader: {
+    marginTop: 14
   },
   emptyState: {
     alignItems: 'center',

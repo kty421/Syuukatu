@@ -45,7 +45,9 @@ import {
   ApplicationType,
   Company,
   CompanyDraft,
-  CompanyQuestionAnswer
+  CompanyQuestionAnswer,
+  QuestionLabel,
+  QuestionMemo
 } from '../types';
 import { getStatusList } from '../utils/companyUtils';
 import { QuestionMemoDialog } from './QuestionMemoDialog';
@@ -54,10 +56,13 @@ type CompanyEditorModalProps = {
   visible: boolean;
   type: ApplicationType;
   company?: Company | null;
+  questionMemos: QuestionMemo[];
+  questionLabels: QuestionLabel[];
   theme: AppTheme;
   allowPasswordStorage: boolean;
   onClose: () => void;
   onSave: (draft: CompanyDraft) => Promise<void>;
+  onCreateQuestionLabel: (name: string) => Promise<QuestionLabel>;
 };
 
 type FormState = CompanyDraft;
@@ -86,10 +91,13 @@ export const CompanyEditorModal = ({
   visible,
   type,
   company,
+  questionMemos,
+  questionLabels,
   theme,
   allowPasswordStorage,
   onClose,
-  onSave
+  onSave,
+  onCreateQuestionLabel
 }: CompanyEditorModalProps) => {
   const insets = useSafeAreaInsets();
   const keyboardInset = useKeyboardInset();
@@ -396,7 +404,12 @@ export const CompanyEditorModal = ({
 
   useEffect(() => {
     if (visible) {
-      const nextForm = company ? company : createEmptyForm(type);
+      const nextForm = company
+        ? {
+            ...company,
+            questionAnswers: questionMemos
+          }
+        : createEmptyForm(type);
 
       setForm(nextForm);
       setTagText(nextForm.tags.join(', '));
@@ -412,7 +425,7 @@ export const CompanyEditorModal = ({
       setIsRendered(false);
       resetTransientState();
     }
-  }, [company, openSheet, resetTransientState, type, visible]);
+  }, [company, openSheet, questionMemos, resetTransientState, type, visible]);
 
   const update = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((current) => ({ ...current, [key]: value }));
@@ -425,8 +438,10 @@ export const CompanyEditorModal = ({
       .map((item) => ({
         ...item,
         id: item.id || createDraftId('qa'),
+        companyId: item.companyId ?? company?.id ?? null,
         question: item.question.trim(),
         answer: item.answer.trim(),
+        labelIds: item.labelIds ?? [],
         createdAt: item.createdAt || now,
         updatedAt: now
       }))
@@ -478,8 +493,10 @@ export const CompanyEditorModal = ({
     const now = new Date().toISOString();
     setEditingQuestionAnswer({
       id: createDraftId('qa'),
+      companyId: company?.id ?? null,
       question: '',
       answer: '',
+      labelIds: [],
       createdAt: now,
       updatedAt: now
     });
@@ -490,10 +507,11 @@ export const CompanyEditorModal = ({
       ...item,
       question: item.question.trim(),
       answer: item.answer.trim(),
+      labelIds: item.labelIds ?? [],
       updatedAt: new Date().toISOString()
     };
 
-    if (!nextItem.question && !nextItem.answer) {
+    if (!nextItem.question) {
       setEditingQuestionAnswer(null);
       return;
     }
@@ -808,9 +826,11 @@ export const CompanyEditorModal = ({
 
         <QuestionMemoDialog
           item={editingQuestionAnswer}
+          labels={questionLabels}
           theme={theme}
           onClose={() => setEditingQuestionAnswer(null)}
           onSave={saveQuestionAnswer}
+          onCreateLabel={onCreateQuestionLabel}
         />
       </View>
     </Modal>

@@ -1,74 +1,71 @@
-import { Company, CompanyQuestionAnswer } from '../types';
+import { Company, QuestionLabel, QuestionMemo } from '../types';
 
-export type QuestionMemoStatus = 'unanswered' | 'answered';
-export type QuestionMemoFilter = 'all' | QuestionMemoStatus;
 export type QuestionMemoSort =
   | 'titleAsc'
   | 'updatedAtDesc'
   | 'createdAtDesc';
 
 export type QuestionMemoEntry = {
-  company: Company;
-  questionAnswer: CompanyQuestionAnswer;
-  status: QuestionMemoStatus;
+  company: Company | null;
+  questionMemo: QuestionMemo;
+  labels: QuestionLabel[];
 };
 
-export const hasQuestionMemoAnswer = (item: CompanyQuestionAnswer) => {
-  return Boolean(item.answer.trim());
-};
+export const UNASSIGNED_COMPANY_TITLE = '企業との対応なし';
 
-export const getQuestionMemoStatus = (
-  item: CompanyQuestionAnswer
-): QuestionMemoStatus => {
-  return hasQuestionMemoAnswer(item) ? 'answered' : 'unanswered';
-};
-
-export const flattenQuestionMemos = (companies: Company[]): QuestionMemoEntry[] =>
-  companies
-    .filter((company) => !company.archived)
-    .flatMap((company) =>
-      (company.questionAnswers ?? [])
-        .filter((item) => item.question.trim() || item.answer.trim())
-        .map((questionAnswer) => ({
-          company,
-          questionAnswer,
-          status: getQuestionMemoStatus(questionAnswer)
-        }))
-    );
-
-export const countQuestionMemos = (entries: QuestionMemoEntry[]) =>
-  entries.reduce(
-    (counts, entry) => {
-      counts.all += 1;
-      counts[entry.status] += 1;
-      return counts;
-    },
-    { all: 0, unanswered: 0, answered: 0 }
+export const flattenQuestionMemos = (
+  companies: Company[],
+  questionMemos: QuestionMemo[],
+  labels: QuestionLabel[]
+): QuestionMemoEntry[] => {
+  const companyById = new Map(
+    companies
+      .filter((company) => !company.archived)
+      .map((company) => [company.id, company])
   );
+  const labelById = new Map(labels.map((label) => [label.id, label]));
+
+  return questionMemos
+    .filter((item) => item.question.trim() || item.answer.trim())
+    .map((questionMemo) => ({
+      company: questionMemo.companyId
+        ? companyById.get(questionMemo.companyId) ?? null
+        : null,
+      questionMemo,
+      labels: questionMemo.labelIds
+        .map((labelId) => labelById.get(labelId))
+        .filter((label): label is QuestionLabel => Boolean(label))
+    }));
+};
 
 export const filterQuestionMemos = (
   entries: QuestionMemoEntry[],
   query: string,
-  filter: QuestionMemoFilter
+  labelId: string | null
 ) => {
   const normalizedQuery = query.trim().toLowerCase();
 
   return entries
-    .filter((entry) => filter === 'all' || entry.status === filter)
+    .filter(
+      (entry) => !labelId || entry.questionMemo.labelIds.includes(labelId)
+    )
     .filter((entry) => {
       if (!normalizedQuery) {
         return true;
       }
 
       return [
-        entry.questionAnswer.question,
-        entry.questionAnswer.answer,
-        entry.company.companyName,
-        entry.company.industry,
-        entry.company.role,
-        entry.company.memo,
-        ...entry.company.tags
+        entry.questionMemo.question,
+        entry.questionMemo.answer,
+        entry.company?.companyName,
+        entry.company?.industry,
+        entry.company?.role,
+        entry.company?.memo,
+        ...(entry.company?.tags ?? []),
+        ...entry.labels.map((label) => label.name),
+        entry.company ? '' : UNASSIGNED_COMPANY_TITLE
       ]
+        .filter(Boolean)
         .join(' ')
         .toLowerCase()
         .includes(normalizedQuery);
@@ -84,15 +81,14 @@ const toTime = (value?: string) => {
   return Number.isNaN(time) ? 0 : time;
 };
 
+const getCompanyName = (entry: QuestionMemoEntry) =>
+  entry.company?.companyName ?? UNASSIGNED_COMPANY_TITLE;
+
 const getUpdatedAtTime = (entry: QuestionMemoEntry) =>
-  toTime(
-    entry.questionAnswer.updatedAt ||
-      entry.questionAnswer.createdAt ||
-      entry.company.updatedAt
-  );
+  toTime(entry.questionMemo.updatedAt || entry.questionMemo.createdAt);
 
 const getCreatedAtTime = (entry: QuestionMemoEntry) =>
-  toTime(entry.questionAnswer.createdAt || entry.company.createdAt);
+  toTime(entry.questionMemo.createdAt);
 
 export const sortQuestionMemos = (
   entries: QuestionMemoEntry[],
@@ -100,8 +96,8 @@ export const sortQuestionMemos = (
 ) =>
   [...entries].sort((a, b) => {
     if (sort === 'titleAsc') {
-      const titleOrder = a.questionAnswer.question.localeCompare(
-        b.questionAnswer.question,
+      const titleOrder = a.questionMemo.question.localeCompare(
+        b.questionMemo.question,
         'ja'
       );
 
@@ -109,7 +105,7 @@ export const sortQuestionMemos = (
         return titleOrder;
       }
 
-      return a.company.companyName.localeCompare(b.company.companyName, 'ja');
+      return getCompanyName(a).localeCompare(getCompanyName(b), 'ja');
     }
 
     const timeOrder =
@@ -121,5 +117,5 @@ export const sortQuestionMemos = (
       return timeOrder;
     }
 
-    return a.company.companyName.localeCompare(b.company.companyName, 'ja');
+    return getCompanyName(a).localeCompare(getCompanyName(b), 'ja');
   });

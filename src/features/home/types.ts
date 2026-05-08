@@ -4,8 +4,10 @@ export type AspirationLevel = 'high' | 'middle' | 'low' | 'unset';
 
 export type CompanyQuestionAnswer = {
   id: string;
+  companyId?: string | null;
   question: string;
   answer: string;
+  labelIds?: string[];
   createdAt: string;
   updatedAt: string;
 };
@@ -15,6 +17,32 @@ export type CompanyQuestionAnswerDraft = Omit<
   'id' | 'createdAt' | 'updatedAt'
 > & {
   id?: string;
+};
+
+export type QuestionMemo = {
+  id: string;
+  companyId: string | null;
+  question: string;
+  answer: string;
+  labelIds: string[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type QuestionMemoDraft = Omit<
+  QuestionMemo,
+  'id' | 'createdAt' | 'updatedAt'
+> & {
+  id?: string;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type QuestionLabel = {
+  id: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export const applicationTypeLabels: Record<ApplicationType, string> = {

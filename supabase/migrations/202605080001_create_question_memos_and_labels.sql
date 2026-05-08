@@ -1,52 +1,4 @@
-create table if not exists public.companies (
-  id text primary key,
-  user_id uuid not null references auth.users (id) on delete cascade,
-  type text not null check (type in ('internship', 'fullTime')),
-  company_name text not null,
-  aspiration text not null default 'unset' check (aspiration in ('high', 'middle', 'low', 'unset')),
-  status text not null,
-  login_id text not null default '',
-  my_page_url text,
-  industry text,
-  role text,
-  tags text[] not null default '{}',
-  question_answers jsonb not null default '[]'::jsonb,
-  memo text,
-  favorite boolean not null default false,
-  archived boolean not null default false,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-
-alter table public.companies enable row level security;
-
-drop policy if exists "companies_select_own" on public.companies;
-create policy "companies_select_own"
-  on public.companies
-  for select
-  using (auth.uid() = user_id);
-
-drop policy if exists "companies_insert_own" on public.companies;
-create policy "companies_insert_own"
-  on public.companies
-  for insert
-  with check (auth.uid() = user_id);
-
-drop policy if exists "companies_update_own" on public.companies;
-create policy "companies_update_own"
-  on public.companies
-  for update
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
-
-drop policy if exists "companies_delete_own" on public.companies;
-create policy "companies_delete_own"
-  on public.companies
-  for delete
-  using (auth.uid() = user_id);
-
-create index if not exists companies_user_updated_at_idx
-  on public.companies (user_id, updated_at desc);
+begin;
 
 create table if not exists public.question_memos (
   id text primary key,
@@ -72,6 +24,30 @@ create table if not exists public.question_memo_labels (
   label_id text not null references public.question_labels (id) on delete cascade,
   primary key (question_memo_id, label_id)
 );
+
+insert into public.question_memos (
+  id,
+  user_id,
+  company_id,
+  question,
+  answer,
+  created_at,
+  updated_at
+)
+select
+  coalesce(nullif(item.value->>'id', ''), 'legacy-' || companies.id || '-' || item.ordinality::text),
+  companies.user_id,
+  companies.id,
+  btrim(coalesce(item.value->>'question', '')),
+  btrim(coalesce(item.value->>'answer', '')),
+  coalesce(nullif(item.value->>'createdAt', '')::timestamptz, companies.created_at),
+  coalesce(nullif(item.value->>'updatedAt', '')::timestamptz, companies.updated_at)
+from public.companies
+cross join lateral jsonb_array_elements(companies.question_answers) with ordinality as item(value, ordinality)
+where
+  btrim(coalesce(item.value->>'question', '')) <> ''
+  or btrim(coalesce(item.value->>'answer', '')) <> ''
+on conflict (id) do nothing;
 
 alter table public.question_memos enable row level security;
 alter table public.question_labels enable row level security;
@@ -207,13 +183,13 @@ create index if not exists question_memo_labels_label_idx
   on public.question_memo_labels (label_id);
 
 grant usage on schema public to anon, authenticated;
-grant select, insert, update, delete on public.companies to authenticated;
 grant select, insert, update, delete on public.question_memos to authenticated;
 grant select, insert, update, delete on public.question_labels to authenticated;
 grant select, insert, delete on public.question_memo_labels to authenticated;
-grant all on public.companies to service_role;
 grant all on public.question_memos to service_role;
 grant all on public.question_labels to service_role;
 grant all on public.question_memo_labels to service_role;
 
 notify pgrst, 'reload schema';
+
+commit;
