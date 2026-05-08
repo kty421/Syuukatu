@@ -10,6 +10,7 @@ import { Company } from '../types';
 type QuestionCompanyPickerModalProps = {
   visible: boolean;
   companies: Company[];
+  questionCountsByCompany: Record<string, number>;
   theme: AppTheme;
   onClose: () => void;
   onSelect: (company: Company) => void;
@@ -19,6 +20,7 @@ type QuestionCompanyPickerModalProps = {
 export const QuestionCompanyPickerModal = ({
   visible,
   companies,
+  questionCountsByCompany,
   theme,
   onClose,
   onSelect,
@@ -100,7 +102,7 @@ export const QuestionCompanyPickerModal = ({
                       numberOfLines={1}
                       style={[styles.metaText, { color: theme.colors.textMuted }]}
                     >
-                      {company.status} / 質問{company.questionAnswers?.length ?? 0}件
+                      {company.status} / 質問{questionCountsByCompany[company.id] ?? 0}件
                     </Text>
                   </View>
                 </Pressable>

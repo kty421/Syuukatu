@@ -45,7 +45,12 @@ import { CompanyEditorModal } from './components/CompanyEditorModal';
 import { ConfirmActionDialog } from './components/ConfirmActionDialog';
 import { HomeMenuModal } from './components/HomeMenuModal';
 import { QuestionCompanyPickerModal } from './components/QuestionCompanyPickerModal';
-import { QuestionListView } from './components/QuestionListView';
+import {
+  QuestionListItem,
+  QuestionListView
+} from './components/QuestionListView';
+import { QuestionLabelCreateDialog } from './components/QuestionLabelCreateDialog';
+import { QuestionLabelSettingsModal } from './components/QuestionLabelSettingsModal';
 import { QuestionMemoDialog } from './components/QuestionMemoDialog';
 import { useCompanies } from './hooks/useCompanies';
 import {
@@ -53,7 +58,8 @@ import {
   applicationTypeLabels,
   Company,
   CompanyDraft,
-  CompanyQuestionAnswer,
+  QuestionLabel,
+  QuestionMemo,
   SelectionStatus
 } from './types';
 import {
@@ -62,13 +68,12 @@ import {
   groupCompaniesByStatus
 } from './utils/companyUtils';
 import {
-  countQuestionMemos,
   filterQuestionMemos,
   flattenQuestionMemos,
   QuestionMemoEntry,
-  QuestionMemoFilter,
   QuestionMemoSort,
-  sortQuestionMemos
+  sortQuestionMemos,
+  UNASSIGNED_COMPANY_TITLE
 } from './utils/questionMemoUtils';
 import { useConfirmAction } from './utils/confirmAction';
 
@@ -124,13 +129,15 @@ const buildCompanyListItems = (
 const getCompanyListItemType = (item: CompanyListItem) => item.kind;
 const keyCompanyListItem = (item: CompanyListItem) => item.id;
 
-const createQuestionMemoDraft = (): CompanyQuestionAnswer => {
+const createQuestionMemoDraft = (companyId: string | null): QuestionMemo => {
   const now = new Date().toISOString();
 
   return {
     id: `qa-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    companyId,
     question: '',
     answer: '',
+    labelIds: [],
     createdAt: now,
     updatedAt: now
   };
@@ -325,11 +332,18 @@ export const HomeScreen = ({
 }: HomeScreenProps) => {
   const {
     companies,
+    questionMemos,
+    questionLabels,
     isLoading,
     storageError,
     localMigrationAvailable,
     isMigratingLocalData,
     upsertCompany,
+    upsertQuestionMemo,
+    deleteQuestionMemo: deleteQuestionMemoById,
+    createQuestionLabel,
+    reorderQuestionLabels,
+    deleteQuestionLabel,
     deleteCompany,
     importLocalCompanies,
     dismissLocalMigration
@@ -360,18 +374,22 @@ export const HomeScreen = ({
   const [questionQuery, setQuestionQuery] = useState('');
   const [activeType, setActiveType] = useState<ApplicationType>('internship');
   const [homeView, setHomeView] = useState<MainTab>('companies');
-  const [questionFilter, setQuestionFilter] =
-    useState<QuestionMemoFilter>('all');
+  const [selectedQuestionLabelId, setSelectedQuestionLabelId] = useState<
+    string | null
+  >(null);
   const [questionSort, setQuestionSort] =
     useState<QuestionMemoSort>('updatedAtDesc');
   const [editorVisible, setEditorVisible] = useState(false);
   const [editorType, setEditorType] = useState<ApplicationType>('internship');
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
   const [editingQuestionMemo, setEditingQuestionMemo] = useState<{
-    companyId: string;
-    item: CompanyQuestionAnswer;
+    item: QuestionMemo;
   } | null>(null);
   const [questionCompanyPickerVisible, setQuestionCompanyPickerVisible] =
+    useState(false);
+  const [questionLabelDialogVisible, setQuestionLabelDialogVisible] =
+    useState(false);
+  const [questionLabelSettingsVisible, setQuestionLabelSettingsVisible] =
     useState(false);
   const [menuVisible, setMenuVisible] = useState(false);
   const [passwordDefaultVisible, setPasswordDefaultVisible] = useState(false);
@@ -385,12 +403,12 @@ export const HomeScreen = ({
   const [questionSaveNoticeKey, setQuestionSaveNoticeKey] = useState(0);
   const [toast, setToast] = useState<{
     message: string;
-    tone: 'success' | 'error';
+    tone: 'success' | 'error' | 'warning';
   } | null>(null);
   const typeTransition = useRef(new Animated.Value(0)).current;
   const edgePullX = useRef(new Animated.Value(0)).current;
   const companyListRef = useRef<FlashListRef<CompanyListItem>>(null);
-  const questionListRef = useRef<FlashListRef<QuestionMemoEntry>>(null);
+  const questionListRef = useRef<FlashListRef<QuestionListItem>>(null);
   const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const deferredCompanyQuery = useDeferredValue(companyQuery);
@@ -445,12 +463,8 @@ export const HomeScreen = ({
     [groups]
   );
   const questionEntries = useMemo(
-    () => flattenQuestionMemos(companies),
-    [companies]
-  );
-  const questionCounts = useMemo(
-    () => countQuestionMemos(questionEntries),
-    [questionEntries]
+    () => flattenQuestionMemos(companies, questionMemos, questionLabels),
+    [companies, questionLabels, questionMemos]
   );
   const filteredQuestionEntries = useMemo(
     () =>
@@ -458,11 +472,37 @@ export const HomeScreen = ({
         filterQuestionMemos(
           questionEntries,
           deferredQuestionQuery,
-          questionFilter
+          selectedQuestionLabelId
         ),
         questionSort
       ),
-    [deferredQuestionQuery, questionEntries, questionFilter, questionSort]
+    [
+      deferredQuestionQuery,
+      questionEntries,
+      questionSort,
+      selectedQuestionLabelId
+    ]
+  );
+  const questionCountsByCompany = useMemo(
+    () =>
+      questionMemos.reduce<Record<string, number>>((counts, questionMemo) => {
+        if (questionMemo.companyId) {
+          counts[questionMemo.companyId] =
+            (counts[questionMemo.companyId] ?? 0) + 1;
+        }
+
+        return counts;
+      }, {}),
+    [questionMemos]
+  );
+  const editorQuestionMemos = useMemo(
+    () =>
+      editingCompany
+        ? questionMemos.filter(
+            (questionMemo) => questionMemo.companyId === editingCompany.id
+          )
+        : [],
+    [editingCompany, questionMemos]
   );
 
   const { internshipCount, fullTimeCount } = useMemo(
@@ -489,7 +529,7 @@ export const HomeScreen = ({
     activeType === 'internship' ? internshipCount : fullTimeCount;
   const searchPlaceholder =
     homeView === 'questions'
-      ? '質問文、企業名、タグで検索'
+      ? '質問文、企業名、ラベルで検索'
       : '企業名、ID、業界、タグで検索';
   const searchValue = homeView === 'questions' ? questionQuery : companyQuery;
   const screenBackgroundStyle =
@@ -508,7 +548,7 @@ export const HomeScreen = ({
     [bottomPadding, metrics.contentPadding]
   );
   const showToast = useCallback(
-    (message: string, tone: 'success' | 'error' = 'success') => {
+    (message: string, tone: 'success' | 'error' | 'warning' = 'success') => {
       if (toastTimeoutRef.current) {
         clearTimeout(toastTimeoutRef.current);
       }
@@ -596,7 +636,10 @@ export const HomeScreen = ({
       return;
     }
 
-    showToast(storageError, 'error');
+    showToast(
+      storageError,
+      storageError.startsWith('ローカルプレビュー') ? 'warning' : 'error'
+    );
   }, [showToast, storageError]);
 
   const openCreateModal = useCallback((type: ApplicationType) => {
@@ -803,12 +846,57 @@ export const HomeScreen = ({
   }, []);
 
   const handleSave = useCallback(async (draft: CompanyDraft) => {
-    await upsertCompany(draft);
+    const draftQuestionAnswers = draft.questionAnswers ?? [];
+    const savedCompany = await upsertCompany({
+      ...draft,
+      questionAnswers: []
+    });
+    const previousQuestionIds = new Set(
+      questionMemos
+        .filter((questionMemo) => questionMemo.companyId === savedCompany.id)
+        .map((questionMemo) => questionMemo.id)
+    );
+    const nextQuestionIds = new Set(
+      draftQuestionAnswers.map((questionAnswer) => questionAnswer.id)
+    );
+
+    const questionSyncPromise = Promise.all([
+      Promise.all(
+        draftQuestionAnswers
+          .filter((questionAnswer) => questionAnswer.question.trim())
+          .map((questionAnswer) =>
+            upsertQuestionMemo({
+              id: questionAnswer.id,
+              companyId: savedCompany.id,
+              question: questionAnswer.question,
+              answer: questionAnswer.answer,
+              labelIds: questionAnswer.labelIds ?? [],
+              createdAt: questionAnswer.createdAt,
+              updatedAt: questionAnswer.updatedAt
+            })
+          )
+      ),
+      Promise.all(
+        [...previousQuestionIds]
+          .filter((id) => !nextQuestionIds.has(id))
+          .map(deleteQuestionMemoById)
+      )
+    ]);
+
+    void questionSyncPromise.catch(() => {
+      showToast('企業は保存しましたが、質問メモの保存に失敗しました', 'error');
+    });
     void runHapticsSafely(() =>
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
     );
     showToast(draft.id ? '変更を保存しました' : '登録しました');
-  }, [showToast, upsertCompany]);
+  }, [
+    deleteQuestionMemoById,
+    questionMemos,
+    showToast,
+    upsertCompany,
+    upsertQuestionMemo
+  ]);
 
   const handleDeleteCompany = useCallback((company: Company) => {
     confirmDestructiveAction({
@@ -871,8 +959,7 @@ export const HomeScreen = ({
   const openQuestionMemo = useCallback((entry: QuestionMemoEntry) => {
     Keyboard.dismiss();
     setEditingQuestionMemo({
-      companyId: entry.company.id,
-      item: entry.questionAnswer
+      item: entry.questionMemo
     });
     void runHapticsSafely(() => Haptics.selectionAsync());
   }, []);
@@ -881,8 +968,7 @@ export const HomeScreen = ({
     setQuestionCompanyPickerVisible(false);
     setQuestionCreateCompanyId(company.id);
     setEditingQuestionMemo({
-      companyId: company.id,
-      item: createQuestionMemoDraft()
+      item: createQuestionMemoDraft(company.id)
     });
   }, []);
 
@@ -927,62 +1013,90 @@ export const HomeScreen = ({
     setQuestionCreateCompanyId(null);
   }, []);
 
-  const saveQuestionMemo = useCallback(async (item: CompanyQuestionAnswer) => {
+  const handleReorderQuestionLabels = useCallback(
+    (nextLabels: QuestionLabel[]) => {
+      void reorderQuestionLabels(nextLabels).catch(() => {
+        showToast('ラベルの並び替えに失敗しました', 'error');
+      });
+    },
+    [reorderQuestionLabels, showToast]
+  );
+
+  const handleDeleteQuestionLabel = useCallback(
+    (labelId: string) => {
+      const label = questionLabels.find((item) => item.id === labelId);
+
+      if (!label) {
+        return;
+      }
+
+      confirmDestructiveAction({
+        title: 'ラベルを削除しますか？',
+        message: `「${label.name}」を削除します。質問メモ自体は削除されません。`,
+        confirmLabel: 'OK',
+        onConfirm: async () => {
+          try {
+            await deleteQuestionLabel(labelId);
+            if (selectedQuestionLabelId === labelId) {
+              setSelectedQuestionLabelId(null);
+            }
+            showToast('ラベルを削除しました');
+          } catch {
+            showToast('ラベルの削除に失敗しました', 'error');
+          }
+        }
+      });
+    },
+    [
+      confirmDestructiveAction,
+      deleteQuestionLabel,
+      questionLabels,
+      selectedQuestionLabelId,
+      showToast
+    ]
+  );
+
+  const saveQuestionMemo = useCallback((item: QuestionMemo) => {
     if (!editingQuestionMemo) {
       return;
     }
 
-    const targetCompany = companies.find(
-      (company) => company.id === editingQuestionMemo.companyId
-    );
-
-    if (!targetCompany) {
-      showToast('企業が見つかりませんでした', 'error');
-      closeQuestionMemo();
-      return;
-    }
-
     const now = new Date().toISOString();
-    const nextItem: CompanyQuestionAnswer = {
+    const nextItem: QuestionMemo = {
       ...item,
+      companyId: item.companyId ?? null,
       question: item.question.trim(),
       answer: item.answer.trim(),
+      labelIds: item.labelIds ?? [],
       createdAt: item.createdAt || now,
       updatedAt: now
     };
 
-    if (!nextItem.question && !nextItem.answer) {
-      closeQuestionMemo();
+    if (!nextItem.question) {
+      showToast('題目を入力してください', 'error');
       return;
     }
 
-    const currentItems = targetCompany.questionAnswers ?? [];
-    const isExistingQuestionMemo = currentItems.some(
+    const isExistingQuestionMemo = questionMemos.some(
       (current) => current.id === nextItem.id
     );
-    const nextQuestionAnswers = isExistingQuestionMemo
-      ? currentItems.map((current) =>
-          current.id === nextItem.id ? nextItem : current
-        )
-      : [...currentItems, nextItem];
 
     try {
-      await upsertCompany({
-        ...targetCompany,
-        questionAnswers: nextQuestionAnswers
-      });
+      const savePromise = upsertQuestionMemo(nextItem);
       void runHapticsSafely(() =>
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
       );
-      showToast('質問メモを保存しました');
       const shouldContinueCreating =
-        !isExistingQuestionMemo && questionCreateCompanyId === targetCompany.id;
+        !isExistingQuestionMemo &&
+        questionCreateCompanyId === nextItem.companyId;
 
       if (shouldContinueCreating) {
         setQuestionSaveNoticeKey((current) => current + 1);
         setEditingQuestionMemo({
-          companyId: targetCompany.id,
-          item: createQuestionMemoDraft()
+          item: createQuestionMemoDraft(nextItem.companyId)
+        });
+        void savePromise.catch(() => {
+          showToast('質問メモの保存に失敗しました', 'error');
         });
         return;
       }
@@ -990,48 +1104,42 @@ export const HomeScreen = ({
       closeQuestionMemo();
       if (!isExistingQuestionMemo) {
         setHomeView('questions');
-        setQuestionFilter('all');
+        setSelectedQuestionLabelId(null);
         setQuestionSort('updatedAtDesc');
         setQuestionQuery('');
         scrollQuestionListToTop();
       }
+
+      void savePromise
+        .then(() => {
+          showToast('質問メモを保存しました');
+        })
+        .catch(() => {
+          showToast('質問メモの保存に失敗しました', 'error');
+        });
     } catch {
       showToast('質問メモの保存に失敗しました', 'error');
     }
   }, [
     closeQuestionMemo,
-    companies,
     editingQuestionMemo,
     questionCreateCompanyId,
+    questionMemos,
     scrollQuestionListToTop,
     showToast,
-    upsertCompany
+    upsertQuestionMemo
   ]);
 
   const deleteQuestionMemo = useCallback((entry: QuestionMemoEntry) => {
     confirmDestructiveAction({
       title: '質問メモを削除しますか？',
-      message: `${entry.company.companyName}の「${
-        entry.questionAnswer.question || '題目未入力'
+      message: `${entry.company?.companyName ?? UNASSIGNED_COMPANY_TITLE}の「${
+        entry.questionMemo.question || '題目未入力'
       }」を削除します。`,
       confirmLabel: 'OK',
       onConfirm: async () => {
-        const targetCompany = companies.find(
-          (company) => company.id === entry.company.id
-        );
-
-        if (!targetCompany) {
-          showToast('企業が見つかりませんでした', 'error');
-          return;
-        }
-
         try {
-          await upsertCompany({
-            ...targetCompany,
-            questionAnswers: (targetCompany.questionAnswers ?? []).filter(
-              (item) => item.id !== entry.questionAnswer.id
-            )
-          });
+          await deleteQuestionMemoById(entry.questionMemo.id);
           void runHapticsSafely(() =>
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning)
           );
@@ -1041,7 +1149,7 @@ export const HomeScreen = ({
         }
       }
     });
-  }, [companies, confirmDestructiveAction, showToast, upsertCompany]);
+  }, [confirmDestructiveAction, deleteQuestionMemoById, showToast]);
 
   const renderEmptyCompanies = useCallback(() => {
     if (isLoading) {
@@ -1297,8 +1405,9 @@ export const HomeScreen = ({
         ) : (
           <QuestionListView
             entries={filteredQuestionEntries}
-            counts={questionCounts}
-            filter={questionFilter}
+            labels={questionLabels}
+            totalCount={questionEntries.length}
+            selectedLabelId={selectedQuestionLabelId}
             sort={questionSort}
             query={questionQuery}
             isLoading={isLoading}
@@ -1310,7 +1419,7 @@ export const HomeScreen = ({
             bottomPadding={bottomPadding}
             containerStyle={containerStyle}
             listRef={questionListRef}
-            onFilterChange={setQuestionFilter}
+            onLabelFilterChange={setSelectedQuestionLabelId}
             onSortChange={(sort) => {
               setQuestionSort(sort);
               scrollQuestionListToTop(false);
@@ -1319,7 +1428,11 @@ export const HomeScreen = ({
             onOpenQuestion={(entry) => {
               void openQuestionMemo(entry);
             }}
-            onOpenCompany={(entry) => openEditModal(entry.company)}
+            onOpenCompany={(entry) => {
+              if (entry.company) {
+                openEditModal(entry.company);
+              }
+            }}
             onDelete={deleteQuestionMemo}
           />
         )}
@@ -1364,25 +1477,49 @@ export const HomeScreen = ({
         visible={editorVisible}
         type={editorType}
         company={editingCompany}
+        questionMemos={editorQuestionMemos}
+        questionLabels={questionLabels}
         theme={theme}
         allowPasswordStorage={showPasswordControls}
         onClose={() => setEditorVisible(false)}
         onSave={handleSave}
+        onCreateQuestionLabel={createQuestionLabel}
       />
 
       <QuestionMemoDialog
         item={editingQuestionMemo?.item ?? null}
+        labels={questionLabels}
         theme={theme}
         saveNoticeKey={questionSaveNoticeKey}
         onClose={closeQuestionMemo}
         onSave={(item) => {
           void saveQuestionMemo(item);
         }}
+        onCreateLabel={createQuestionLabel}
+      />
+
+      <QuestionLabelSettingsModal
+        visible={questionLabelSettingsVisible}
+        labels={questionLabels}
+        theme={theme}
+        onClose={() => setQuestionLabelSettingsVisible(false)}
+        onCreateLabel={() => setQuestionLabelDialogVisible(true)}
+        onReorderLabels={handleReorderQuestionLabels}
+        onDeleteLabel={handleDeleteQuestionLabel}
+      />
+
+      <QuestionLabelCreateDialog
+        visible={questionLabelDialogVisible}
+        labels={questionLabels}
+        theme={theme}
+        onClose={() => setQuestionLabelDialogVisible(false)}
+        onCreate={createQuestionLabel}
       />
 
       <QuestionCompanyPickerModal
         visible={questionCompanyPickerVisible}
         companies={availableCompanies}
+        questionCountsByCompany={questionCountsByCompany}
         theme={theme}
         onClose={() => setQuestionCompanyPickerVisible(false)}
         onSelect={startQuestionMemoForCompany}
@@ -1401,10 +1538,16 @@ export const HomeScreen = ({
           void changeHomeView(view);
         }}
         onCreateCompany={() => {
+          setMenuVisible(false);
           void openCreateModal(activeType);
         }}
         onCreateQuestion={() => {
+          setMenuVisible(false);
           void openQuestionCompanyPicker();
+        }}
+        onOpenQuestionLabelSettings={() => {
+          setMenuVisible(false);
+          setQuestionLabelSettingsVisible(true);
         }}
         onPasswordDefaultVisibleChange={changePasswordDefaultVisibility}
         onClose={() => setMenuVisible(false)}

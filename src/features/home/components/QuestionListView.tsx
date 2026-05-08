@@ -1,8 +1,13 @@
 import { FlashList, type FlashListRef } from '@shopify/flash-list';
-import { memo, useCallback, useMemo, type Ref } from 'react';
+import { LinearGradient } from 'expo-linear-gradient';
+import { memo, useCallback, useMemo, useRef, useState, type Ref } from 'react';
 import {
+  LayoutChangeEvent,
   Keyboard,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -11,9 +16,9 @@ import {
 
 import { AppTheme } from '../../../constants/theme';
 import { FilterChip } from '../../../ui/FilterChip';
+import { QuestionLabel } from '../types';
 import {
   QuestionMemoEntry,
-  QuestionMemoFilter,
   QuestionMemoSort
 } from '../utils/questionMemoUtils';
 import { QuestionMemoRow } from './QuestionMemoRow';
@@ -21,8 +26,9 @@ import { QuestionSortMenu } from './QuestionSortMenu';
 
 type QuestionListViewProps = {
   entries: QuestionMemoEntry[];
-  counts: Record<QuestionMemoFilter, number>;
-  filter: QuestionMemoFilter;
+  labels: QuestionLabel[];
+  totalCount: number;
+  selectedLabelId: string | null;
   sort: QuestionMemoSort;
   query: string;
   isLoading: boolean;
@@ -33,8 +39,8 @@ type QuestionListViewProps = {
   contentPadding: number;
   bottomPadding: number;
   containerStyle: ViewStyle;
-  listRef?: Ref<FlashListRef<QuestionMemoEntry>>;
-  onFilterChange: (filter: QuestionMemoFilter) => void;
+  listRef?: Ref<FlashListRef<QuestionListItem>>;
+  onLabelFilterChange: (labelId: string | null) => void;
   onSortChange: (sort: QuestionMemoSort) => void;
   onClearQuery: () => void;
   onOpenQuestion: (entry: QuestionMemoEntry) => void;
@@ -42,17 +48,41 @@ type QuestionListViewProps = {
   onDelete: (entry: QuestionMemoEntry) => void;
 };
 
-const filterOptions: { value: QuestionMemoFilter; label: string }[] = [
-  { value: 'all', label: 'すべて' },
-  { value: 'unanswered', label: '未回答' },
-  { value: 'answered', label: '回答済み' }
-];
+export type QuestionListItem =
+  {
+    kind: 'question';
+    id: string;
+    entry: QuestionMemoEntry;
+  };
 
 const QUESTION_LIST_OVERRIDE_PROPS = { initialDrawBatchSize: 10 } as const;
 const DISABLED_MAINTAIN_VISIBLE_CONTENT_POSITION = { disabled: true } as const;
-const keyQuestionMemoEntry = (item: QuestionMemoEntry) =>
-  `${item.company.id}:${item.questionAnswer.id}`;
-const getQuestionListItemType = () => 'question';
+const FILTER_EDGE_FADE_WIDTH = 24;
+const getQuestionListItemType = (item: QuestionListItem) => item.kind;
+const keyQuestionListItem = (item: QuestionListItem) => item.id;
+
+const buildQuestionListItems = (
+  entries: QuestionMemoEntry[]
+): QuestionListItem[] =>
+  entries.map((entry) => ({
+    kind: 'question' as const,
+    id: `question:${entry.questionMemo.id}`,
+    entry
+  }));
+
+const withColorAlpha = (color: string, alpha: number) => {
+  const hex = color.trim().match(/^#([0-9a-f]{6})$/i)?.[1];
+
+  if (!hex) {
+    return alpha === 0 ? 'transparent' : color;
+  }
+
+  const red = parseInt(hex.slice(0, 2), 16);
+  const green = parseInt(hex.slice(2, 4), 16);
+  const blue = parseInt(hex.slice(4, 6), 16);
+
+  return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
+};
 
 type QuestionMemoListItemProps = {
   entry: QuestionMemoEntry;
@@ -101,8 +131,9 @@ const QuestionMemoListItem = memo(
 
 export const QuestionListView = ({
   entries,
-  counts,
-  filter,
+  labels,
+  totalCount,
+  selectedLabelId,
   sort,
   query,
   isLoading,
@@ -114,13 +145,43 @@ export const QuestionListView = ({
   bottomPadding,
   containerStyle,
   listRef,
-  onFilterChange,
+  onLabelFilterChange,
   onSortChange,
   onClearQuery,
   onOpenQuestion,
   onOpenCompany,
   onDelete
 }: QuestionListViewProps) => {
+  const scrollMetricsRef = useRef({
+    contentWidth: 0,
+    scrollX: 0,
+    viewportWidth: 0
+  });
+  const fadeVisibilityRef = useRef({
+    left: false,
+    right: false
+  });
+  const [fadeVisibility, setFadeVisibility] = useState({
+    left: false,
+    right: false
+  });
+  const listItems = useMemo(() => buildQuestionListItems(entries), [entries]);
+  const softBackground = useMemo(
+    () => withColorAlpha(theme.colors.background, 0.45),
+    [theme.colors.background]
+  );
+  const transparentBackground = useMemo(
+    () => withColorAlpha(theme.colors.background, 0),
+    [theme.colors.background]
+  );
+  const leftFadeColors = useMemo(
+    () => [theme.colors.background, softBackground, transparentBackground] as const,
+    [softBackground, theme.colors.background, transparentBackground]
+  );
+  const rightFadeColors = useMemo(
+    () => [transparentBackground, softBackground, theme.colors.background] as const,
+    [softBackground, theme.colors.background, transparentBackground]
+  );
   const contentContainerStyle = useMemo(
     () => ({
       paddingBottom: bottomPadding,
@@ -130,33 +191,124 @@ export const QuestionListView = ({
     [bottomPadding, contentPadding]
   );
 
+  const updateFadeVisibility = useCallback(() => {
+    const { contentWidth, scrollX, viewportWidth } = scrollMetricsRef.current;
+    const maxScrollX = Math.max(contentWidth - viewportWidth, 0);
+    const nextVisibility = {
+      left: scrollX > 1,
+      right: maxScrollX > 1 && scrollX < maxScrollX - 1
+    };
+    const currentVisibility = fadeVisibilityRef.current;
+
+    if (
+      currentVisibility.left === nextVisibility.left &&
+      currentVisibility.right === nextVisibility.right
+    ) {
+      return;
+    }
+
+    fadeVisibilityRef.current = nextVisibility;
+    setFadeVisibility(nextVisibility);
+  }, []);
+
+  const handleFilterScrollLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      scrollMetricsRef.current.viewportWidth = event.nativeEvent.layout.width;
+      updateFadeVisibility();
+    },
+    [updateFadeVisibility]
+  );
+
+  const handleFilterContentSizeChange = useCallback(
+    (contentWidth: number) => {
+      scrollMetricsRef.current.contentWidth = contentWidth;
+      updateFadeVisibility();
+    },
+    [updateFadeVisibility]
+  );
+
+  const handleFilterScroll = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      scrollMetricsRef.current.scrollX = event.nativeEvent.contentOffset.x;
+      updateFadeVisibility();
+    },
+    [updateFadeVisibility]
+  );
+
   const renderControls = () => (
     <View style={[styles.controlShell, { paddingHorizontal: contentPadding }]}>
       <View style={[containerStyle, styles.filterBar]}>
-        <View style={styles.filterChips}>
-          {filterOptions.map((option) => (
-            <FilterChip
-              key={option.value}
-              label={`${option.label} ${counts[option.value]}`}
-              theme={theme}
-              selected={filter === option.value}
-              tint={accentColor}
-              surface={accentSurface}
-              border={accentBorder}
-              onPress={() => {
-                if (filter !== option.value) {
-                  onFilterChange(option.value);
-                }
-              }}
-            />
-          ))}
+        <View style={styles.fixedStartChip}>
+          <FilterChip
+            label={`すべて ${totalCount}`}
+            theme={theme}
+            selected={!selectedLabelId}
+            tint={accentColor}
+            surface={accentSurface}
+            border={accentBorder}
+            onPress={() => onLabelFilterChange(null)}
+          />
         </View>
-        <QuestionSortMenu
-          value={sort}
-          theme={theme}
-          accentColor={accentColor}
-          onChange={onSortChange}
-        />
+        <View style={styles.leftFadeSlot}>
+          <LinearGradient
+            pointerEvents="none"
+            colors={leftFadeColors}
+            locations={[0, 0.18, 1]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={[
+              styles.edgeFade,
+              !fadeVisibility.left && styles.hiddenFade
+            ]}
+          />
+        </View>
+        <View style={styles.filterScrollWrap}>
+          <ScrollView
+            horizontal
+            keyboardShouldPersistTaps="handled"
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filterChips}
+            onContentSizeChange={handleFilterContentSizeChange}
+            onLayout={handleFilterScrollLayout}
+            onScroll={handleFilterScroll}
+            scrollEventThrottle={16}
+            style={styles.filterScroll}
+          >
+            {labels.map((label) => (
+              <FilterChip
+                key={label.id}
+                label={label.name}
+                theme={theme}
+                selected={selectedLabelId === label.id}
+                tint={accentColor}
+                surface={accentSurface}
+                border={accentBorder}
+                onPress={() => onLabelFilterChange(label.id)}
+              />
+            ))}
+          </ScrollView>
+        </View>
+        <View style={styles.rightFadeSlot}>
+          <LinearGradient
+            pointerEvents="none"
+            colors={rightFadeColors}
+            locations={[0, 0.82, 1]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={[
+              styles.edgeFade,
+              !fadeVisibility.right && styles.hiddenFade
+            ]}
+          />
+        </View>
+        <View style={styles.fixedEndChip}>
+          <QuestionSortMenu
+            value={sort}
+            theme={theme}
+            accentColor={accentColor}
+            onChange={onSortChange}
+          />
+        </View>
       </View>
     </View>
   );
@@ -172,7 +324,7 @@ export const QuestionListView = ({
       );
     }
 
-    if (!query.trim() && counts.all === 0) {
+    if (!query.trim() && totalCount === 0) {
       return (
         <View style={[containerStyle, styles.emptyState]}>
           <Text style={[styles.emptyTitle, { color: theme.colors.textPrimary }]}>
@@ -204,11 +356,11 @@ export const QuestionListView = ({
               検索をクリア
             </Text>
           </Pressable>
-        ) : filter !== 'all' ? (
+        ) : selectedLabelId ? (
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="質問フィルタをリセット"
-            onPress={() => onFilterChange('all')}
+            onPress={() => onLabelFilterChange(null)}
             style={({ pressed }) => [
               styles.clearSearchButton,
               pressed && styles.pressed
@@ -224,27 +376,29 @@ export const QuestionListView = ({
   }, [
     accentColor,
     containerStyle,
-    counts.all,
-    filter,
     isLoading,
     onClearQuery,
-    onFilterChange,
+    onLabelFilterChange,
     query,
-    theme
+    selectedLabelId,
+    theme,
+    totalCount
   ]);
 
   const renderQuestionItem = useCallback(
-    ({ item }: { item: QuestionMemoEntry }) => (
-      <QuestionMemoListItem
-        entry={item}
-        theme={theme}
-        accentColor={accentColor}
-        containerStyle={containerStyle}
-        onOpenQuestion={onOpenQuestion}
-        onOpenCompany={onOpenCompany}
-        onDelete={onDelete}
-      />
-    ),
+    ({ item }: { item: QuestionListItem }) => {
+      return (
+        <QuestionMemoListItem
+          entry={item.entry}
+          theme={theme}
+          accentColor={accentColor}
+          containerStyle={containerStyle}
+          onOpenQuestion={onOpenQuestion}
+          onOpenCompany={onOpenCompany}
+          onDelete={onDelete}
+        />
+      );
+    },
     [
       accentColor,
       containerStyle,
@@ -260,14 +414,14 @@ export const QuestionListView = ({
       {renderControls()}
       <FlashList
         ref={listRef}
-        data={entries}
+        data={listItems}
         keyboardDismissMode="on-drag"
         keyboardShouldPersistTaps="handled"
         ListEmptyComponent={renderEmpty}
         contentContainerStyle={contentContainerStyle}
         drawDistance={640}
         getItemType={getQuestionListItemType}
-        keyExtractor={keyQuestionMemoEntry}
+        keyExtractor={keyQuestionListItem}
         maintainVisibleContentPosition={
           DISABLED_MAINTAIN_VISIBLE_CONTENT_POSITION
         }
@@ -290,15 +444,51 @@ const styles = StyleSheet.create({
   filterBar: {
     alignItems: 'flex-start',
     flexDirection: 'row',
-    gap: 8,
     paddingBottom: 12
   },
-  filterChips: {
+  fixedStartChip: {
+    zIndex: 3
+  },
+  fixedEndChip: {
+    zIndex: 3
+  },
+  filterScroll: {
     flex: 1,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
     minWidth: 0
+  },
+  filterScrollWrap: {
+    flex: 1,
+    marginHorizontal: -FILTER_EDGE_FADE_WIDTH,
+    minWidth: 0,
+    position: 'relative'
+  },
+  filterChips: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: 4
+  },
+  edgeFade: {
+    bottom: 0,
+    position: 'absolute',
+    top: 0,
+    width: FILTER_EDGE_FADE_WIDTH,
+    zIndex: 2
+  },
+  leftFadeSlot: {
+    height: 34,
+    position: 'relative',
+    width: FILTER_EDGE_FADE_WIDTH,
+    zIndex: 2
+  },
+  rightFadeSlot: {
+    height: 34,
+    position: 'relative',
+    width: FILTER_EDGE_FADE_WIDTH,
+    zIndex: 2
+  },
+  hiddenFade: {
+    opacity: 0
   },
   emptyState: {
     alignItems: 'center',

@@ -41,7 +41,7 @@ export const deleteRemoteCompany = async (
   id: string,
   accessToken: string | null
 ) => {
-  await apiRequest(`/api/companies/${encodeURIComponent(id)}`, {
+  await apiRequest(`/api/companies?id=${encodeURIComponent(id)}`, {
     method: 'DELETE',
     accessToken
   });

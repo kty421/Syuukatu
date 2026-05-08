@@ -6,7 +6,7 @@ import { AppTheme } from '../constants/theme';
 type AppToastProps = {
   message: string;
   theme: AppTheme;
-  tone?: 'success' | 'error';
+  tone?: 'success' | 'error' | 'warning';
 };
 
 export const AppToast = ({
@@ -15,6 +15,7 @@ export const AppToast = ({
   tone = 'success'
 }: AppToastProps) => {
   const isError = tone === 'error';
+  const isWarning = tone === 'warning';
 
   return (
     <View
@@ -24,7 +25,11 @@ export const AppToast = ({
         theme.shadows.floating,
         {
           backgroundColor: theme.colors.surfaceOverlay,
-          borderColor: isError ? theme.colors.danger : theme.colors.primaryBorder
+          borderColor: isError
+            ? theme.colors.danger
+            : isWarning
+              ? theme.colors.warning
+              : theme.colors.primaryBorder
         }
       ]}
     >
@@ -34,14 +39,22 @@ export const AppToast = ({
           {
             backgroundColor: isError
               ? theme.colors.dangerSubtle
+              : isWarning
+                ? theme.colors.warningSubtle
               : theme.colors.primarySubtle
           }
         ]}
       >
         <Ionicons
-          name={isError ? 'alert-circle' : 'checkmark'}
+          name={isError ? 'alert-circle' : isWarning ? 'warning' : 'checkmark'}
           size={14}
-          color={isError ? theme.colors.danger : theme.colors.primary}
+          color={
+            isError
+              ? theme.colors.danger
+              : isWarning
+                ? theme.colors.warning
+                : theme.colors.primary
+          }
         />
       </View>
       <Text style={[styles.message, { color: theme.colors.textPrimary }]}>{message}</Text>
