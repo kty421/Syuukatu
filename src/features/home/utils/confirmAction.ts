@@ -1,6 +1,6 @@
-import { Alert, Platform } from 'react-native';
+import { useCallback, useState } from 'react';
 
-type ConfirmActionParams = {
+export type ConfirmActionParams = {
   title: string;
   message?: string;
   confirmLabel: string;
@@ -9,49 +9,58 @@ type ConfirmActionParams = {
   onConfirm: () => void | Promise<void>;
 };
 
-const getWebConfirm = () => {
-  if (
-    Platform.OS !== 'web' ||
-    typeof globalThis.confirm !== 'function'
-  ) {
-    return null;
-  }
-
-  return globalThis.confirm.bind(globalThis);
+export type ConfirmActionRequest = ConfirmActionParams & {
+  destructive: boolean;
 };
 
-export const confirmAction = ({
-  title,
-  message,
-  confirmLabel,
-  cancelLabel = 'キャンセル',
-  destructive = false,
-  onConfirm
-}: ConfirmActionParams) => {
-  const webConfirm = getWebConfirm();
+export const useConfirmAction = () => {
+  const [request, setRequest] = useState<ConfirmActionRequest | null>(null);
+  const [isRunning, setIsRunning] = useState(false);
 
-  if (webConfirm) {
-    const shouldConfirm = webConfirm(message ? `${title}\n\n${message}` : title);
+  const confirmAction = useCallback((params: ConfirmActionParams) => {
+    setRequest({
+      ...params,
+      destructive: params.destructive ?? false
+    });
+  }, []);
 
-    if (shouldConfirm) {
-      void onConfirm();
+  const confirmDestructiveAction = useCallback(
+    (params: Omit<ConfirmActionParams, 'destructive'>) => {
+      confirmAction({
+        ...params,
+        destructive: true
+      });
+    },
+    [confirmAction]
+  );
+
+  const cancelConfirmAction = useCallback(() => {
+    if (!isRunning) {
+      setRequest(null);
+    }
+  }, [isRunning]);
+
+  const runConfirmAction = useCallback(async () => {
+    if (!request || isRunning) {
+      return;
     }
 
-    return;
-  }
+    setIsRunning(true);
 
-  Alert.alert(title, message, [
-    { text: cancelLabel, style: 'cancel' },
-    {
-      text: confirmLabel,
-      style: destructive ? 'destructive' : 'default',
-      onPress: () => {
-        void onConfirm();
-      }
+    try {
+      await request.onConfirm();
+    } finally {
+      setIsRunning(false);
+      setRequest(null);
     }
-  ]);
+  }, [isRunning, request]);
+
+  return {
+    request,
+    isRunning,
+    confirmAction,
+    confirmDestructiveAction,
+    cancelConfirmAction,
+    runConfirmAction
+  };
 };
-
-export const confirmDestructiveAction = (
-  params: Omit<ConfirmActionParams, 'destructive'>
-) => confirmAction({ ...params, destructive: true });

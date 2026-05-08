@@ -42,6 +42,7 @@ import { ApplicationTypeSegment } from './components/ApplicationTypeSegment';
 import { BottomNavigation, MainTab } from './components/BottomNavigation';
 import { CompanyCard } from './components/CompanyCard';
 import { CompanyEditorModal } from './components/CompanyEditorModal';
+import { ConfirmActionDialog } from './components/ConfirmActionDialog';
 import { HomeMenuModal } from './components/HomeMenuModal';
 import { QuestionCompanyPickerModal } from './components/QuestionCompanyPickerModal';
 import { QuestionListView } from './components/QuestionListView';
@@ -69,7 +70,7 @@ import {
   QuestionMemoSort,
   sortQuestionMemos
 } from './utils/questionMemoUtils';
-import { confirmDestructiveAction } from './utils/confirmAction';
+import { useConfirmAction } from './utils/confirmAction';
 
 const transitionValueByType: Record<ApplicationType, number> = {
   internship: 0,
@@ -339,6 +340,13 @@ export const HomeScreen = ({
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const metrics = useMemo(() => getContentMetrics(width), [width]);
+  const {
+    request: confirmRequest,
+    isRunning: isConfirmActionRunning,
+    confirmDestructiveAction,
+    cancelConfirmAction,
+    runConfirmAction
+  } = useConfirmAction();
   const containerStyle = useMemo<ViewStyle>(
     () => ({
       alignSelf: 'center',
@@ -808,7 +816,7 @@ export const HomeScreen = ({
       message: showPasswordControls
         ? `${company.companyName}のIDと端末内のパスワードも削除されます。`
         : `${company.companyName}の登録情報を削除します。`,
-      confirmLabel: '削除',
+      confirmLabel: 'OK',
       onConfirm: async () => {
         try {
           await deleteCompany(company.id);
@@ -819,7 +827,7 @@ export const HomeScreen = ({
         } catch {}
       }
     });
-  }, [deleteCompany, showPasswordControls, showToast]);
+  }, [confirmDestructiveAction, deleteCompany, showPasswordControls, showToast]);
 
   const handleImportLocalCompanies = useCallback(async () => {
     try {
@@ -846,10 +854,10 @@ export const HomeScreen = ({
   const handleSignOut = useCallback(() => {
     confirmDestructiveAction({
       title: 'ログアウトしますか？',
-      confirmLabel: 'ログアウト',
+      confirmLabel: 'OK',
       onConfirm: executeSignOut
     });
-  }, [executeSignOut]);
+  }, [confirmDestructiveAction, executeSignOut]);
 
   const openQuestionCompanyPicker = useCallback(() => {
     Keyboard.dismiss();
@@ -1006,7 +1014,7 @@ export const HomeScreen = ({
       message: `${entry.company.companyName}の「${
         entry.questionAnswer.question || '題目未入力'
       }」を削除します。`,
-      confirmLabel: '削除',
+      confirmLabel: 'OK',
       onConfirm: async () => {
         const targetCompany = companies.find(
           (company) => company.id === entry.company.id
@@ -1033,7 +1041,7 @@ export const HomeScreen = ({
         }
       }
     });
-  }, [companies, showToast, upsertCompany]);
+  }, [companies, confirmDestructiveAction, showToast, upsertCompany]);
 
   const renderEmptyCompanies = useCallback(() => {
     if (isLoading) {
@@ -1383,17 +1391,35 @@ export const HomeScreen = ({
 
       <HomeMenuModal
         visible={menuVisible}
+        activeView={homeView}
         userEmail={user.email}
         showPasswordControls={showPasswordControls}
         passwordDefaultVisible={passwordDefaultVisible}
         theme={theme}
         onOpen={() => setMenuVisible(true)}
+        onViewChange={(view) => {
+          void changeHomeView(view);
+        }}
+        onCreateCompany={() => {
+          void openCreateModal(activeType);
+        }}
+        onCreateQuestion={() => {
+          void openQuestionCompanyPicker();
+        }}
         onPasswordDefaultVisibleChange={changePasswordDefaultVisibility}
         onClose={() => setMenuVisible(false)}
         onSignOut={() => {
           setMenuVisible(false);
           handleSignOut();
         }}
+      />
+
+      <ConfirmActionDialog
+        request={confirmRequest}
+        isRunning={isConfirmActionRunning}
+        theme={theme}
+        onCancel={cancelConfirmAction}
+        onConfirm={runConfirmAction}
       />
 
       {toast ? <AppToast message={toast.message} theme={theme} tone={toast.tone} /> : null}
