@@ -164,9 +164,9 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   questionTitle: {
-    fontSize: 14,
-    fontWeight: "700",
-    lineHeight: 19,
+    fontSize: 13,
+    fontWeight: "600",
+    lineHeight: 17,
   },
   metaRow: {
     alignItems: "center",
