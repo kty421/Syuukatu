@@ -111,6 +111,7 @@ type CompanyListItem =
 const PASSWORD_DEFAULT_VISIBLE_KEY = "syuukatu:password-default-visible";
 const COMPANY_LIST_OVERRIDE_PROPS = { initialDrawBatchSize: 8 } as const;
 const DISABLED_MAINTAIN_VISIBLE_CONTENT_POSITION = { disabled: true } as const;
+const MENU_MODAL_OPEN_DELAY_MS = Platform.OS === "web" ? 50 : 80;
 
 const buildCompanyListItems = (
   groups: CompanyStatusGroup[],
@@ -413,6 +414,9 @@ export const HomeScreen = ({
   const companyListRef = useRef<FlashListRef<CompanyListItem>>(null);
   const questionListRef = useRef<FlashListRef<QuestionListItem>>(null);
   const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const menuActionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
 
   const deferredCompanyQuery = useDeferredValue(companyQuery);
   const deferredQuestionQuery = useDeferredValue(questionQuery);
@@ -587,6 +591,19 @@ export const HomeScreen = ({
     scrollCompanyListToTop(false);
   }, [scrollCompanyListToTop]);
 
+  const runAfterMenuClose = useCallback((action: () => void) => {
+    if (menuActionTimeoutRef.current) {
+      clearTimeout(menuActionTimeoutRef.current);
+    }
+
+    setMenuVisible(false);
+
+    menuActionTimeoutRef.current = setTimeout(() => {
+      menuActionTimeoutRef.current = null;
+      requestAnimationFrame(action);
+    }, MENU_MODAL_OPEN_DELAY_MS);
+  }, []);
+
   const clearQuestionSearch = useCallback(() => {
     setQuestionQuery("");
     scrollQuestionListToTop(false);
@@ -596,6 +613,9 @@ export const HomeScreen = ({
     () => () => {
       if (toastTimeoutRef.current) {
         clearTimeout(toastTimeoutRef.current);
+      }
+      if (menuActionTimeoutRef.current) {
+        clearTimeout(menuActionTimeoutRef.current);
       }
     },
     [],
@@ -1570,13 +1590,19 @@ export const HomeScreen = ({
           void changeHomeView(view);
         }}
         onCreateCompany={() => {
-          void openCreateModal(activeType);
+          runAfterMenuClose(() => {
+            void openCreateModal(activeType);
+          });
         }}
         onCreateQuestion={() => {
-          void openQuestionCompanyPicker();
+          runAfterMenuClose(() => {
+            void openQuestionCompanyPicker();
+          });
         }}
         onOpenQuestionLabelSettings={() => {
-          setQuestionLabelSettingsVisible(true);
+          runAfterMenuClose(() => {
+            setQuestionLabelSettingsVisible(true);
+          });
         }}
         onPasswordDefaultVisibleChange={changePasswordDefaultVisibility}
         onClose={() => setMenuVisible(false)}

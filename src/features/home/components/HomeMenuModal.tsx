@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   BackHandler,
   Platform,
@@ -45,6 +45,7 @@ const EDGE_SWIPE_WIDTH = 30;
 const EDGE_SWIPE_TOP_OFFSET = 64;
 const GESTURE_ACTIVATION_DISTANCE = 12;
 const VELOCITY_THRESHOLD = 720;
+const DRAWER_UNMOUNT_DELAY_MS = Platform.OS === "web" ? 120 : 160;
 
 const webCursor =
   Platform.OS === "web" ? ({ cursor: "pointer" } as unknown as object) : null;
@@ -87,9 +88,34 @@ export const HomeMenuModal = ({
   const { width } = useWindowDimensions();
   const drawerWidth = Math.min(width * 0.78, 320);
   const closeThreshold = drawerWidth / 3;
+  const [renderDrawer, setRenderDrawer] = useState(visible);
+  const drawerUnmountTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
   const translateX = useSharedValue(drawerWidth);
   const dragStartX = useSharedValue(drawerWidth);
-  const skipNextCloseCallbackRef = useRef(false);
+
+  const clearDrawerUnmountTimer = useCallback(() => {
+    if (drawerUnmountTimeoutRef.current) {
+      clearTimeout(drawerUnmountTimeoutRef.current);
+      drawerUnmountTimeoutRef.current = null;
+    }
+  }, []);
+
+  const showDrawer = useCallback(() => {
+    clearDrawerUnmountTimer();
+    setRenderDrawer(true);
+  }, [clearDrawerUnmountTimer]);
+
+  const hideDrawerSoon = useCallback(() => {
+    clearDrawerUnmountTimer();
+    drawerUnmountTimeoutRef.current = setTimeout(() => {
+      drawerUnmountTimeoutRef.current = null;
+      translateX.value = drawerWidth;
+      dragStartX.value = drawerWidth;
+      setRenderDrawer(false);
+    }, DRAWER_UNMOUNT_DELAY_MS);
+  }, [clearDrawerUnmountTimer, dragStartX, drawerWidth, translateX]);
 
   const finishClose = useCallback(() => {
     onClose();
@@ -106,11 +132,6 @@ export const HomeMenuModal = ({
         drawerSpring(Math.max(velocityX, 0)),
         (finished) => {
           if (finished) {
-            if (skipNextCloseCallbackRef.current) {
-              skipNextCloseCallbackRef.current = false;
-              return;
-            }
-
             runOnJS(finishClose)();
           }
         },
@@ -121,12 +142,10 @@ export const HomeMenuModal = ({
 
   const runMenuAction = useCallback(
     (action: () => void) => {
-      skipNextCloseCallbackRef.current = true;
-      requestClose();
-      onClose();
       action();
+      requestClose();
     },
-    [onClose, requestClose],
+    [requestClose],
   );
 
   const backdropStyle = useAnimatedStyle(() => ({
@@ -151,6 +170,7 @@ export const HomeMenuModal = ({
         .failOffsetY([-18, 18])
         .enableTrackpadTwoFingerGesture(true)
         .onStart(() => {
+          runOnJS(showDrawer)();
           cancelAnimation(translateX);
           dragStartX.value = translateX.value;
         })
@@ -180,8 +200,18 @@ export const HomeMenuModal = ({
             drawerWidth,
             drawerSpring(Math.max(event.velocityX, 0)),
           );
+          runOnJS(hideDrawerSoon)();
         }),
-    [closeThreshold, dragStartX, drawerWidth, finishOpen, translateX, visible],
+    [
+      closeThreshold,
+      dragStartX,
+      drawerWidth,
+      finishOpen,
+      hideDrawerSoon,
+      showDrawer,
+      translateX,
+      visible,
+    ],
   );
 
   const drawerCloseGesture = useMemo(
@@ -233,12 +263,21 @@ export const HomeMenuModal = ({
     cancelAnimation(translateX);
 
     if (visible) {
+      showDrawer();
       translateX.value = withSpring(0, drawerSpring());
       return;
     }
 
     translateX.value = withSpring(drawerWidth, drawerSpring());
-  }, [drawerWidth, translateX, visible]);
+    hideDrawerSoon();
+  }, [drawerWidth, hideDrawerSoon, showDrawer, translateX, visible]);
+
+  useEffect(
+    () => () => {
+      clearDrawerUnmountTimer();
+    },
+    [clearDrawerUnmountTimer],
+  );
 
   useEffect(() => {
     if (!visible) {
@@ -258,193 +297,201 @@ export const HomeMenuModal = ({
 
   return (
     <View pointerEvents="box-none" style={styles.root}>
-      <Animated.View
-        pointerEvents="none"
-        style={[StyleSheet.absoluteFillObject, styles.backdrop, backdropStyle]}
-      />
-
-      <Pressable
-        accessibilityLabel="メニューを閉じる"
-        pointerEvents={visible ? "auto" : "none"}
-        style={StyleSheet.absoluteFill}
-        onPress={() => requestClose()}
-      />
-
-      <GestureDetector gesture={drawerCloseGesture}>
-        <Animated.View
-          collapsable={false}
-          pointerEvents={visible ? "auto" : "none"}
-          style={[
-            styles.drawer,
-            theme.shadows.floating,
-            drawerStyle,
-            {
-              backgroundColor: theme.colors.surface,
-              borderLeftColor: theme.colors.border,
-              paddingBottom: Math.max(insets.bottom, 14),
-              paddingTop: Math.max(insets.top, 10) + 12,
-              width: drawerWidth,
-            },
-          ]}>
-          <View style={styles.header}>
-            <View style={styles.headerTitleBlock}>
-              <Text
-                selectable
-                numberOfLines={1}
-                style={[
-                  styles.headerEmail,
-                  { color: theme.colors.textPrimary },
-                ]}>
-                {userEmail ?? "メールアドレス未設定"}
-              </Text>
-            </View>
-            <View
-              style={[
-                styles.userIcon,
-                { backgroundColor: theme.colors.primarySubtle },
-              ]}>
-              <Ionicons
-                name="person-outline"
-                size={18}
-                color={theme.colors.primary}
-              />
-            </View>
-          </View>
-
-          <View
+      {renderDrawer ? (
+        <>
+          <Animated.View
+            pointerEvents="none"
             style={[
-              styles.divider,
-              styles.settingsDivider,
-              { backgroundColor: theme.colors.border },
+              StyleSheet.absoluteFillObject,
+              styles.backdrop,
+              backdropStyle,
             ]}
           />
 
-          <View style={styles.menuSection}>
-            <MenuActionRow
-              icon="business-outline"
-              label="企業一覧"
-              selected={activeView === "companies"}
-              theme={theme}
-              onPress={() => runMenuAction(() => onViewChange("companies"))}
-            />
-            <MenuActionRow
-              icon="chatbubbles-outline"
-              label="質問一覧"
-              selected={activeView === "questions"}
-              theme={theme}
-              onPress={() => runMenuAction(() => onViewChange("questions"))}
-            />
-          </View>
+          <Pressable
+            accessibilityLabel="メニューを閉じる"
+            pointerEvents={visible ? "auto" : "none"}
+            style={StyleSheet.absoluteFill}
+            onPress={() => requestClose()}
+          />
 
-          <View style={styles.menuSection}>
-            <MenuActionRow
-              icon="add-outline"
-              label="企業を追加"
-              theme={theme}
-              onPress={() => runMenuAction(onCreateCompany)}
-            />
-            <MenuActionRow
-              icon="create-outline"
-              label="質問を追加"
-              theme={theme}
-              onPress={() => runMenuAction(onCreateQuestion)}
-            />
-          </View>
-
-          <View style={[styles.menuSection, styles.settingsSection]}>
-            <View
+          <GestureDetector gesture={drawerCloseGesture}>
+            <Animated.View
+              collapsable={false}
+              pointerEvents={visible ? "auto" : "none"}
               style={[
-                styles.divider,
-                styles.settingsDivider,
-                { backgroundColor: theme.colors.border },
-              ]}
-            />
-            {/* <Text
-              style={[
-                styles.sectionTitle,
-                { color: theme.colors.textPrimary },
+                styles.drawer,
+                theme.shadows.floating,
+                drawerStyle,
+                {
+                  backgroundColor: theme.colors.surface,
+                  borderLeftColor: theme.colors.border,
+                  paddingBottom: Math.max(insets.bottom, 14),
+                  paddingTop: Math.max(insets.top, 10) + 12,
+                  width: drawerWidth,
+                },
               ]}>
-              詳細設定
-            </Text> */}
-            <SettingsLinkRow
-              label="質問ラベルの追加・編集"
-              theme={theme}
-              onPress={() => runMenuAction(onOpenQuestionLabelSettings)}
-            />
-            <View
-              style={[
-                styles.divider,
-                styles.settingsItemDivider,
-                { backgroundColor: theme.colors.divider },
-              ]}
-            />
-            <View style={styles.passwordRow}>
-              <Text
-                style={[
-                  styles.sectionTitle,
-                  { color: theme.colors.textPrimary },
-                ]}>
-                パスワードのデフォルト表示
-              </Text>
-              {showPasswordControls ? (
-                <View
-                  style={[
-                    styles.segment,
-                    {
-                      backgroundColor: theme.colors.surfaceElevated,
-                      borderColor: theme.colors.border,
-                    },
-                  ]}>
-                  <PasswordSegmentButton
-                    label="非表示"
-                    selected={!passwordDefaultVisible}
-                    theme={theme}
-                    onPress={() => onPasswordDefaultVisibleChange(false)}
-                  />
-                  <PasswordSegmentButton
-                    label="表示"
-                    selected={passwordDefaultVisible}
-                    theme={theme}
-                    onPress={() => onPasswordDefaultVisibleChange(true)}
-                  />
-                </View>
-              ) : (
-                <View
-                  style={[
-                    styles.unavailableBadge,
-                    {
-                      backgroundColor: theme.colors.surfaceSubtle,
-                      borderColor: theme.colors.border,
-                    },
-                  ]}>
+              <View style={styles.header}>
+                <View style={styles.headerTitleBlock}>
                   <Text
+                    selectable
+                    numberOfLines={1}
                     style={[
-                      styles.unavailableText,
-                      { color: theme.colors.textMuted },
+                      styles.headerEmail,
+                      { color: theme.colors.textPrimary },
                     ]}>
-                    スマホのみ
+                    {userEmail ?? "メールアドレス未設定"}
                   </Text>
                 </View>
-              )}
-            </View>
-          </View>
+                <View
+                  style={[
+                    styles.userIcon,
+                    { backgroundColor: theme.colors.primarySubtle },
+                  ]}>
+                  <Ionicons
+                    name="person-outline"
+                    size={18}
+                    color={theme.colors.primary}
+                  />
+                </View>
+              </View>
 
-          <View style={styles.footer}>
-            <View
-              style={[
-                styles.divider,
-                { backgroundColor: theme.colors.divider },
-              ]}
-            />
-            <MenuActionRow
-              icon="log-out-outline"
-              label="ログアウト"
-              theme={theme}
-              onPress={onSignOut}
-            />
-          </View>
-        </Animated.View>
-      </GestureDetector>
+              <View
+                style={[
+                  styles.divider,
+                  styles.settingsDivider,
+                  { backgroundColor: theme.colors.border },
+                ]}
+              />
+
+              <View style={styles.menuSection}>
+                <MenuActionRow
+                  icon="business-outline"
+                  label="企業一覧"
+                  selected={activeView === "companies"}
+                  theme={theme}
+                  onPress={() => runMenuAction(() => onViewChange("companies"))}
+                />
+                <MenuActionRow
+                  icon="chatbubbles-outline"
+                  label="質問一覧"
+                  selected={activeView === "questions"}
+                  theme={theme}
+                  onPress={() => runMenuAction(() => onViewChange("questions"))}
+                />
+              </View>
+
+              <View style={styles.menuSection}>
+                <MenuActionRow
+                  icon="add-outline"
+                  label="企業を追加"
+                  theme={theme}
+                  onPress={onCreateCompany}
+                />
+                <MenuActionRow
+                  icon="create-outline"
+                  label="質問を追加"
+                  theme={theme}
+                  onPress={onCreateQuestion}
+                />
+              </View>
+
+              <View style={[styles.menuSection, styles.settingsSection]}>
+                <View
+                  style={[
+                    styles.divider,
+                    styles.settingsDivider,
+                    { backgroundColor: theme.colors.border },
+                  ]}
+                />
+                {/* <Text
+                  style={[
+                    styles.sectionTitle,
+                    { color: theme.colors.textPrimary },
+                  ]}>
+                  詳細設定
+                </Text> */}
+                <SettingsLinkRow
+                  label="質問ラベルの追加・編集"
+                  theme={theme}
+                  onPress={onOpenQuestionLabelSettings}
+                />
+                <View
+                  style={[
+                    styles.divider,
+                    styles.settingsItemDivider,
+                    { backgroundColor: theme.colors.divider },
+                  ]}
+                />
+                <View style={styles.passwordRow}>
+                  <Text
+                    style={[
+                      styles.sectionTitle,
+                      { color: theme.colors.textPrimary },
+                    ]}>
+                    パスワードのデフォルト表示
+                  </Text>
+                  {showPasswordControls ? (
+                    <View
+                      style={[
+                        styles.segment,
+                        {
+                          backgroundColor: theme.colors.surfaceElevated,
+                          borderColor: theme.colors.border,
+                        },
+                      ]}>
+                      <PasswordSegmentButton
+                        label="非表示"
+                        selected={!passwordDefaultVisible}
+                        theme={theme}
+                        onPress={() => onPasswordDefaultVisibleChange(false)}
+                      />
+                      <PasswordSegmentButton
+                        label="表示"
+                        selected={passwordDefaultVisible}
+                        theme={theme}
+                        onPress={() => onPasswordDefaultVisibleChange(true)}
+                      />
+                    </View>
+                  ) : (
+                    <View
+                      style={[
+                        styles.unavailableBadge,
+                        {
+                          backgroundColor: theme.colors.surfaceSubtle,
+                          borderColor: theme.colors.border,
+                        },
+                      ]}>
+                      <Text
+                        style={[
+                          styles.unavailableText,
+                          { color: theme.colors.textMuted },
+                        ]}>
+                        スマホのみ
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+
+              <View style={styles.footer}>
+                <View
+                  style={[
+                    styles.divider,
+                    { backgroundColor: theme.colors.divider },
+                  ]}
+                />
+                <MenuActionRow
+                  icon="log-out-outline"
+                  label="ログアウト"
+                  theme={theme}
+                  onPress={onSignOut}
+                />
+              </View>
+            </Animated.View>
+          </GestureDetector>
+        </>
+      ) : null}
 
       <GestureDetector gesture={edgeOpenGesture}>
         <View
