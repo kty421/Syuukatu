@@ -1,6 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  ActivityIndicator,
+  Modal,
   PanResponder,
   Platform,
   Pressable,
@@ -14,13 +16,14 @@ import {
 import { AppTheme } from "../../../constants/theme";
 import { FullScreenModalShell } from "../../../ui/FullScreenModalShell";
 import { QuestionLabel } from "../types";
+import { QuestionLabelCreateDialog } from "./QuestionLabelCreateDialog";
 
 type QuestionLabelSettingsModalProps = {
   visible: boolean;
   labels: QuestionLabel[];
   theme: AppTheme;
   onClose: () => void;
-  onCreateLabel: () => void;
+  onCreateLabel: (name: string) => Promise<QuestionLabel>;
   onReorderLabels: (labels: QuestionLabel[]) => void;
   onDeleteLabel: (labelId: string) => void;
 };
@@ -28,6 +31,7 @@ type QuestionLabelSettingsModalProps = {
 type LabelRowProps = {
   label: QuestionLabel;
   dragging: boolean;
+  dragOffsetY: number;
   theme: AppTheme;
   onDragStart: (labelId: string) => void;
   onDragMove: (labelId: string, dy: number) => void;
@@ -56,6 +60,10 @@ export const QuestionLabelSettingsModal = ({
 }: QuestionLabelSettingsModalProps) => {
   const [orderedLabels, setOrderedLabels] = useState(labels);
   const [draggingLabelId, setDraggingLabelId] = useState<string | null>(null);
+  const [dragOffsetY, setDragOffsetY] = useState(0);
+  const [labelCreateVisible, setLabelCreateVisible] = useState(false);
+  const [deletingLabel, setDeletingLabel] = useState<QuestionLabel | null>(null);
+  const [deleteRunning, setDeleteRunning] = useState(false);
   const orderedLabelsRef = useRef(labels);
   const dragStateRef = useRef<{
     labelId: string;
@@ -93,6 +101,7 @@ export const QuestionLabelSettingsModal = ({
       moved: false,
     };
     setDraggingLabelId(labelId);
+    setDragOffsetY(0);
   }, []);
 
   const moveDrag = useCallback(
@@ -112,11 +121,17 @@ export const QuestionLabelSettingsModal = ({
         (label) => label.id === labelId,
       );
 
+      if (currentIndex < 0) {
+        return;
+      }
+
       if (
-        currentIndex < 0 ||
         targetIndex === currentIndex ||
         targetIndex === dragState.lastTargetIndex
       ) {
+        setDragOffsetY(
+          dy - (currentIndex - dragState.startIndex) * ROW_DRAG_DISTANCE,
+        );
         return;
       }
 
@@ -127,6 +142,9 @@ export const QuestionLabelSettingsModal = ({
       dragState.lastTargetIndex = targetIndex;
       dragState.moved = true;
       setOrderedLabelsState(nextLabels);
+      setDragOffsetY(
+        dy - (targetIndex - dragState.startIndex) * ROW_DRAG_DISTANCE,
+      );
     },
     [setOrderedLabelsState],
   );
@@ -135,11 +153,27 @@ export const QuestionLabelSettingsModal = ({
     const dragState = dragStateRef.current;
     dragStateRef.current = null;
     setDraggingLabelId(null);
+    setDragOffsetY(0);
 
     if (dragState?.moved) {
       onReorderLabels(orderedLabelsRef.current);
     }
   }, [onReorderLabels]);
+
+  const confirmDeleteLabel = useCallback(async () => {
+    if (!deletingLabel || deleteRunning) {
+      return;
+    }
+
+    setDeleteRunning(true);
+
+    try {
+      await onDeleteLabel(deletingLabel.id);
+      setDeletingLabel(null);
+    } finally {
+      setDeleteRunning(false);
+    }
+  }, [deleteRunning, deletingLabel, onDeleteLabel]);
 
   return (
     <FullScreenModalShell
@@ -151,7 +185,7 @@ export const QuestionLabelSettingsModal = ({
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="ラベルを追加"
-          onPress={onCreateLabel}
+          onPress={() => setLabelCreateVisible(true)}
           style={({ pressed }) => [
             styles.headerAddButton,
             pressed && styles.pressed,
@@ -171,11 +205,20 @@ export const QuestionLabelSettingsModal = ({
                 key={label.id}
                 label={label}
                 dragging={draggingLabelId === label.id}
+                dragOffsetY={draggingLabelId === label.id ? dragOffsetY : 0}
                 theme={theme}
                 onDragStart={startDrag}
                 onDragMove={moveDrag}
                 onDragEnd={finishDrag}
-                onDelete={onDeleteLabel}
+                onDelete={(labelId) => {
+                  const label = orderedLabelsRef.current.find(
+                    (item) => item.id === labelId,
+                  );
+
+                  if (label) {
+                    setDeletingLabel(label);
+                  }
+                }}
               />
             ))}
           </View>
@@ -202,6 +245,109 @@ export const QuestionLabelSettingsModal = ({
           </View>
         )}
       </ScrollView>
+      <QuestionLabelCreateDialog
+        visible={labelCreateVisible}
+        labels={labels}
+        theme={theme}
+        onClose={() => setLabelCreateVisible(false)}
+        onCreate={onCreateLabel}
+      />
+      <Modal
+        animationType="fade"
+        transparent
+        visible={Boolean(deletingLabel)}
+        statusBarTranslucent
+        onRequestClose={() => {
+          if (!deleteRunning) {
+            setDeletingLabel(null);
+          }
+        }}>
+        <View style={styles.confirmRoot}>
+          <Pressable
+            accessibilityLabel="確認ダイアログを閉じる"
+            disabled={deleteRunning}
+            onPress={() => setDeletingLabel(null)}
+            style={[
+              StyleSheet.absoluteFill,
+              { backgroundColor: theme.colors.overlay },
+            ]}
+          />
+          <View
+            style={[
+              styles.confirmCard,
+              theme.shadows.floating,
+              {
+                backgroundColor: theme.colors.surface,
+                borderColor: theme.colors.border,
+              },
+            ]}>
+            <View style={styles.confirmCopy}>
+              <Text
+                style={[styles.confirmTitle, { color: theme.colors.textPrimary }]}>
+                ラベルを削除しますか？
+              </Text>
+              <Text
+                style={[
+                  styles.confirmMessage,
+                  { color: theme.colors.textSecondary },
+                ]}>
+                {deletingLabel
+                  ? `「${deletingLabel.name}」を削除します。質問メモ自体は削除されません。`
+                  : ""}
+              </Text>
+            </View>
+            <View style={styles.confirmActions}>
+              <Pressable
+                accessibilityRole="button"
+                disabled={deleteRunning}
+                onPress={() => setDeletingLabel(null)}
+                style={({ pressed }) => [
+                  styles.confirmButton,
+                  {
+                    backgroundColor: theme.colors.surface,
+                    borderColor: theme.colors.primary,
+                  },
+                  pressed && !deleteRunning && styles.pressed,
+                  deleteRunning && styles.disabled,
+                ]}>
+                <Text
+                  style={[
+                    styles.confirmCancelText,
+                    { color: theme.colors.primary },
+                  ]}>
+                  キャンセル
+                </Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                disabled={deleteRunning}
+                onPress={() => {
+                  void confirmDeleteLabel();
+                }}
+                style={({ pressed }) => [
+                  styles.confirmButton,
+                  {
+                    backgroundColor: theme.colors.primary,
+                    borderColor: theme.colors.primary,
+                  },
+                  pressed && !deleteRunning && styles.pressed,
+                ]}>
+                {deleteRunning ? (
+                  <ActivityIndicator color={theme.colors.textOnPrimary} />
+                ) : (
+                  <Text
+                    style={[
+                      styles.confirmOkText,
+                      { color: theme.colors.textOnPrimary },
+                    ]}>
+                    OK
+                  </Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </FullScreenModalShell>
   );
 };
@@ -209,6 +355,7 @@ export const QuestionLabelSettingsModal = ({
 const LabelRow = ({
   label,
   dragging,
+  dragOffsetY,
   theme,
   onDragStart,
   onDragMove,
@@ -241,6 +388,7 @@ const LabelRow = ({
         styles.row,
         dragging && styles.draggingRow,
         dragging && theme.shadows.floating,
+        dragging && { transform: [{ translateY: dragOffsetY }, { scale: 1.02 }] },
         {
           backgroundColor: dragging
             ? theme.colors.primarySubtle
@@ -283,7 +431,26 @@ const LabelRow = ({
             size={8}
             color={theme.colors.textMuted}
           />
-          <Ionicons name="menu" size={20} color={theme.colors.textSecondary} />
+          <View style={styles.handleBars}>
+            <View
+              style={[
+                styles.handleBar,
+                { backgroundColor: theme.colors.textMuted },
+              ]}
+            />
+            <View
+              style={[
+                styles.handleBar,
+                { backgroundColor: theme.colors.textMuted },
+              ]}
+            />
+            <View
+              style={[
+                styles.handleBar,
+                { backgroundColor: theme.colors.textMuted },
+              ]}
+            />
+          </View>
           <Ionicons
             name="chevron-down"
             size={8}
@@ -326,7 +493,6 @@ const styles = StyleSheet.create({
   },
   draggingRow: {
     opacity: 0.94,
-    transform: [{ scale: 1.02 }],
     zIndex: 5,
   },
   dragHandle: {
@@ -339,6 +505,15 @@ const styles = StyleSheet.create({
   handleGlyph: {
     alignItems: "center",
     justifyContent: "center",
+  },
+  handleBars: {
+    gap: 2,
+    marginVertical: -1,
+  },
+  handleBar: {
+    borderRadius: 999,
+    height: 1,
+    width: 15,
   },
   labelName: {
     flex: 1,
@@ -374,7 +549,60 @@ const styles = StyleSheet.create({
     lineHeight: 17,
     textAlign: "center",
   },
+  confirmRoot: {
+    alignItems: "center",
+    flex: 1,
+    justifyContent: "center",
+    padding: 20,
+  },
+  confirmCard: {
+    borderRadius: 24,
+    borderWidth: StyleSheet.hairlineWidth,
+    gap: 18,
+    maxWidth: 420,
+    padding: 20,
+    width: "100%",
+  },
+  confirmCopy: {
+    gap: 8,
+  },
+  confirmTitle: {
+    fontSize: 18,
+    fontWeight: "800",
+    lineHeight: 24,
+  },
+  confirmMessage: {
+    fontSize: 14,
+    fontWeight: "500",
+    lineHeight: 21,
+  },
+  confirmActions: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  confirmButton: {
+    alignItems: "center",
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    flex: 1,
+    justifyContent: "center",
+    minHeight: 48,
+    paddingHorizontal: 14,
+  },
+  confirmCancelText: {
+    fontSize: 14,
+    fontWeight: "800",
+    lineHeight: 18,
+  },
+  confirmOkText: {
+    fontSize: 14,
+    fontWeight: "800",
+    lineHeight: 18,
+  },
   pressed: {
     opacity: 0.72,
+  },
+  disabled: {
+    opacity: 0.52,
   },
 });

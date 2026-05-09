@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import {
   BackHandler,
   Platform,
@@ -89,6 +89,7 @@ export const HomeMenuModal = ({
   const closeThreshold = drawerWidth / 3;
   const translateX = useSharedValue(drawerWidth);
   const dragStartX = useSharedValue(drawerWidth);
+  const skipNextCloseCallbackRef = useRef(false);
 
   const finishClose = useCallback(() => {
     onClose();
@@ -105,6 +106,11 @@ export const HomeMenuModal = ({
         drawerSpring(Math.max(velocityX, 0)),
         (finished) => {
           if (finished) {
+            if (skipNextCloseCallbackRef.current) {
+              skipNextCloseCallbackRef.current = false;
+              return;
+            }
+
             runOnJS(finishClose)();
           }
         },
@@ -115,10 +121,12 @@ export const HomeMenuModal = ({
 
   const runMenuAction = useCallback(
     (action: () => void) => {
+      skipNextCloseCallbackRef.current = true;
       requestClose();
+      onClose();
       action();
     },
-    [requestClose],
+    [onClose, requestClose],
   );
 
   const backdropStyle = useAnimatedStyle(() => ({
@@ -304,7 +312,11 @@ export const HomeMenuModal = ({
           </View>
 
           <View
-            style={[styles.divider, { backgroundColor: theme.colors.divider }]}
+            style={[
+              styles.divider,
+              styles.settingsDivider,
+              { backgroundColor: theme.colors.border },
+            ]}
           />
 
           <View style={styles.menuSection}>
@@ -344,20 +356,27 @@ export const HomeMenuModal = ({
               style={[
                 styles.divider,
                 styles.settingsDivider,
-                { backgroundColor: theme.colors.divider },
+                { backgroundColor: theme.colors.border },
               ]}
             />
-            <Text
+            {/* <Text
               style={[
                 styles.sectionTitle,
                 { color: theme.colors.textPrimary },
               ]}>
               詳細設定
-            </Text>
+            </Text> */}
             <SettingsLinkRow
-              label="質問ラベル"
+              label="質問ラベルの追加・編集"
               theme={theme}
               onPress={() => runMenuAction(onOpenQuestionLabelSettings)}
+            />
+            <View
+              style={[
+                styles.divider,
+                styles.settingsItemDivider,
+                { backgroundColor: theme.colors.divider },
+              ]}
             />
             <View style={styles.passwordRow}>
               <Text
@@ -515,11 +534,7 @@ const SettingsLinkRow = ({
     <Text style={[styles.sectionTitle, { color: theme.colors.textPrimary }]}>
       {label}
     </Text>
-    <Ionicons
-      name="chevron-forward"
-      size={16}
-      color={theme.colors.textMuted}
-    />
+    <Ionicons name="chevron-forward" size={16} color={theme.colors.textMuted} />
   </Pressable>
 );
 
@@ -616,7 +631,11 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   settingsDivider: {
-    marginBottom: 2,
+    height: 1,
+    marginBottom: 4,
+  },
+  settingsItemDivider: {
+    marginVertical: 1,
   },
   row: {
     alignItems: "center",
