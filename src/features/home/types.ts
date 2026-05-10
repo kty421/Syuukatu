@@ -1,6 +1,6 @@
-export type ApplicationType = 'internship' | 'fullTime';
+export type ApplicationType = "internship" | "fullTime";
 
-export type AspirationLevel = 'high' | 'middle' | 'low' | 'unset';
+export type AspirationLevel = "high" | "middle" | "low" | "unset";
 
 export type CompanyQuestionAnswer = {
   id: string;
@@ -14,7 +14,7 @@ export type CompanyQuestionAnswer = {
 
 export type CompanyQuestionAnswerDraft = Omit<
   CompanyQuestionAnswer,
-  'id' | 'createdAt' | 'updatedAt'
+  "id" | "createdAt" | "updatedAt"
 > & {
   id?: string;
 };
@@ -31,7 +31,7 @@ export type QuestionMemo = {
 
 export type QuestionMemoDraft = Omit<
   QuestionMemo,
-  'id' | 'createdAt' | 'updatedAt'
+  "id" | "createdAt" | "updatedAt"
 > & {
   id?: string;
   createdAt?: string;
@@ -47,24 +47,24 @@ export type QuestionLabel = {
 };
 
 export const applicationTypeLabels: Record<ApplicationType, string> = {
-  internship: 'インターン',
-  fullTime: '本選考'
+  internship: "インターン",
+  fullTime: "本選考",
 };
 
 export const selectionStatuses = [
-  '未エントリー',
-  'エントリー済み',
-  'ES結果待ち',
-  'ES通過',
-  'Webテスト結果待ち',
-  'Webテスト通過',
-  'GD選考結果待ち',
-  'GD選考通過',
-  '（１～３次）面接待ち',
-  '（１～３次）面接通過',
-  '参加確定',
-  '落選',
-  '辞退'
+  "未エントリー",
+  "エントリー済み",
+  "ES結果待ち",
+  "ES通過",
+  "Webテスト結果待ち",
+  "Webテスト通過",
+  "GD選考結果待ち",
+  "GD選考通過",
+  "面接待ち",
+  "面接通過",
+  "参加確定",
+  "落選",
+  "辞退",
 ] as const;
 
 export type SelectionStatus = (typeof selectionStatuses)[number];
@@ -89,6 +89,6 @@ export type Company = {
   updatedAt: string;
 };
 
-export type CompanyDraft = Omit<Company, 'id' | 'createdAt' | 'updatedAt'> & {
+export type CompanyDraft = Omit<Company, "id" | "createdAt" | "updatedAt"> & {
   id?: string;
 };

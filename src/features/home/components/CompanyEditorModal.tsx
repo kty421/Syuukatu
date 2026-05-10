@@ -662,9 +662,10 @@ export const CompanyEditorModal = ({
                   <FieldLabel label="選考状況" theme={theme} />
                   <ChipGroup
                     theme={theme}
-                    selectedColor={theme.colors.border}
-                    selectedSurface={theme.colors.surfaceSubtle}
-                    selectedTextColor={theme.colors.textPrimary}
+                    selectedColor={theme.colors.primary}
+                    selectedSurface={theme.colors.primarySubtle}
+                    selectedTextColor={theme.colors.primary}
+                    selectedStrong
                     value={form.status}
                     options={statusOptions.map((status) => ({
                       value: status,
@@ -898,6 +899,7 @@ const ChipGroup = <T extends string>({
   selectedColor,
   selectedSurface,
   selectedTextColor,
+  selectedStrong,
   onChange,
 }: {
   theme: AppTheme;
@@ -906,6 +908,7 @@ const ChipGroup = <T extends string>({
   selectedColor: string;
   selectedSurface: string;
   selectedTextColor?: string;
+  selectedStrong?: boolean;
   onChange: (value: T) => void;
 }) => (
   <View style={styles.chipGroup}>
@@ -924,6 +927,7 @@ const ChipGroup = <T extends string>({
           }}
           style={[
             styles.chip,
+            selectedStrong && selected && styles.chipSelectedStrong,
             {
               backgroundColor: selected
                 ? selectedSurface
@@ -934,6 +938,7 @@ const ChipGroup = <T extends string>({
           <Text
             style={[
               styles.chipText,
+              selectedStrong && selected && styles.chipTextSelectedStrong,
               {
                 color: selected
                   ? (selectedTextColor ?? selectedColor)
@@ -1045,10 +1050,16 @@ const styles = StyleSheet.create({
     minHeight: 36,
     paddingHorizontal: 12,
   },
+  chipSelectedStrong: {
+    borderWidth: 1.5,
+  },
   chipText: {
     fontSize: 12,
     fontWeight: "600",
     lineHeight: 16,
+  },
+  chipTextSelectedStrong: {
+    fontWeight: "800",
   },
   qaList: {
     gap: 8,
