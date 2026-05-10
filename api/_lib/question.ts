@@ -35,6 +35,14 @@ export const reorderQuestionLabelsBodySchema = z.object({
   )
 });
 
+export const updateQuestionLabelBodySchema = z.object({
+  label: z.object({
+    id: z.string().min(1),
+    name: z.string(),
+    sortOrder: z.number().int().optional()
+  })
+});
+
 export type QuestionMemoPayload = z.infer<typeof questionMemoSchema>;
 export type QuestionLabelPayload = z.infer<typeof questionLabelSchema> & {
   createdAt: string;

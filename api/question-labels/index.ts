@@ -4,6 +4,7 @@ import {
   QuestionLabelRow,
   reorderQuestionLabelsBodySchema,
   toQuestionLabelRow,
+  updateQuestionLabelBodySchema,
   upsertQuestionLabelBodySchema
 } from '../_lib/question';
 import {
@@ -51,10 +52,68 @@ export default async function handler(
     }
 
     if (req.method === 'PUT') {
-      const body = reorderQuestionLabelsBodySchema.parse(
-        parseRequestBody(req.body)
-      );
+      const parsedBody = parseRequestBody(req.body);
+      const updateBody = updateQuestionLabelBodySchema.safeParse(parsedBody);
       const now = new Date().toISOString();
+
+      if (updateBody.success) {
+        const label = {
+          ...updateBody.data.label,
+          name: updateBody.data.label.name.trim()
+        };
+
+        if (!label.name) {
+          sendJson(res, 400, { error: 'ラベル名を入力してください。' });
+          return;
+        }
+
+        const { data: duplicate, error: duplicateError } = await supabase
+          .from('question_labels')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('name', label.name)
+          .neq('id', label.id)
+          .maybeSingle();
+
+        if (duplicateError) {
+          sendJson(res, 400, { error: 'ラベルの確認に失敗しました。' });
+          return;
+        }
+
+        if (duplicate) {
+          sendJson(res, 409, { error: '同じ名前のラベルがあります。' });
+          return;
+        }
+
+        const updateValues: Record<string, string | number> = {
+          name: label.name,
+          updated_at: now
+        };
+
+        if (typeof label.sortOrder === 'number') {
+          updateValues.sort_order = label.sortOrder;
+        }
+
+        const { data, error } = await supabase
+          .from('question_labels')
+          .update(updateValues)
+          .eq('id', label.id)
+          .eq('user_id', user.id)
+          .select('*')
+          .single();
+
+        if (error) {
+          sendJson(res, 400, { error: 'ラベル名の変更に失敗しました。' });
+          return;
+        }
+
+        sendJson(res, 200, {
+          label: fromQuestionLabelRow(data as QuestionLabelRow)
+        });
+        return;
+      }
+
+      const body = reorderQuestionLabelsBodySchema.parse(parsedBody);
 
       if (body.labels.length === 0) {
         sendJson(res, 200, { labels: [] });
