@@ -32,6 +32,9 @@ const getSupabaseAnonKey = () =>
       process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY
   );
 
+const getSupabaseServiceRoleKey = () =>
+  normalizeEnvValue(process.env.SUPABASE_SERVICE_ROLE_KEY);
+
 const getSupabaseHost = (supabaseUrl: string) => {
   if (!supabaseUrl) {
     return null;
@@ -57,7 +60,8 @@ export const getSupabaseServerConfigStatus = () => {
     supabaseAnonKeyLength: supabaseAnonKey.length,
     supabaseAnonKeyLooksLikeJwt:
       supabaseAnonKey.split('.').length === 3 &&
-      supabaseAnonKey.startsWith('ey')
+      supabaseAnonKey.startsWith('ey'),
+    hasSupabaseServiceRoleKey: Boolean(getSupabaseServiceRoleKey())
   };
 };
 
@@ -88,5 +92,30 @@ export const createSupabaseServerClient = (
           }
         }
       : undefined
+  });
+};
+
+export const createSupabaseAdminClient = () => {
+  const supabaseUrl = getSupabaseUrl();
+  const supabaseServiceRoleKey = getSupabaseServiceRoleKey();
+
+  if (!supabaseUrl) {
+    throw new HttpError(500, 'Supabaseの環境変数が設定されていません。');
+  }
+
+  if (!supabaseServiceRoleKey) {
+    throw new HttpError(
+      500,
+      'SUPABASE_SERVICE_ROLE_KEYが設定されていません。'
+    );
+  }
+
+  return createClient(supabaseUrl, supabaseServiceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+      persistSession: false,
+      storageKey: SERVER_AUTH_STORAGE_KEY
+    }
   });
 };

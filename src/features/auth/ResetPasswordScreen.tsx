@@ -1,3 +1,4 @@
+import type { EmailOtpType } from '@supabase/supabase-js';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Keyboard,
@@ -15,9 +16,13 @@ import { AppButton } from '../../ui/AppButton';
 import { DismissKeyboardView } from '../../ui/DismissKeyboardView';
 import { IconButton } from '../../ui/IconButton';
 import { InputField } from '../../ui/InputField';
+import {
+  MIN_PASSWORD_LENGTH,
+  PASSWORD_REQUIREMENT_TEXT,
+  PASSWORD_TOO_SHORT_MESSAGE
+} from '../../shared/authPolicy';
 import { normalizeAuthErrorMessage } from './authErrors';
 
-const MIN_PASSWORD_LENGTH = 8;
 const INVALID_LINK_MESSAGE =
   'リンクが無効、または有効期限が切れています。再度パスワード再設定メールを送信してください。';
 
@@ -31,6 +36,10 @@ const getResetPasswordUrlParams = () => {
   if (Platform.OS !== 'web' || typeof window === 'undefined') {
     return {
       code: null,
+      tokenHash: null,
+      type: null,
+      accessToken: null,
+      refreshToken: null,
       error: null,
       errorCode: null,
       errorDescription: null
@@ -38,13 +47,28 @@ const getResetPasswordUrlParams = () => {
   }
 
   const searchParams = new URLSearchParams(window.location.search);
+  const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+  const getParam = (key: string) =>
+    searchParams.get(key) ?? hashParams.get(key);
 
   return {
-    code: searchParams.get('code'),
-    error: searchParams.get('error'),
-    errorCode: searchParams.get('error_code'),
-    errorDescription: searchParams.get('error_description')
+    code: getParam('code'),
+    tokenHash: getParam('token_hash'),
+    type: getParam('type'),
+    accessToken: getParam('access_token'),
+    refreshToken: getParam('refresh_token'),
+    error: getParam('error'),
+    errorCode: getParam('error_code'),
+    errorDescription: getParam('error_description')
   };
+};
+
+const getRecoveryOtpType = (type: string | null): EmailOtpType | null => {
+  if (!type || type === 'recovery') {
+    return 'recovery';
+  }
+
+  return null;
 };
 
 export const ResetPasswordScreen = ({
@@ -72,10 +96,19 @@ export const ResetPasswordScreen = ({
     hasExchangedCodeRef.current = true;
 
     const preparePasswordReset = async () => {
-      const { code, error, errorCode, errorDescription } =
+      const {
+        code,
+        tokenHash,
+        type,
+        accessToken,
+        refreshToken,
+        error,
+        errorCode,
+        errorDescription
+      } =
         getResetPasswordUrlParams();
 
-      if (error || errorCode || errorDescription || !code) {
+      if (error || errorCode || errorDescription) {
         setResetPasswordStatus('error');
         setLinkError(INVALID_LINK_MESSAGE);
         return;
@@ -83,10 +116,47 @@ export const ResetPasswordScreen = ({
 
       try {
         const supabase = requireWebSupabase();
-        const { error: exchangeError } =
-          await supabase.auth.exchangeCodeForSession(code);
 
-        if (exchangeError) {
+        if (tokenHash) {
+          const otpType = getRecoveryOtpType(type);
+
+          if (!otpType) {
+            setResetPasswordStatus('error');
+            setLinkError(INVALID_LINK_MESSAGE);
+            return;
+          }
+
+          const { data, error: verifyError } = await supabase.auth.verifyOtp({
+            token_hash: tokenHash,
+            type: otpType
+          });
+
+          if (verifyError || !data.session) {
+            setResetPasswordStatus('error');
+            setLinkError(INVALID_LINK_MESSAGE);
+            return;
+          }
+        } else if (accessToken && refreshToken) {
+          const { error: sessionError } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken
+          });
+
+          if (sessionError) {
+            setResetPasswordStatus('error');
+            setLinkError(INVALID_LINK_MESSAGE);
+            return;
+          }
+        } else if (code) {
+          const { error: exchangeError } =
+            await supabase.auth.exchangeCodeForSession(code);
+
+          if (exchangeError) {
+            setResetPasswordStatus('error');
+            setLinkError(INVALID_LINK_MESSAGE);
+            return;
+          }
+        } else {
           setResetPasswordStatus('error');
           setLinkError(INVALID_LINK_MESSAGE);
           return;
@@ -114,7 +184,7 @@ export const ResetPasswordScreen = ({
     }
 
     if (newPassword.length < MIN_PASSWORD_LENGTH) {
-      setError('パスワードは8文字以上で入力してください。');
+      setError(PASSWORD_TOO_SHORT_MESSAGE);
       return;
     }
 
@@ -206,7 +276,7 @@ export const ResetPasswordScreen = ({
           label="新しいパスワード"
           theme={theme}
           value={newPassword}
-          placeholder="8文字以上で入力"
+          placeholder={PASSWORD_REQUIREMENT_TEXT}
           autoCapitalize="none"
           autoComplete="new-password"
           secureTextEntry={!passwordVisible}
@@ -227,6 +297,9 @@ export const ResetPasswordScreen = ({
             />
           }
         />
+        <Text style={[styles.requirementText, { color: theme.colors.textMuted }]}>
+          {PASSWORD_REQUIREMENT_TEXT}
+        </Text>
         <InputField
           label="確認用パスワード"
           theme={theme}
@@ -327,6 +400,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     lineHeight: 21,
     textAlign: 'center'
+  },
+  requirementText: {
+    fontSize: 12,
+    fontWeight: '600',
+    lineHeight: 17,
+    marginTop: -8
   },
   errorText: {
     fontSize: 13,

@@ -16,6 +16,11 @@ import { DismissKeyboardView } from "../../ui/DismissKeyboardView";
 import { IconButton } from "../../ui/IconButton";
 import { InputField } from "../../ui/InputField";
 import {
+  MIN_PASSWORD_LENGTH,
+  PASSWORD_REQUIREMENT_TEXT,
+  PASSWORD_TOO_SHORT_MESSAGE,
+} from "../../shared/authPolicy";
+import {
   resendConfirmationEmail,
   sendPasswordReset,
   signIn,
@@ -72,7 +77,7 @@ export const AuthScreen = ({
       ? true
       : isSignIn
         ? password.length > 0
-        : password.length >= 8);
+        : password.length >= MIN_PASSWORD_LENGTH);
   const passwordAutoComplete = isSignIn ? "current-password" : "new-password";
 
   const submit = useCallback(async () => {
@@ -85,8 +90,8 @@ export const AuthScreen = ({
       return;
     }
 
-    if (isSignUp && password.length < 8) {
-      setError("パスワードは8文字以上で入力してください。");
+    if (isSignUp && password.length < MIN_PASSWORD_LENGTH) {
+      setError(PASSWORD_TOO_SHORT_MESSAGE);
       return;
     }
 
@@ -142,7 +147,7 @@ export const AuthScreen = ({
     isSubmitting,
     password,
     onAuthenticated,
-    setAuthenticatedUser
+    setAuthenticatedUser,
   ]);
 
   const backToSignIn = useCallback(() => {
@@ -439,6 +444,15 @@ export const AuthScreen = ({
                       />
                     }
                   />
+                  {isSignUp ? (
+                    <Text
+                      style={[
+                        styles.requirementText,
+                        { color: theme.colors.textMuted },
+                      ]}>
+                      {PASSWORD_REQUIREMENT_TEXT}
+                    </Text>
+                  ) : null}
 
                   {error ? (
                     <Text
@@ -597,6 +611,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
     lineHeight: 19,
+  },
+  requirementText: {
+    fontSize: 12,
+    fontWeight: "600",
+    lineHeight: 17,
+    marginTop: -8,
   },
   messageText: {
     fontSize: 13,
