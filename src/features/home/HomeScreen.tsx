@@ -349,6 +349,7 @@ export const HomeScreen = ({
     deleteQuestionMemo: deleteQuestionMemoById,
     createQuestionLabel,
     reorderQuestionLabels,
+    updateQuestionLabel,
     deleteQuestionLabel,
     deleteCompany,
     importLocalCompanies,
@@ -1073,6 +1074,15 @@ export const HomeScreen = ({
     [reorderQuestionLabels, showToast],
   );
 
+  const updateQuestionLabelFromSettings = useCallback(
+    async (labelId: string, name: string) => {
+      const updatedLabel = await updateQuestionLabel(labelId, name);
+      showToast("ラベル名を変更しました");
+      return updatedLabel;
+    },
+    [showToast, updateQuestionLabel],
+  );
+
   const handleDeleteQuestionLabel = useCallback(
     (labelId: string) => {
       const label = questionLabels.find((item) => item.id === labelId);
@@ -1564,6 +1574,7 @@ export const HomeScreen = ({
         theme={theme}
         onClose={() => setQuestionLabelSettingsVisible(false)}
         onCreateLabel={createQuestionLabel}
+        onUpdateLabel={updateQuestionLabelFromSettings}
         onReorderLabels={handleReorderQuestionLabels}
         onDeleteLabel={deleteQuestionLabelFromSettings}
       />

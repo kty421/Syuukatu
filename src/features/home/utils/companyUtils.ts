@@ -17,11 +17,18 @@ const legacyStatusMap: Record<string, SelectionStatus> = {
   応募予定: '未エントリー',
   エントリー準備: '未エントリー',
   応募済み: 'エントリー済み',
-  書類提出済み: 'ES提出済み',
-  Webテスト: '適性検査',
-  面接: '1次面接',
-  参加確定: '内々定',
-  参加済み: '内々定',
+  ES提出済み: 'ES結果待ち',
+  書類提出済み: 'ES結果待ち',
+  適性検査: 'Webテスト結果待ち',
+  Webテスト: 'Webテスト結果待ち',
+  '1次面接': '（１～３次）面接待ち',
+  '2次面接': '（１～３次）面接待ち',
+  最終面接: '（１～３次）面接待ち',
+  面接: '（１～３次）面接待ち',
+  内々定: '参加確定',
+  内定: '参加確定',
+  参加済み: '参加確定',
+  お見送り: '落選',
   不参加: '辞退'
 };
 
@@ -66,6 +73,7 @@ export const filterAndSortCompanies = (
         company.industry,
         company.role,
         company.status,
+        normalizeSelectionStatus(company.status),
         ...company.tags
       ]
         .join(' ')
@@ -94,7 +102,7 @@ export const groupCompaniesByStatus = (
   }
 
   for (const company of companies) {
-    companiesByStatus.get(company.status)?.push(company);
+    companiesByStatus.get(normalizeSelectionStatus(company.status))?.push(company);
   }
 
   return statuses.flatMap((status) => {

@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useRef, useState } from "react";
 import { StyleSheet, TextInput, View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
@@ -13,6 +14,12 @@ type QuestionLabelCreateDialogProps = {
   visible: boolean;
   labels: QuestionLabel[];
   theme: AppTheme;
+  title?: string;
+  submitLabel?: string;
+  submitIcon?: keyof typeof Ionicons.glyphMap;
+  failureMessage?: string;
+  initialName?: string;
+  ignoredLabelId?: string;
   onClose: () => void;
   onCreate: (name: string) => Promise<QuestionLabel>;
 };
@@ -21,6 +28,12 @@ export const QuestionLabelCreateDialog = ({
   visible,
   labels,
   theme,
+  title = "ラベル追加",
+  submitLabel = "追加",
+  submitIcon = "add",
+  failureMessage = "ラベルを作成できませんでした",
+  initialName = "",
+  ignoredLabelId,
   onClose,
   onCreate,
 }: QuestionLabelCreateDialogProps) => {
@@ -34,13 +47,13 @@ export const QuestionLabelCreateDialog = ({
       return;
     }
 
-    setName("");
+    setName(initialName);
     setError(null);
     setIsCreating(false);
     requestAnimationFrame(() => {
       inputRef.current?.focus();
     });
-  }, [visible]);
+  }, [initialName, visible]);
 
   const createLabel = async () => {
     const trimmedName = name.trim();
@@ -53,7 +66,11 @@ export const QuestionLabelCreateDialog = ({
       return;
     }
 
-    if (labels.some((label) => label.name === trimmedName)) {
+    if (
+      labels.some(
+        (label) => label.id !== ignoredLabelId && label.name === trimmedName,
+      )
+    ) {
       setError("同じ名前のラベルがあります");
       requestAnimationFrame(() => {
         inputRef.current?.focus();
@@ -68,7 +85,7 @@ export const QuestionLabelCreateDialog = ({
       await onCreate(trimmedName);
       onClose();
     } catch {
-      setError("ラベルを作成できませんでした");
+      setError(failureMessage);
     } finally {
       setIsCreating(false);
     }
@@ -77,7 +94,7 @@ export const QuestionLabelCreateDialog = ({
   return (
     <FullScreenModalShell
       visible={visible}
-      title="ラベル追加"
+      title={title}
       theme={theme}
       onClose={onClose}>
       <KeyboardAwareScrollView
@@ -106,8 +123,8 @@ export const QuestionLabelCreateDialog = ({
             }}
           />
           <AppButton
-            label="追加"
-            icon="add"
+            label={submitLabel}
+            icon={submitIcon}
             loading={isCreating}
             disabled={isCreating}
             onPress={() => {

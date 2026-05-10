@@ -54,13 +54,16 @@ export const applicationTypeLabels: Record<ApplicationType, string> = {
 export const selectionStatuses = [
   '未エントリー',
   'エントリー済み',
-  'ES提出済み',
-  '適性検査',
-  '1次面接',
-  '2次面接',
-  '最終面接',
-  '内々定',
-  'お見送り',
+  'ES結果待ち',
+  'ES通過',
+  'Webテスト結果待ち',
+  'Webテスト通過',
+  'GD選考結果待ち',
+  'GD選考通過',
+  '（１～３次）面接待ち',
+  '（１～３次）面接通過',
+  '参加確定',
+  '落選',
   '辞退'
 ] as const;
 

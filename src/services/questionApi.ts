@@ -117,6 +117,31 @@ export const reorderRemoteQuestionLabels = async (
   }));
 };
 
+export const updateRemoteQuestionLabel = async (
+  label: QuestionLabel,
+  accessToken: string | null
+) => {
+  const response = await apiRequest<QuestionLabelResponse>(
+    '/api/question-labels',
+    {
+      method: 'PUT',
+      accessToken,
+      body: {
+        label: {
+          id: label.id,
+          name: label.name,
+          sortOrder: label.sortOrder
+        }
+      }
+    }
+  );
+
+  return {
+    ...response.label,
+    sortOrder: response.label.sortOrder ?? 0
+  };
+};
+
 export const deleteRemoteQuestionLabel = async (
   id: string,
   accessToken: string | null

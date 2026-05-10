@@ -12,6 +12,7 @@ import {
   deleteRemoteQuestionMemo,
   fetchRemoteQuestionData,
   reorderRemoteQuestionLabels,
+  updateRemoteQuestionLabel,
   upsertRemoteQuestionMemo
 } from '../../../services/questionApi';
 import {
@@ -628,6 +629,78 @@ export const useCompanies = ({
     [getAccessToken, setQuestionLabelsState]
   );
 
+  const updateQuestionLabel = useCallback(
+    async (id: string, name: string) => {
+      const trimmedName = name.trim();
+
+      if (!trimmedName) {
+        throw new Error('Question label name is required.');
+      }
+
+      const previousLabels = questionLabelsRef.current;
+      const existingLabel = previousLabels.find((label) => label.id === id);
+
+      if (!existingLabel) {
+        throw new Error('Question label not found.');
+      }
+
+      if (existingLabel.name === trimmedName) {
+        return existingLabel;
+      }
+
+      if (
+        previousLabels.some(
+          (label) => label.id !== id && label.name === trimmedName
+        )
+      ) {
+        throw new Error('同じ名前のラベルがあります。');
+      }
+
+      const optimisticLabel: QuestionLabel = {
+        ...existingLabel,
+        name: trimmedName,
+        updatedAt: new Date().toISOString()
+      };
+
+      setQuestionLabelsState((currentLabels) =>
+        sortQuestionLabels(
+          currentLabels.map((label) =>
+            label.id === id ? optimisticLabel : label
+          )
+        )
+      );
+      setStorageError(null);
+
+      try {
+        const accessToken = await getAccessToken();
+        const savedLabel = await updateRemoteQuestionLabel(
+          optimisticLabel,
+          accessToken
+        );
+
+        setQuestionLabelsState((currentLabels) =>
+          sortQuestionLabels(
+            currentLabels.map((label) =>
+              label.id === id ? savedLabel : label
+            )
+          )
+        );
+        setStorageError(null);
+        return savedLabel;
+      } catch (error) {
+        if (shouldKeepLocalQuestionLabelPreview) {
+          setStorageError(LOCAL_QUESTION_LABEL_PREVIEW_NOTICE);
+          return optimisticLabel;
+        }
+
+        setQuestionLabelsState(previousLabels);
+        setStorageError('ラベル名の変更に失敗しました。');
+        throw error;
+      }
+    },
+    [getAccessToken, setQuestionLabelsState]
+  );
+
   const deleteQuestionLabel = useCallback(
     async (id: string) => {
       const previousLabels = questionLabelsRef.current;
@@ -826,6 +899,7 @@ export const useCompanies = ({
     deleteQuestionMemo,
     createQuestionLabel,
     reorderQuestionLabels,
+    updateQuestionLabel,
     deleteQuestionLabel,
     deleteCompany,
     importLocalCompanies,

@@ -24,6 +24,7 @@ type QuestionLabelSettingsModalProps = {
   theme: AppTheme;
   onClose: () => void;
   onCreateLabel: (name: string) => Promise<QuestionLabel>;
+  onUpdateLabel: (labelId: string, name: string) => Promise<QuestionLabel>;
   onReorderLabels: (labels: QuestionLabel[]) => void;
   onDeleteLabel: (labelId: string) => void;
 };
@@ -36,6 +37,7 @@ type LabelRowProps = {
   onDragStart: (labelId: string) => void;
   onDragMove: (labelId: string, dy: number) => void;
   onDragEnd: () => void;
+  onEdit: (label: QuestionLabel) => void;
   onDelete: (labelId: string) => void;
 };
 
@@ -55,6 +57,7 @@ export const QuestionLabelSettingsModal = ({
   theme,
   onClose,
   onCreateLabel,
+  onUpdateLabel,
   onReorderLabels,
   onDeleteLabel,
 }: QuestionLabelSettingsModalProps) => {
@@ -62,6 +65,7 @@ export const QuestionLabelSettingsModal = ({
   const [draggingLabelId, setDraggingLabelId] = useState<string | null>(null);
   const [dragOffsetY, setDragOffsetY] = useState(0);
   const [labelCreateVisible, setLabelCreateVisible] = useState(false);
+  const [editingLabel, setEditingLabel] = useState<QuestionLabel | null>(null);
   const [deletingLabel, setDeletingLabel] = useState<QuestionLabel | null>(null);
   const [deleteRunning, setDeleteRunning] = useState(false);
   const orderedLabelsRef = useRef(labels);
@@ -210,6 +214,7 @@ export const QuestionLabelSettingsModal = ({
                 onDragStart={startDrag}
                 onDragMove={moveDrag}
                 onDragEnd={finishDrag}
+                onEdit={setEditingLabel}
                 onDelete={(labelId) => {
                   const label = orderedLabelsRef.current.find(
                     (item) => item.id === labelId,
@@ -251,6 +256,27 @@ export const QuestionLabelSettingsModal = ({
         theme={theme}
         onClose={() => setLabelCreateVisible(false)}
         onCreate={onCreateLabel}
+      />
+      <QuestionLabelCreateDialog
+        visible={Boolean(editingLabel)}
+        labels={labels}
+        theme={theme}
+        title="ラベル名を編集"
+        submitLabel="変更を保存"
+        submitIcon="checkmark"
+        failureMessage="ラベル名を変更できませんでした"
+        initialName={editingLabel?.name ?? ""}
+        ignoredLabelId={editingLabel?.id}
+        onClose={() => setEditingLabel(null)}
+        onCreate={async (name) => {
+          if (!editingLabel) {
+            throw new Error("Editing label is not selected.");
+          }
+
+          const updatedLabel = await onUpdateLabel(editingLabel.id, name);
+          setEditingLabel(null);
+          return updatedLabel;
+        }}
       />
       <Modal
         animationType="fade"
@@ -360,6 +386,7 @@ const LabelRow = ({
   onDragStart,
   onDragMove,
   onDragEnd,
+  onEdit,
   onDelete,
 }: LabelRowProps) => {
   const panResponder = useMemo(
@@ -403,6 +430,16 @@ const LabelRow = ({
         style={[styles.labelName, { color: theme.colors.textPrimary }]}>
         {label.name}
       </Text>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${label.name}を編集`}
+        onPress={() => onEdit(label)}
+        style={({ pressed }) => [
+          styles.editButton,
+          pressed && styles.pressed,
+        ]}>
+        <Ionicons name="pencil-outline" size={18} color={theme.colors.primary} />
+      </Pressable>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`${label.name}を削除`}
@@ -523,6 +560,13 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   deleteButton: {
+    alignItems: "center",
+    borderRadius: 10,
+    height: 38,
+    justifyContent: "center",
+    width: 38,
+  },
+  editButton: {
     alignItems: "center",
     borderRadius: 10,
     height: 38,

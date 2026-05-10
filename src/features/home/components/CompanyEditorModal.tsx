@@ -52,7 +52,7 @@ import {
   QuestionLabel,
   QuestionMemo,
 } from "../types";
-import { getStatusList } from "../utils/companyUtils";
+import { getStatusList, normalizeSelectionStatus } from "../utils/companyUtils";
 import { QuestionMemoDialog } from "./QuestionMemoDialog";
 
 type CompanyEditorModalProps = {
@@ -416,6 +416,7 @@ export const CompanyEditorModal = ({
       const nextForm = company
         ? {
             ...company,
+            status: normalizeSelectionStatus(company.status),
             questionAnswers: questionMemos,
           }
         : createEmptyForm(type);
