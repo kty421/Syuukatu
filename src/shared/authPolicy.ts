@@ -1,0 +1,5 @@
+export const MIN_PASSWORD_LENGTH = 8;
+
+export const PASSWORD_REQUIREMENT_TEXT = `${MIN_PASSWORD_LENGTH}文字以上の英数字で入力してください。`;
+
+export const PASSWORD_TOO_SHORT_MESSAGE = `パスワードは${PASSWORD_REQUIREMENT_TEXT}`;

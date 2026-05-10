@@ -1,9 +1,5 @@
 import { Platform } from 'react-native';
 
-import {
-  confirmEmailRedirectUrl,
-  resetPasswordRedirectUrl
-} from '../../config/env';
 import { apiRequest } from '../../services/apiClient';
 import { requireNativeSupabase } from '../../services/nativeSupabase';
 import { normalizeAuthError } from './authErrors';
@@ -12,19 +8,6 @@ import { AuthUser } from './types';
 type AuthResponse = {
   user: AuthUser | null;
   message?: string;
-};
-
-const CONFIRMATION_SENT_MESSAGE =
-  '確認メールを送信しました。メール内のリンクから認証を完了してください。';
-
-const isUserLookupError = (message: string) => {
-  const normalized = message.toLowerCase();
-
-  return (
-    normalized.includes('user not found') ||
-    normalized.includes('email not found') ||
-    normalized.includes('not found')
-  );
 };
 
 export const getCurrentUser = async (): Promise<AuthUser | null> => {
@@ -99,34 +82,10 @@ export const signUp = async (
   email: string,
   password: string
 ): Promise<AuthResponse> => {
-  if (Platform.OS === 'web') {
-    return apiRequest<AuthResponse>('/api/auth/sign-up', {
-      method: 'POST',
-      body: { email, password }
-    });
-  }
-
-  const supabase = requireNativeSupabase();
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      emailRedirectTo: confirmEmailRedirectUrl
-    }
+  return apiRequest<AuthResponse>('/api/auth/sign-up', {
+    method: 'POST',
+    body: { email, password }
   });
-
-  if (error) {
-    throw normalizeAuthError(error);
-  }
-
-  if (data.session) {
-    await supabase.auth.signOut({ scope: 'local' });
-  }
-
-  return {
-    user: null,
-    message: CONFIRMATION_SENT_MESSAGE
-  };
 };
 
 export const completeNativeAuthCallback = async (url: string) => {
@@ -161,48 +120,15 @@ export const signOut = async () => {
 };
 
 export const sendPasswordReset = async (email: string) => {
-  if (Platform.OS === 'web') {
-    await apiRequest('/api/auth/reset-password', {
-      method: 'POST',
-      body: { email }
-    });
-    return;
-  }
-
-  const { error } = await requireNativeSupabase().auth.resetPasswordForEmail(
-    email,
-    {
-      redirectTo: resetPasswordRedirectUrl
-    }
-  );
-
-  if (error) {
-    if (isUserLookupError(error.message)) {
-      return;
-    }
-
-    throw normalizeAuthError(error);
-  }
+  await apiRequest('/api/auth/reset-password', {
+    method: 'POST',
+    body: { email }
+  });
 };
 
 export const resendConfirmationEmail = async (email: string) => {
-  if (Platform.OS === 'web') {
-    await apiRequest('/api/auth/resend-confirmation', {
-      method: 'POST',
-      body: { email }
-    });
-    return;
-  }
-
-  const { error } = await requireNativeSupabase().auth.resend({
-    type: 'signup',
-    email,
-    options: {
-      emailRedirectTo: confirmEmailRedirectUrl
-    }
+  await apiRequest('/api/auth/resend-confirmation', {
+    method: 'POST',
+    body: { email }
   });
-
-  if (error) {
-    throw normalizeAuthError(error);
-  }
 };

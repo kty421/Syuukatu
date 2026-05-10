@@ -1,3 +1,5 @@
+import { PASSWORD_TOO_SHORT_MESSAGE } from '../../src/shared/authPolicy';
+
 const RATE_LIMIT_MESSAGE =
   'メールの送信回数が上限に達しました。時間をおいて再度お試しください。';
 const SUPABASE_CONFIG_MESSAGE =
@@ -7,8 +9,7 @@ const INVALID_CREDENTIALS_MESSAGE =
 const EMAIL_NOT_CONFIRMED_MESSAGE =
   'メール認証が完了していません。確認メールのリンクを開いてからログインしてください。';
 const INVALID_EMAIL_MESSAGE = 'メールアドレスの形式を確認してください。';
-const WEAK_PASSWORD_MESSAGE =
-  'パスワードは8文字以上で入力してください。';
+const WEAK_PASSWORD_MESSAGE = PASSWORD_TOO_SHORT_MESSAGE;
 const EMAIL_EXISTS_MESSAGE =
   'このメールアドレスはすでに登録されています。ログイン画面からお試しください。';
 
