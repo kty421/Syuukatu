@@ -1,9 +1,11 @@
+import { Ionicons } from "@expo/vector-icons";
 import {
   useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
+  type ElementRef,
   type ReactNode,
 } from "react";
 import {
@@ -51,6 +53,7 @@ import {
   CompanyQuestionAnswer,
   QuestionLabel,
   QuestionMemo,
+  SelectionStatus,
 } from "../types";
 import { getStatusList, normalizeSelectionStatus } from "../utils/companyUtils";
 import { QuestionMemoDialog } from "./QuestionMemoDialog";
@@ -110,11 +113,13 @@ export const CompanyEditorModal = ({
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isStatusPickerOpen, setIsStatusPickerOpen] = useState(false);
   const [editingQuestionAnswer, setEditingQuestionAnswer] =
     useState<CompanyQuestionAnswer | null>(null);
   const [isRendered, setIsRendered] = useState(visible);
   const companyNameInputRef = useRef<TextInput>(null);
   const isClosingRef = useRef(false);
+  const wasVisibleRef = useRef(false);
   const topInset = Math.max(insets.top + 6, 14);
   const enterOffset = Math.min(Math.max(windowHeight * 0.045, 28), 48);
   const dismissDistance = Math.max(
@@ -152,6 +157,7 @@ export const CompanyEditorModal = ({
     setShowPassword(false);
     setError(null);
     setIsSaving(false);
+    setIsStatusPickerOpen(false);
     setEditingQuestionAnswer(null);
   }, [resetMotionState]);
 
@@ -412,7 +418,10 @@ export const CompanyEditorModal = ({
   );
 
   useEffect(() => {
-    if (visible) {
+    const wasVisible = wasVisibleRef.current;
+    wasVisibleRef.current = visible;
+
+    if (visible && !wasVisible) {
       const nextForm = company
         ? {
             ...company,
@@ -425,13 +434,14 @@ export const CompanyEditorModal = ({
       setTagText(nextForm.tags.join(", "));
       setShowPassword(false);
       setError(null);
+      setIsStatusPickerOpen(false);
       setEditingQuestionAnswer(null);
       setIsRendered(true);
       requestAnimationFrame(openSheet);
       return;
     }
 
-    if (!visible && !isClosingRef.current) {
+    if (!visible && wasVisible && !isClosingRef.current) {
       setIsRendered(false);
       resetTransientState();
     }
@@ -659,18 +669,13 @@ export const CompanyEditorModal = ({
                     onChange={(value) => update("aspiration", value)}
                   />
 
-                  <FieldLabel label="選考状況" theme={theme} />
-                  <ChipGroup
+                  <StatusSelectField
                     theme={theme}
-                    selectedColor={theme.colors.primary}
-                    selectedSurface={theme.colors.primarySubtle}
-                    selectedTextColor={theme.colors.primary}
-                    selectedStrong
                     value={form.status}
-                    options={statusOptions.map((status) => ({
-                      value: status,
-                      label: status,
-                    }))}
+                    options={statusOptions}
+                    visible={isStatusPickerOpen}
+                    onOpen={() => setIsStatusPickerOpen(true)}
+                    onClose={() => setIsStatusPickerOpen(false)}
                     onChange={(value) => update("status", value)}
                   />
                 </FormSection>
@@ -892,6 +897,188 @@ const FieldLabel = ({ label, theme }: { label: string; theme: AppTheme }) => (
   </Text>
 );
 
+const StatusSelectField = ({
+  theme,
+  value,
+  options,
+  visible,
+  onOpen,
+  onClose,
+  onChange,
+}: {
+  theme: AppTheme;
+  value: SelectionStatus;
+  options: SelectionStatus[];
+  visible: boolean;
+  onOpen: () => void;
+  onClose: () => void;
+  onChange: (value: SelectionStatus) => void;
+}) => {
+  const insets = useSafeAreaInsets();
+  const listRef = useRef<ElementRef<typeof ScrollView>>(null);
+  const selectedIndex = Math.max(options.indexOf(value), 0);
+
+  useEffect(() => {
+    if (!visible) {
+      return;
+    }
+
+    const scrollOffset = Math.max(0, selectedIndex * 56 - 96);
+    requestAnimationFrame(() => {
+      listRef.current?.scrollTo({ y: scrollOffset, animated: false });
+    });
+  }, [selectedIndex, visible]);
+
+  const selectStatus = (nextValue: SelectionStatus) => {
+    onChange(nextValue);
+    onClose();
+  };
+
+  return (
+    <>
+      <FieldLabel label="選考状況" theme={theme} />
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="選考状況を選択"
+        accessibilityHint="選考状況の一覧を開きます"
+        onPress={(event) => {
+          event.stopPropagation();
+          Keyboard.dismiss();
+          onOpen();
+        }}
+        style={({ pressed }) => [
+          styles.selectTrigger,
+          {
+            backgroundColor: theme.colors.surfaceElevated,
+            borderColor: visible ? theme.colors.focusRing : theme.colors.border,
+          },
+          pressed && styles.selectTriggerPressed,
+        ]}>
+        <View style={styles.selectValuePill}>
+          <Text
+            numberOfLines={1}
+            style={[styles.selectValueText, { color: theme.colors.textPrimary }]}>
+            {value}
+          </Text>
+        </View>
+        <Ionicons
+          color={theme.colors.textMuted}
+          name="chevron-down"
+          size={20}
+        />
+      </Pressable>
+
+      <Modal
+        animationType="fade"
+        onRequestClose={onClose}
+        statusBarTranslucent
+        transparent
+        visible={visible}>
+        <View style={styles.pickerRoot}>
+          <Pressable
+            accessibilityLabel="選考状況の選択を閉じる"
+            style={StyleSheet.absoluteFill}
+            onPress={onClose}>
+            <View
+              style={[
+                StyleSheet.absoluteFill,
+                { backgroundColor: theme.colors.overlay },
+              ]}
+            />
+          </Pressable>
+
+          <View
+            style={[
+              styles.pickerPanel,
+              theme.shadows.floating,
+              {
+                backgroundColor: theme.colors.surface,
+                paddingBottom: Math.max(insets.bottom, 12),
+              },
+            ]}>
+            <View style={styles.pickerHeader}>
+              <View>
+                <Text
+                  style={[
+                    styles.pickerEyebrow,
+                    { color: theme.colors.textSecondary },
+                  ]}>
+                  選考状況
+                </Text>
+                <Text
+                  style={[
+                    styles.pickerTitle,
+                    { color: theme.colors.textPrimary },
+                  ]}>
+                  現在: {value}
+                </Text>
+              </View>
+              <IconButton
+                icon="close"
+                label="選考状況の選択を閉じる"
+                onPress={onClose}
+                theme={theme}
+                size="compact"
+                variant="plain"
+              />
+            </View>
+
+            <ScrollView
+              ref={listRef}
+              contentContainerStyle={styles.pickerList}
+              nestedScrollEnabled
+              overScrollMode="never"
+              showsVerticalScrollIndicator={false}>
+              {options.map((option) => {
+                const selected = option === value;
+
+                return (
+                  <Pressable
+                    key={option}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected }}
+                    onPress={() => selectStatus(option)}
+                    style={({ pressed }) => [
+                      styles.pickerOption,
+                      {
+                        backgroundColor: selected
+                          ? theme.colors.surfaceSubtle
+                          : theme.colors.surfaceElevated,
+                        borderColor: selected
+                          ? theme.colors.border
+                          : theme.colors.border,
+                      },
+                      pressed && styles.pickerOptionPressed,
+                    ]}>
+                    <Text
+                      style={[
+                        styles.pickerOptionText,
+                        {
+                          color: selected
+                            ? theme.colors.textPrimary
+                            : theme.colors.textPrimary,
+                        },
+                      ]}>
+                      {option}
+                    </Text>
+                    {selected ? (
+                      <Ionicons
+                        color={theme.colors.textSecondary}
+                        name="checkmark-circle"
+                        size={20}
+                      />
+                    ) : null}
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+    </>
+  );
+};
+
 const ChipGroup = <T extends string>({
   theme,
   value,
@@ -1037,6 +1224,80 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     lineHeight: 16,
     marginBottom: 8,
+  },
+  selectTrigger: {
+    alignItems: "center",
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    flexDirection: "row",
+    gap: 10,
+    minHeight: 52,
+    paddingHorizontal: 12,
+  },
+  selectTriggerPressed: {
+    opacity: 0.78,
+  },
+  selectValuePill: {
+    flex: 1,
+    minWidth: 0,
+    paddingHorizontal: 4,
+    paddingVertical: 8,
+  },
+  selectValueText: {
+    fontSize: 14,
+    fontWeight: "800",
+    lineHeight: 18,
+  },
+  pickerRoot: {
+    flex: 1,
+    justifyContent: "flex-end",
+  },
+  pickerPanel: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: "78%",
+    paddingHorizontal: 16,
+    paddingTop: 14,
+  },
+  pickerHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    minHeight: 44,
+  },
+  pickerEyebrow: {
+    fontSize: 12,
+    fontWeight: "700",
+    lineHeight: 16,
+  },
+  pickerTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    lineHeight: 21,
+    marginTop: 2,
+  },
+  pickerList: {
+    gap: 8,
+    paddingTop: 12,
+  },
+  pickerOption: {
+    alignItems: "center",
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    flexDirection: "row",
+    gap: 10,
+    minHeight: 48,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  pickerOptionPressed: {
+    opacity: 0.74,
+  },
+  pickerOptionText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: "700",
+    lineHeight: 19,
   },
   chipGroup: {
     flexDirection: "row",
