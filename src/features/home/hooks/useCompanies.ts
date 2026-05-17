@@ -3,19 +3,19 @@ import { Platform } from 'react-native';
 
 import {
   deleteRemoteCompany,
-  fetchRemoteCompanies,
   upsertRemoteCompany
 } from '../../../services/companyApi';
+import { fetchRemoteHomeData } from '../../../services/homeDataApi';
 import {
   createRemoteQuestionLabel,
   deleteRemoteQuestionLabel,
   deleteRemoteQuestionMemo,
-  fetchRemoteQuestionData,
   reorderRemoteQuestionLabels,
   updateRemoteQuestionLabel,
   upsertRemoteQuestionMemo
 } from '../../../services/questionApi';
 import {
+  clearAccountLocalData,
   deleteCompanyCredential,
   hasCompletedLocalMigration,
   hydrateNativePasswords,
@@ -42,14 +42,21 @@ const LOCAL_QUESTION_LABEL_PREVIEW_NOTICE =
   'ローカルプレビューとして反映しました。API反映後に再確認してください。';
 const shouldKeepLocalQuestionLabelPreview = __DEV__ && Platform.OS === 'ios';
 
+const toTime = (value: string | undefined) => {
+  if (!value) {
+    return 0;
+  }
+
+  const time = Date.parse(value);
+  return Number.isNaN(time) ? 0 : time;
+};
+
 const sortCompanies = (companies: Company[]) =>
-  [...companies].sort(
-    (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-  );
+  [...companies].sort((a, b) => toTime(b.updatedAt) - toTime(a.updatedAt));
 
 const sortQuestionMemosByUpdate = (questionMemos: QuestionMemo[]) =>
   [...questionMemos].sort(
-    (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+    (a, b) => toTime(b.updatedAt) - toTime(a.updatedAt)
   );
 
 const sortQuestionLabels = (labels: QuestionLabel[]) =>
@@ -60,8 +67,7 @@ const sortQuestionLabels = (labels: QuestionLabel[]) =>
       return sortOrderDiff;
     }
 
-    const timeOrder =
-      new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+    const timeOrder = toTime(a.createdAt) - toTime(b.createdAt);
 
     if (timeOrder !== 0) {
       return timeOrder;
@@ -85,8 +91,7 @@ const mergeByNewestUpdate = (current: Company[], local: Company[]) => {
 
     if (
       !existing ||
-      new Date(company.updatedAt).getTime() >
-        new Date(existing.updatedAt).getTime()
+      toTime(company.updatedAt) > toTime(existing.updatedAt)
     ) {
       byId.set(company.id, company);
     }
@@ -106,8 +111,7 @@ const mergeQuestionMemosByNewestUpdate = (
 
     if (
       !existing ||
-      new Date(questionMemo.updatedAt).getTime() >
-        new Date(existing.updatedAt).getTime()
+      toTime(questionMemo.updatedAt) > toTime(existing.updatedAt)
     ) {
       byId.set(questionMemo.id, questionMemo);
     }
@@ -237,32 +241,32 @@ export const useCompanies = ({
       }
 
       try {
-        const accessTokenPromise = getAccessToken();
-        const loadedCompaniesPromise = accessTokenPromise
-          .then(fetchRemoteCompanies)
-          .then(hydrateNativePasswords);
-        const questionDataPromise =
-          accessTokenPromise.then(fetchRemoteQuestionData);
+        const homeDataPromise = getAccessToken()
+          .then(fetchRemoteHomeData)
+          .then(async (homeData) => ({
+            ...homeData,
+            companies: await hydrateNativePasswords(homeData.companies)
+          }));
         const localCompaniesPromise = hasCompletedLocalMigration(userId).then(
           (migrationCompleted) =>
             migrationCompleted ? [] : loadLocalCompaniesForMigration()
         );
-        const [loadedCompanies, questionData, localCompanies] = await Promise.all([
-          loadedCompaniesPromise,
-          questionDataPromise,
+        const [homeData, localCompanies] = await Promise.all([
+          homeDataPromise,
           localCompaniesPromise
         ]);
+        const loadedCompanies = homeData.companies;
         const legacyQuestionMemos = extractLegacyQuestionMemos(loadedCompanies);
 
         if (isMounted) {
           setCompaniesState(loadedCompanies);
           setQuestionMemosState(
             mergeQuestionMemosByNewestUpdate(
-              questionData.questionMemos,
+              homeData.questionMemos,
               legacyQuestionMemos
             )
           );
-          setQuestionLabelsState(sortQuestionLabels(questionData.questionLabels));
+          setQuestionLabelsState(sortQuestionLabels(homeData.questionLabels));
           setLocalMigrationAvailable(localCompanies.length > 0);
         }
       } catch {
@@ -860,20 +864,17 @@ export const useCompanies = ({
 
     try {
       const accessToken = await getAccessToken();
-      const [remoteCompanies, questionData] = await Promise.all([
-        fetchRemoteCompanies(accessToken),
-        fetchRemoteQuestionData(accessToken)
-      ]);
-      const hydratedCompanies = await hydrateNativePasswords(remoteCompanies);
+      const homeData = await fetchRemoteHomeData(accessToken);
+      const hydratedCompanies = await hydrateNativePasswords(homeData.companies);
 
       setCompaniesState(hydratedCompanies);
       setQuestionMemosState(
         mergeQuestionMemosByNewestUpdate(
-          questionData.questionMemos,
+          homeData.questionMemos,
           extractLegacyQuestionMemos(hydratedCompanies)
         )
       );
-      setQuestionLabelsState(sortQuestionLabels(questionData.questionLabels));
+      setQuestionLabelsState(sortQuestionLabels(homeData.questionLabels));
     } catch {
       setStorageError('保存データの再読み込みに失敗しました。');
     } finally {
@@ -885,6 +886,10 @@ export const useCompanies = ({
     setQuestionLabelsState,
     setQuestionMemosState
   ]);
+
+  const clearLocalAccountData = useCallback(async () => {
+    await clearAccountLocalData(userId, companiesRef.current);
+  }, [userId]);
 
   return {
     companies,
@@ -904,6 +909,7 @@ export const useCompanies = ({
     deleteCompany,
     importLocalCompanies,
     dismissLocalMigration,
-    reloadCompanies
+    reloadCompanies,
+    clearLocalAccountData
   };
 };

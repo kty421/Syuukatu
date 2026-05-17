@@ -119,6 +119,20 @@ export const signOut = async () => {
   await requireNativeSupabase().auth.signOut();
 };
 
+export const deleteAccount = async () => {
+  if (Platform.OS === 'web') {
+    await apiRequest('/api/auth/account', { method: 'DELETE' });
+    return;
+  }
+
+  const accessToken = await getNativeAccessToken();
+  await apiRequest('/api/auth/account', {
+    method: 'DELETE',
+    accessToken
+  });
+  await requireNativeSupabase().auth.signOut().catch(() => {});
+};
+
 export const sendPasswordReset = async (email: string) => {
   await apiRequest('/api/auth/reset-password', {
     method: 'POST',

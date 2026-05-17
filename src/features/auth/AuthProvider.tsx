@@ -12,6 +12,7 @@ import { Linking, Platform } from 'react-native';
 import { nativeSupabase } from '../../services/nativeSupabase';
 import {
   completeNativeAuthCallback,
+  deleteAccount as requestDeleteAccount,
   getCurrentUser,
   getNativeAccessToken,
   signOut as requestSignOut
@@ -24,6 +25,7 @@ type AuthContextValue = {
   refreshUser: () => Promise<void>;
   setAuthenticatedUser: (user: AuthUser) => void;
   signOut: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
   getAccessToken: () => Promise<string | null>;
 };
 
@@ -128,6 +130,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setUser(null);
   }, []);
 
+  const deleteAccount = useCallback(async () => {
+    await requestDeleteAccount();
+    setUser(null);
+  }, []);
+
   const value = useMemo<AuthContextValue>(
     () => ({
       user,
@@ -135,9 +142,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       refreshUser,
       setAuthenticatedUser,
       signOut,
+      deleteAccount,
       getAccessToken: getNativeAccessToken
     }),
-    [isAuthLoading, refreshUser, setAuthenticatedUser, signOut, user]
+    [
+      deleteAccount,
+      isAuthLoading,
+      refreshUser,
+      setAuthenticatedUser,
+      signOut,
+      user
+    ]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

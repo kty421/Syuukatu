@@ -69,6 +69,7 @@ import {
   SelectionStatus,
 } from "./types";
 import {
+  buildCompanySearchIndex,
   filterAndSortCompanies,
   getStatusList,
   groupCompaniesByStatus,
@@ -90,6 +91,15 @@ const transitionValueByType: Record<ApplicationType, number> = {
 
 const clamp = (value: number, min: number, max: number) =>
   Math.min(Math.max(value, min), max);
+
+const toTimestamp = (value?: string) => {
+  if (!value) {
+    return 0;
+  }
+
+  const time = Date.parse(value);
+  return Number.isNaN(time) ? 0 : time;
+};
 
 const AnimatedSafeAreaView = Animated.createAnimatedComponent(SafeAreaView);
 type CompanyStatusGroup = ReturnType<typeof groupCompaniesByStatus>[number];
@@ -159,6 +169,7 @@ const runHapticsSafely = async (task: () => Promise<void>) => {
 type HomeScreenProps = {
   user: AuthUser;
   onSignOut: () => Promise<void>;
+  onDeleteAccount: () => Promise<void>;
   getAccessToken: () => Promise<string | null>;
 };
 
@@ -334,6 +345,7 @@ const CompanyListRow = memo(
 export const HomeScreen = ({
   user,
   onSignOut,
+  onDeleteAccount,
   getAccessToken,
 }: HomeScreenProps) => {
   const {
@@ -354,6 +366,7 @@ export const HomeScreen = ({
     deleteCompany,
     importLocalCompanies,
     dismissLocalMigration,
+    clearLocalAccountData,
   } = useCompanies({ userId: user.id, getAccessToken });
 
   const colorScheme = useColorScheme();
@@ -364,6 +377,7 @@ export const HomeScreen = ({
   const {
     request: confirmRequest,
     isRunning: isConfirmActionRunning,
+    confirmAction,
     confirmDestructiveAction,
     cancelConfirmAction,
     runConfirmAction,
@@ -457,13 +471,23 @@ export const HomeScreen = ({
         .filter((company) => !company.archived)
         .sort(
           (a, b) =>
-            new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+            toTimestamp(b.updatedAt) - toTimestamp(a.updatedAt),
         ),
     [companies],
   );
+  const companySearchIndex = useMemo(
+    () => buildCompanySearchIndex(companies),
+    [companies],
+  );
   const activeCompanies = useMemo(
-    () => filterAndSortCompanies(companies, activeType, deferredCompanyQuery),
-    [activeType, companies, deferredCompanyQuery],
+    () =>
+      filterAndSortCompanies(
+        companies,
+        activeType,
+        deferredCompanyQuery,
+        companySearchIndex,
+      ),
+    [activeType, companies, companySearchIndex, deferredCompanyQuery],
   );
   const groups = useMemo(
     () => groupCompaniesByStatus(activeCompanies, activeType),
@@ -515,6 +539,15 @@ export const HomeScreen = ({
         : [],
     [editingCompany, questionMemos],
   );
+  const editingQuestionCompany = useMemo(() => {
+    const companyId = editingQuestionMemo?.item.companyId;
+
+    if (!companyId) {
+      return null;
+    }
+
+    return companies.find((company) => company.id === companyId) ?? null;
+  }, [companies, editingQuestionMemo]);
 
   const { internshipCount, fullTimeCount } = useMemo(
     () =>
@@ -989,12 +1022,43 @@ export const HomeScreen = ({
   }, [onSignOut, showToast]);
 
   const handleSignOut = useCallback(() => {
-    confirmDestructiveAction({
+    confirmAction({
       title: "ログアウトしますか？",
       confirmLabel: "OK",
       onConfirm: executeSignOut,
     });
-  }, [confirmDestructiveAction, executeSignOut]);
+  }, [confirmAction, executeSignOut]);
+
+  const executeDeleteAccount = useCallback(async () => {
+    try {
+      await onDeleteAccount();
+      void clearLocalAccountData();
+    } catch {
+      showToast("アカウント削除に失敗しました", "error");
+    }
+  }, [clearLocalAccountData, onDeleteAccount, showToast]);
+
+  const requestFinalDeleteAccountConfirmation = useCallback(() => {
+    confirmDestructiveAction({
+      title: "本当に削除しますか？",
+      message:
+        "この操作は取り消せません。アカウントと保存データを完全に削除します。",
+      confirmLabel: "退会する",
+      onConfirm: executeDeleteAccount,
+    });
+  }, [confirmDestructiveAction, executeDeleteAccount]);
+
+  const handleDeleteAccount = useCallback(() => {
+    confirmDestructiveAction({
+      title: "アカウントを削除しますか？",
+      message:
+        "企業情報、質問メモ、ラベルなど、このアカウントに保存したデータがすべて削除されます。",
+      confirmLabel: "次へ",
+      onConfirm: () => {
+        setTimeout(requestFinalDeleteAccountConfirmation, 0);
+      },
+    });
+  }, [confirmDestructiveAction, requestFinalDeleteAccountConfirmation]);
 
   const openQuestionCompanyPicker = useCallback(() => {
     Keyboard.dismiss();
@@ -1231,6 +1295,30 @@ export const HomeScreen = ({
       });
     },
     [confirmDestructiveAction, deleteQuestionMemoById, showToast],
+  );
+
+  const changeQuestionSort = useCallback(
+    (sort: QuestionMemoSort) => {
+      setQuestionSort(sort);
+      scrollQuestionListToTop(false);
+    },
+    [scrollQuestionListToTop],
+  );
+
+  const openQuestionFromList = useCallback(
+    (entry: QuestionMemoEntry) => {
+      void openQuestionMemo(entry);
+    },
+    [openQuestionMemo],
+  );
+
+  const openCompanyFromQuestion = useCallback(
+    (entry: QuestionMemoEntry) => {
+      if (entry.company) {
+        openEditModal(entry.company);
+      }
+    },
+    [openEditModal],
   );
 
   const renderEmptyCompanies = useCallback(() => {
@@ -1490,19 +1578,10 @@ export const HomeScreen = ({
             containerStyle={containerStyle}
             listRef={questionListRef}
             onLabelFilterChange={setSelectedQuestionLabelId}
-            onSortChange={(sort) => {
-              setQuestionSort(sort);
-              scrollQuestionListToTop(false);
-            }}
+            onSortChange={changeQuestionSort}
             onClearQuery={clearQuestionSearch}
-            onOpenQuestion={(entry) => {
-              void openQuestionMemo(entry);
-            }}
-            onOpenCompany={(entry) => {
-              if (entry.company) {
-                openEditModal(entry.company);
-              }
-            }}
+            onOpenQuestion={openQuestionFromList}
+            onOpenCompany={openCompanyFromQuestion}
             onDelete={deleteQuestionMemo}
           />
         )}
@@ -1560,6 +1639,7 @@ export const HomeScreen = ({
         item={editingQuestionMemo?.item ?? null}
         labels={questionLabels}
         theme={theme}
+        company={editingQuestionCompany}
         saveNoticeKey={questionSaveNoticeKey}
         onClose={closeQuestionMemo}
         onSave={(item) => {
@@ -1620,6 +1700,10 @@ export const HomeScreen = ({
         onSignOut={() => {
           setMenuVisible(false);
           handleSignOut();
+        }}
+        onDeleteAccount={() => {
+          setMenuVisible(false);
+          handleDeleteAccount();
         }}
       />
 
