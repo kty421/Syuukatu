@@ -1,11 +1,18 @@
-import { clearSessionCookies, getRequestTokens } from '../_lib/auth';
+import {
+  clearSessionCookies,
+  getAuthenticatedSupabase,
+  getRequestTokens
+} from '../_lib/auth';
 import {
   handleApiError,
   handleCorsPreflight,
   requireMethod,
   sendJson
 } from '../_lib/http';
-import { createSupabaseServerClient } from '../_lib/supabase';
+import {
+  createSupabaseAdminClient,
+  createSupabaseServerClient
+} from '../_lib/supabase';
 import type { VercelRequest, VercelResponse } from '../_lib/vercel';
 
 export default async function handler(
@@ -17,7 +24,25 @@ export default async function handler(
       return;
     }
 
-    requireMethod(req.method, ['POST']);
+    requireMethod(req.method, ['POST', 'DELETE']);
+
+    if (req.method === 'DELETE') {
+      const { user } = await getAuthenticatedSupabase(req, res);
+      const supabaseAdmin = createSupabaseAdminClient();
+      const { error } = await supabaseAdmin.auth.admin.deleteUser(user.id);
+
+      if (error) {
+        sendJson(res, 400, {
+          error: 'アカウントの削除に失敗しました。'
+        });
+        return;
+      }
+
+      clearSessionCookies(res);
+      sendJson(res, 200, { ok: true });
+      return;
+    }
+
     const { accessToken, refreshToken } = getRequestTokens(req);
 
     if (accessToken && refreshToken) {

@@ -1,4 +1,5 @@
 import { getAuthenticatedSupabase } from '../_lib/auth';
+import { fromCompanyRow } from '../_lib/company';
 import {
   fromQuestionLabelRow,
   fromQuestionMemoRow,
@@ -20,6 +21,9 @@ import type { VercelRequest, VercelResponse } from '../_lib/vercel';
 const getQuestionMemoId = (value: string | string[] | undefined) =>
   Array.isArray(value) ? value[0] : value;
 
+const getSingleQueryValue = (value: string | string[] | undefined) =>
+  Array.isArray(value) ? value[0] : value;
+
 export default async function handler(
   req: VercelRequest,
   res: VercelResponse
@@ -33,7 +37,9 @@ export default async function handler(
     const { supabase, user } = await getAuthenticatedSupabase(req, res);
 
     if (req.method === 'GET') {
-      const [memoResult, labelResult] = await Promise.all([
+      const includeCompanies =
+        getSingleQueryValue(req.query.includeCompanies) === '1';
+      const [memoResult, labelResult, companyResult] = await Promise.all([
         supabase
           .from('question_memos')
           .select('*, question_memo_labels(label_id)')
@@ -42,10 +48,16 @@ export default async function handler(
           .from('question_labels')
           .select('*')
           .order('sort_order', { ascending: true })
-          .order('created_at', { ascending: true })
+          .order('created_at', { ascending: true }),
+        includeCompanies
+          ? supabase
+              .from('companies')
+              .select('*')
+              .order('updated_at', { ascending: false })
+          : Promise.resolve({ data: null, error: null })
       ]);
 
-      if (memoResult.error || labelResult.error) {
+      if (memoResult.error || labelResult.error || companyResult.error) {
         sendJson(res, 400, {
           error: '質問メモの読み込みに失敗しました。'
         });
@@ -53,6 +65,9 @@ export default async function handler(
       }
 
       sendJson(res, 200, {
+        companies: includeCompanies
+          ? (companyResult.data ?? []).map(fromCompanyRow)
+          : undefined,
         questionMemos: ((memoResult.data ?? []) as QuestionMemoRow[]).map(
           fromQuestionMemoRow
         ),

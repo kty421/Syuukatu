@@ -10,6 +10,7 @@ import { FullScreenModalShell } from '../../../ui/FullScreenModalShell';
 import { InputField } from '../../../ui/InputField';
 import {
   CompanyQuestionAnswer,
+  Company,
   QuestionLabel,
   QuestionMemo
 } from '../types';
@@ -19,6 +20,7 @@ type QuestionMemoDialogProps<T extends CompanyQuestionAnswer | QuestionMemo> = {
   item: T | null;
   labels: QuestionLabel[];
   theme: AppTheme;
+  company?: Company | null;
   saveNoticeKey?: number;
   onClose: () => void;
   onSave: (item: T) => void;
@@ -31,6 +33,7 @@ export const QuestionMemoDialog = <
   item,
   labels,
   theme,
+  company,
   saveNoticeKey,
   onClose,
   onSave,
@@ -140,6 +143,53 @@ export const QuestionMemoDialog = <
           showsVerticalScrollIndicator={false}
         >
           <DismissKeyboardView style={styles.form}>
+            {company ? (
+              <View
+                style={[
+                  styles.companyContext,
+                  {
+                    backgroundColor: theme.colors.surfaceElevated,
+                    borderColor: theme.colors.border
+                  }
+                ]}
+              >
+                <View style={styles.companyIcon}>
+                  <Ionicons
+                    name="business-outline"
+                    size={18}
+                    color={theme.colors.textSecondary}
+                  />
+                </View>
+                <View style={styles.companyCopy}>
+                  <Text
+                    style={[
+                      styles.companyCaption,
+                      { color: theme.colors.textSecondary }
+                    ]}
+                  >
+                    追加先の企業
+                  </Text>
+                  <Text
+                    numberOfLines={1}
+                    style={[
+                      styles.companyName,
+                      { color: theme.colors.textPrimary }
+                    ]}
+                  >
+                    {company.companyName}
+                  </Text>
+                </View>
+                <Text
+                  numberOfLines={1}
+                  style={[
+                    styles.companyStatus,
+                    { color: theme.colors.textSecondary }
+                  ]}
+                >
+                  {company.status}
+                </Text>
+              </View>
+            ) : null}
             <InputField
               ref={questionInputRef}
               autoFocus
@@ -249,6 +299,7 @@ export const QuestionMemoDialog = <
           labels={labels}
           theme={theme}
           onClose={() => setLabelCreateVisible(false)}
+          continueAfterCreate
           onCreate={async (name) => {
             const createdLabel = await onCreateLabel(name);
             setSelectedLabelIds((current) =>
@@ -278,6 +329,44 @@ const styles = StyleSheet.create({
   },
   form: {
     gap: 16
+  },
+  companyContext: {
+    alignItems: 'center',
+    borderRadius: 18,
+    borderWidth: StyleSheet.hairlineWidth,
+    flexDirection: 'row',
+    gap: 12,
+    minHeight: 64,
+    paddingHorizontal: 14,
+    paddingVertical: 12
+  },
+  companyIcon: {
+    alignItems: 'center',
+    height: 28,
+    justifyContent: 'center',
+    width: 28
+  },
+  companyCopy: {
+    flex: 1,
+    minWidth: 0
+  },
+  companyCaption: {
+    fontSize: 11,
+    fontWeight: '700',
+    lineHeight: 15
+  },
+  companyName: {
+    fontSize: 15,
+    fontWeight: '800',
+    lineHeight: 20,
+    marginTop: 2
+  },
+  companyStatus: {
+    flexShrink: 1,
+    fontSize: 12,
+    fontWeight: '700',
+    lineHeight: 16,
+    maxWidth: '34%'
   },
   saveNotice: {
     alignItems: 'center',

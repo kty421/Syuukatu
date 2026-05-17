@@ -209,6 +209,10 @@ export const deleteCompanyCredential = async (id: string) => {
   }
 };
 
+export const deleteCompanyCredentials = async (ids: string[]) => {
+  await Promise.all(ids.map((id) => deleteCompanyCredential(id)));
+};
+
 export const purgeLegacyWebCredentials = async (companies: Company[]) => {
   if (Platform.OS !== 'web') {
     return;
@@ -219,6 +223,17 @@ export const purgeLegacyWebCredentials = async (companies: Company[]) => {
       AsyncStorage.removeItem(getWebPreviewCredentialKey(company.id))
     )
   );
+};
+
+export const clearAccountLocalData = async (
+  userId: string,
+  companies: Company[]
+) => {
+  await Promise.allSettled([
+    deleteCompanyCredentials(companies.map((company) => company.id)),
+    purgeLegacyWebCredentials(companies),
+    AsyncStorage.removeItem(getMigrationCompleteKey(userId))
+  ]);
 };
 
 export const hasCompletedLocalMigration = async (userId: string) => {

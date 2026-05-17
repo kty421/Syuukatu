@@ -32,6 +32,32 @@ const legacyStatusMap: Record<string, SelectionStatus> = {
   不参加: "辞退",
 };
 
+const toTime = (value?: string) => {
+  if (!value) {
+    return 0;
+  }
+
+  const time = Date.parse(value);
+  return Number.isNaN(time) ? 0 : time;
+};
+
+const getCompanySearchText = (company: Company) =>
+  [
+    company.companyName,
+    company.loginId,
+    company.industry,
+    company.role,
+    company.status,
+    normalizeSelectionStatus(company.status),
+    ...company.tags,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+export const buildCompanySearchIndex = (companies: Company[]) =>
+  new Map(companies.map((company) => [company.id, getCompanySearchText(company)]));
+
 export const getStatusList = (_type?: ApplicationType): SelectionStatus[] => [
   ...selectionStatuses,
 ];
@@ -57,6 +83,7 @@ export const filterAndSortCompanies = (
   companies: Company[],
   type: ApplicationType,
   query: string,
+  searchIndex?: Map<string, string>,
 ) => {
   const normalizedQuery = query.trim().toLowerCase();
 
@@ -67,17 +94,7 @@ export const filterAndSortCompanies = (
         return true;
       }
 
-      return [
-        company.companyName,
-        company.loginId,
-        company.industry,
-        company.role,
-        company.status,
-        normalizeSelectionStatus(company.status),
-        ...company.tags,
-      ]
-        .join(" ")
-        .toLowerCase()
+      return (searchIndex?.get(company.id) ?? getCompanySearchText(company))
         .includes(normalizedQuery);
     })
     .sort((a, b) => {
@@ -87,7 +104,7 @@ export const filterAndSortCompanies = (
         return aspirationDiff;
       }
 
-      return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+      return toTime(b.updatedAt) - toTime(a.updatedAt);
     });
 };
 

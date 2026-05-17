@@ -38,6 +38,7 @@ type HomeMenuModalProps = {
   onOpenQuestionLabelSettings: () => void;
   onPasswordDefaultVisibleChange: (visible: boolean) => void;
   onSignOut: () => void;
+  onDeleteAccount: () => void;
   onClose: () => void;
 };
 
@@ -82,6 +83,7 @@ export const HomeMenuModal = ({
   onOpenQuestionLabelSettings,
   onPasswordDefaultVisibleChange,
   onSignOut,
+  onDeleteAccount,
   onClose,
 }: HomeMenuModalProps) => {
   const insets = useSafeAreaInsets();
@@ -487,6 +489,13 @@ export const HomeMenuModal = ({
                   theme={theme}
                   onPress={onSignOut}
                 />
+                <MenuActionRow
+                  icon="person-remove-outline"
+                  label="アカウント削除"
+                  theme={theme}
+                  tone="danger"
+                  onPress={onDeleteAccount}
+                />
               </View>
             </Animated.View>
           </GestureDetector>
@@ -514,52 +523,65 @@ const MenuActionRow = ({
   icon,
   label,
   selected,
+  tone = "default",
   theme,
   onPress,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
   selected?: boolean;
+  tone?: "default" | "danger";
   theme: AppTheme;
   onPress: () => void;
-}) => (
-  <Pressable
-    accessibilityRole="button"
-    accessibilityState={selected ? { selected } : undefined}
-    onPress={onPress}
-    style={({ pressed }) => [
-      styles.actionRow,
-      webCursor,
-      {
-        backgroundColor: selected
-          ? theme.colors.primarySubtle
-          : theme.colors.surface,
-        borderColor: selected
-          ? theme.colors.primaryBorder
-          : theme.colors.border,
-      },
-      pressed && styles.pressed,
-    ]}>
-    <View
-      style={[
-        styles.actionIcon,
+}) => {
+  const isDanger = tone === "danger";
+  const foreground = isDanger
+    ? theme.colors.danger
+    : selected
+      ? theme.colors.primary
+      : theme.colors.textSecondary;
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={selected ? { selected } : undefined}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.actionRow,
+        webCursor,
         {
           backgroundColor: selected
-            ? theme.colors.surface
-            : theme.colors.surfaceSubtle,
+            ? theme.colors.primarySubtle
+            : theme.colors.surface,
+          borderColor: selected
+            ? theme.colors.primaryBorder
+            : theme.colors.border,
         },
+        pressed && styles.pressed,
       ]}>
-      <Ionicons
-        name={icon}
-        size={16}
-        color={selected ? theme.colors.primary : theme.colors.textSecondary}
-      />
-    </View>
-    <Text style={[styles.actionLabel, { color: theme.colors.textPrimary }]}>
-      {label}
-    </Text>
-  </Pressable>
-);
+      <View
+        style={[
+          styles.actionIcon,
+          {
+            backgroundColor: isDanger
+              ? theme.colors.dangerSubtle
+              : selected
+                ? theme.colors.surface
+                : theme.colors.surfaceSubtle,
+          },
+        ]}>
+        <Ionicons name={icon} size={16} color={foreground} />
+      </View>
+      <Text
+        style={[
+          styles.actionLabel,
+          { color: isDanger ? theme.colors.danger : theme.colors.textPrimary },
+        ]}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+};
 
 const SettingsLinkRow = ({
   label,

@@ -9,6 +9,7 @@ export type QuestionMemoEntry = {
   company: Company | null;
   questionMemo: QuestionMemo;
   labels: QuestionLabel[];
+  searchText: string;
 };
 
 export const UNASSIGNED_COMPANY_TITLE = '企業との対応なし';
@@ -27,15 +28,34 @@ export const flattenQuestionMemos = (
 
   return questionMemos
     .filter((item) => item.question.trim() || item.answer.trim())
-    .map((questionMemo) => ({
-      company: questionMemo.companyId
+    .map((questionMemo) => {
+      const company = questionMemo.companyId
         ? companyById.get(questionMemo.companyId) ?? null
-        : null,
-      questionMemo,
-      labels: questionMemo.labelIds
+        : null;
+      const memoLabels = questionMemo.labelIds
         .map((labelId) => labelById.get(labelId))
-        .filter((label): label is QuestionLabel => Boolean(label))
-    }));
+        .filter((label): label is QuestionLabel => Boolean(label));
+
+      return {
+        company,
+        questionMemo,
+        labels: memoLabels,
+        searchText: [
+          questionMemo.question,
+          questionMemo.answer,
+          company?.companyName,
+          company?.industry,
+          company?.role,
+          company?.memo,
+          ...(company?.tags ?? []),
+          ...memoLabels.map((label) => label.name),
+          company ? '' : UNASSIGNED_COMPANY_TITLE
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase()
+      };
+    });
 };
 
 export const filterQuestionMemos = (
@@ -54,21 +74,7 @@ export const filterQuestionMemos = (
         return true;
       }
 
-      return [
-        entry.questionMemo.question,
-        entry.questionMemo.answer,
-        entry.company?.companyName,
-        entry.company?.industry,
-        entry.company?.role,
-        entry.company?.memo,
-        ...(entry.company?.tags ?? []),
-        ...entry.labels.map((label) => label.name),
-        entry.company ? '' : UNASSIGNED_COMPANY_TITLE
-      ]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase()
-        .includes(normalizedQuery);
+      return entry.searchText.includes(normalizedQuery);
     });
 };
 
@@ -77,7 +83,7 @@ const toTime = (value?: string) => {
     return 0;
   }
 
-  const time = new Date(value).getTime();
+  const time = Date.parse(value);
   return Number.isNaN(time) ? 0 : time;
 };
 

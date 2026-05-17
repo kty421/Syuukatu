@@ -255,6 +255,7 @@ export const QuestionLabelSettingsModal = ({
         labels={labels}
         theme={theme}
         onClose={() => setLabelCreateVisible(false)}
+        continueAfterCreate
         onCreate={onCreateLabel}
       />
       <QuestionLabelCreateDialog

@@ -32,6 +32,13 @@ export const ConfirmActionDialog = ({
     return null;
   }
 
+  const confirmColor = request.destructive
+    ? theme.colors.danger
+    : theme.colors.primary;
+  const confirmTextColor = request.destructive
+    ? theme.colors.textOnDanger
+    : theme.colors.textOnPrimary;
+
   return (
     <Modal
       animationType="fade"
@@ -92,14 +99,14 @@ export const ConfirmActionDialog = ({
                 styles.actionButton,
                 {
                   backgroundColor: theme.colors.surface,
-                  borderColor: theme.colors.primary
+                  borderColor: confirmColor
                 },
                 pressed && !isRunning && styles.pressed,
                 isRunning && styles.disabled
               ]}
             >
-              <Text style={[styles.cancelLabel, { color: theme.colors.primary }]}>
-                キャンセル
+              <Text style={[styles.cancelLabel, { color: confirmColor }]}>
+                {request.cancelLabel ?? 'キャンセル'}
               </Text>
             </Pressable>
 
@@ -110,22 +117,22 @@ export const ConfirmActionDialog = ({
               style={({ pressed }) => [
                 styles.actionButton,
                 {
-                  backgroundColor: theme.colors.primary,
-                  borderColor: theme.colors.primary
+                  backgroundColor: confirmColor,
+                  borderColor: confirmColor
                 },
                 pressed && !isRunning && styles.pressed
               ]}
             >
               {isRunning ? (
-                <ActivityIndicator color={theme.colors.textOnPrimary} />
+                <ActivityIndicator color={confirmTextColor} />
               ) : (
                 <Text
                   style={[
                     styles.confirmLabel,
-                    { color: theme.colors.textOnPrimary }
+                    { color: confirmTextColor }
                   ]}
                 >
-                  OK
+                  {request.confirmLabel}
                 </Text>
               )}
             </Pressable>

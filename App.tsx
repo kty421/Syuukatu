@@ -60,7 +60,8 @@ const ProtectedAppBody = ({
 }) => {
   const colorScheme = useColorScheme();
   const theme = useMemo(() => getTheme(colorScheme), [colorScheme]);
-  const { user, isAuthLoading, signOut, getAccessToken } = useAuth();
+  const { user, isAuthLoading, signOut, deleteAccount, getAccessToken } =
+    useAuth();
 
   if (isAuthLoading) {
     return (
@@ -87,6 +88,7 @@ const ProtectedAppBody = ({
     <HomeScreen
       user={user}
       onSignOut={signOut}
+      onDeleteAccount={deleteAccount}
       getAccessToken={getAccessToken}
     />
   );
