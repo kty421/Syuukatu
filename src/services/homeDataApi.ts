@@ -13,9 +13,12 @@ const stripPassword = (company: Company): Company => ({
 });
 
 export const fetchRemoteHomeData = async (accessToken: string | null) => {
-  const response = await apiRequest<HomeDataResponse>('/api/home-data', {
-    accessToken
-  });
+  const response = await apiRequest<HomeDataResponse>(
+    '/api/questions?includeCompanies=1',
+    {
+      accessToken
+    }
+  );
 
   return {
     companies: response.companies.map(stripPassword),

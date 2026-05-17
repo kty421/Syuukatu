@@ -121,12 +121,12 @@ export const signOut = async () => {
 
 export const deleteAccount = async () => {
   if (Platform.OS === 'web') {
-    await apiRequest('/api/auth/account', { method: 'DELETE' });
+    await apiRequest('/api/auth/sign-out', { method: 'DELETE' });
     return;
   }
 
   const accessToken = await getNativeAccessToken();
-  await apiRequest('/api/auth/account', {
+  await apiRequest('/api/auth/sign-out', {
     method: 'DELETE',
     accessToken
   });
