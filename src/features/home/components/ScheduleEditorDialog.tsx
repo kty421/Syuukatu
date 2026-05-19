@@ -101,6 +101,31 @@ const compareTimeValues = (
   b: { hour: number; minute: number },
 ) => a.hour * 60 + a.minute - (b.hour * 60 + b.minute);
 
+const toMinutes = (time: { hour: number; minute: number }) =>
+  time.hour * 60 + time.minute;
+
+const fromMinutes = (minutes: number) => {
+  const boundedMinutes = Math.min(Math.max(minutes, 0), 23 * 60 + 59);
+
+  return {
+    hour: Math.floor(boundedMinutes / 60),
+    minute: boundedMinutes % 60,
+  };
+};
+
+const getFieldValue = (
+  phase: TimeInputPhase,
+  buffer: string,
+  field: TimeInputPhase,
+  value: number,
+) => {
+  if (phase === field && buffer.length === 1) {
+    return `0${buffer}`;
+  }
+
+  return `${value}`.padStart(2, "0");
+};
+
 const createEmptySchedule = (
   companyId: string,
   initialDate?: string | null,
@@ -848,6 +873,100 @@ const DatePickerSheet = ({
   );
 };
 
+const TimePreviewGroup = ({
+  label,
+  hour,
+  minute,
+  activeHour,
+  activeMinute,
+  theme,
+  onPressHour,
+  onPressMinute,
+}: {
+  label: string;
+  hour: string;
+  minute: string;
+  activeHour: boolean;
+  activeMinute: boolean;
+  theme: AppTheme;
+  onPressHour: () => void;
+  onPressMinute: () => void;
+}) => (
+  <View style={styles.timePreviewPair}>
+    <Text style={[styles.timeKeypadLabel, { color: theme.colors.textMuted }]}>
+      {label}
+    </Text>
+    <View style={styles.timePreviewParts}>
+      <TimePreviewPart
+        label="時"
+        value={hour}
+        active={activeHour}
+        theme={theme}
+        onPress={onPressHour}
+      />
+      <Text style={[styles.timePreviewSeparator, { color: theme.colors.textMuted }]}>
+        :
+      </Text>
+      <TimePreviewPart
+        label="分"
+        value={minute}
+        active={activeMinute}
+        theme={theme}
+        onPress={onPressMinute}
+      />
+    </View>
+  </View>
+);
+
+const TimePreviewPart = ({
+  label,
+  value,
+  active,
+  theme,
+  onPress,
+}: {
+  label: string;
+  value: string;
+  active: boolean;
+  theme: AppTheme;
+  onPress: () => void;
+}) => (
+  <Pressable
+    accessibilityRole="button"
+    accessibilityLabel={`${label}を入力`}
+    accessibilityState={{ selected: active }}
+    onPress={onPress}
+    style={({ pressed }) => [
+      styles.timePreviewPart,
+      {
+        backgroundColor: active ? theme.colors.surfaceElevated : "transparent",
+        borderBottomColor: active
+          ? theme.colors.textPrimary
+          : theme.colors.divider,
+      },
+      pressed && styles.pressed,
+    ]}>
+    <Text
+      style={[
+        styles.timePreviewTime,
+        {
+          color: active ? theme.colors.textPrimary : theme.colors.textMuted,
+        },
+      ]}>
+      {value}
+    </Text>
+    <Text
+      style={[
+        styles.timePreviewUnit,
+        {
+          color: active ? theme.colors.textSecondary : theme.colors.textMuted,
+        },
+      ]}>
+      {label}
+    </Text>
+  </Pressable>
+);
+
 const TimePickerSheet = ({
   visible,
   startTime,
@@ -868,9 +987,10 @@ const TimePickerSheet = ({
     parseTimeValue(startTime),
   );
   const [endValue, setEndValue] = useState(() => parseTimeValue(endTime));
+  // Four independent fields share one keypad; phase identifies which field
+  // receives the next digit, and buffer keeps the first digit of a two-digit edit.
   const [phase, setPhase] = useState<TimeInputPhase>("startHour");
   const [buffer, setBuffer] = useState("");
-
   useEffect(() => {
     if (!visible) {
       return;
@@ -879,9 +999,7 @@ const TimePickerSheet = ({
     const nextStart = parseTimeValue(startTime);
     const nextEnd = parseTimeValue(endTime);
     setStartValue(nextStart);
-    setEndValue(
-      compareTimeValues(nextEnd, nextStart) < 0 ? nextStart : nextEnd,
-    );
+    setEndValue(nextEnd);
     setPhase("startHour");
     setBuffer("");
   }, [endTime, startTime, visible]);
@@ -897,6 +1015,11 @@ const TimePickerSheet = ({
     const correctedEnd =
       compareTimeValues(nextEnd, nextStart) < 0 ? nextStart : nextEnd;
     onSelect(formatTimeValue(nextStart), formatTimeValue(correctedEnd));
+  };
+
+  const focusField = (nextPhase: TimeInputPhase) => {
+    setPhase(nextPhase);
+    setBuffer("");
   };
 
   const pressKey = (key: string) => {
@@ -917,10 +1040,9 @@ const TimePickerSheet = ({
 
       if (nextPhase === "startHour") {
         nextStart = { ...nextStart, hour: nextHour };
-        clampEnd();
         nextPhase = "startMinute";
       } else if (nextPhase === "endHour") {
-        nextEnd = { ...nextEnd, hour: Math.max(nextHour, nextStart.hour) };
+        nextEnd = { ...nextEnd, hour: nextHour };
         clampEnd();
         nextPhase = "endMinute";
       }
@@ -933,7 +1055,6 @@ const TimePickerSheet = ({
 
       if (nextPhase === "startMinute") {
         nextStart = { ...nextStart, minute: nextMinute };
-        clampEnd();
         nextPhase = "endHour";
       } else if (nextPhase === "endMinute") {
         nextEnd = { ...nextEnd, minute: nextMinute };
@@ -942,6 +1063,28 @@ const TimePickerSheet = ({
       }
 
       nextBuffer = "";
+    };
+
+    const previewHour = (digit: string) => {
+      const nextHour = Number(digit);
+
+      if (nextPhase === "startHour") {
+        nextStart = { ...nextStart, hour: nextHour };
+      } else if (nextPhase === "endHour") {
+        nextEnd = { ...nextEnd, hour: nextHour };
+        clampEnd();
+      }
+    };
+
+    const previewMinute = (digit: string) => {
+      const nextMinute = Number(digit);
+
+      if (nextPhase === "startMinute") {
+        nextStart = { ...nextStart, minute: nextMinute };
+      } else if (nextPhase === "endMinute") {
+        nextEnd = { ...nextEnd, minute: nextMinute };
+        clampEnd();
+      }
     };
 
     const inputMinuteDigit = (digit: string) => {
@@ -954,6 +1097,7 @@ const TimePickerSheet = ({
 
       if (!nextBuffer) {
         nextBuffer = digit;
+        previewMinute(digit);
         return;
       }
 
@@ -961,19 +1105,18 @@ const TimePickerSheet = ({
     };
 
     if (nextPhase === "startHour" || nextPhase === "endHour") {
-      if (key === "30") {
+      if (key === "00" || key === "30") {
         return;
       }
 
-      if (key === "00") {
-        completeHour(0);
-      } else if (!nextBuffer) {
+      if (!nextBuffer) {
         const value = Number(key);
 
         if (value >= 3) {
           completeHour(value);
         } else {
           nextBuffer = key;
+          previewHour(key);
         }
       } else if (nextBuffer === "2" && Number(key) >= 4) {
         completeHour(2);
@@ -1001,8 +1144,30 @@ const TimePickerSheet = ({
     }
   };
 
-  const startActive = phase === "startHour" || phase === "startMinute";
-  const endActive = phase === "endHour" || phase === "endMinute";
+  const startHourValue = getFieldValue(
+    phase,
+    buffer,
+    "startHour",
+    startValue.hour,
+  );
+  const startMinuteValue = getFieldValue(
+    phase,
+    buffer,
+    "startMinute",
+    startValue.minute,
+  );
+  const endHourDisplay =
+    phase === "endHour" &&
+    buffer.length === 1 &&
+    endValue.hour === Number(buffer)
+      ? `0${buffer}`
+      : `${endValue.hour}`.padStart(2, "0");
+  const endMinuteDisplay =
+    phase === "endMinute" &&
+    buffer.length === 1 &&
+    endValue.minute === Number(buffer)
+      ? `0${buffer}`
+      : `${endValue.minute}`.padStart(2, "0");
 
   return (
     <View style={styles.pickerRoot}>
@@ -1030,75 +1195,31 @@ const TimePickerSheet = ({
             { borderBottomColor: theme.colors.divider },
           ]}>
           <View style={styles.timePreviewGroup}>
-            <View
-              style={[
-                styles.timePreviewBlock,
-                {
-                  borderBottomColor: startActive
-                    ? theme.colors.textPrimary
-                    : theme.colors.divider,
-                },
-              ]}>
-              <Text
-                style={[
-                  styles.timeKeypadLabel,
-                  {
-                    color: startActive
-                      ? theme.colors.textPrimary
-                      : theme.colors.textMuted,
-                  },
-                ]}>
-                開始
-              </Text>
-              <Text
-                style={[
-                  styles.timePreviewTime,
-                  {
-                    color: startActive
-                      ? theme.colors.textPrimary
-                      : theme.colors.textMuted,
-                  },
-                ]}>
-                {formatTimeValue(startValue)}
-              </Text>
-            </View>
+            <TimePreviewGroup
+              label="開始"
+              hour={startHourValue}
+              minute={startMinuteValue}
+              activeHour={phase === "startHour"}
+              activeMinute={phase === "startMinute"}
+              theme={theme}
+              onPressHour={() => focusField("startHour")}
+              onPressMinute={() => focusField("startMinute")}
+            />
             <Ionicons
               color={theme.colors.textMuted}
               name="chevron-forward"
               size={22}
             />
-            <View
-              style={[
-                styles.timePreviewBlock,
-                {
-                  borderBottomColor: endActive
-                    ? theme.colors.textPrimary
-                    : theme.colors.divider,
-                },
-              ]}>
-              <Text
-                style={[
-                  styles.timeKeypadLabel,
-                  {
-                    color: endActive
-                      ? theme.colors.textPrimary
-                      : theme.colors.textMuted,
-                  },
-                ]}>
-                終了
-              </Text>
-              <Text
-                style={[
-                  styles.timePreviewTime,
-                  {
-                    color: endActive
-                      ? theme.colors.textPrimary
-                      : theme.colors.textMuted,
-                  },
-                ]}>
-                {formatTimeValue(endValue)}
-              </Text>
-            </View>
+            <TimePreviewGroup
+              label="終了"
+              hour={endHourDisplay}
+              minute={endMinuteDisplay}
+              activeHour={phase === "endHour"}
+              activeMinute={phase === "endMinute"}
+              theme={theme}
+              onPressHour={() => focusField("endHour")}
+              onPressMinute={() => focusField("endMinute")}
+            />
           </View>
           <Pressable
             accessibilityRole="button"
@@ -1423,8 +1544,8 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     flexDirection: "row",
     justifyContent: "space-between",
-    minHeight: 76,
-    paddingHorizontal: 20,
+    minHeight: 82,
+    paddingHorizontal: 14,
     paddingVertical: 10,
   },
   timeKeypadLabel: {
@@ -1436,21 +1557,45 @@ const styles = StyleSheet.create({
     alignItems: "center",
     flex: 1,
     flexDirection: "row",
-    gap: 10,
+    gap: 8,
     minWidth: 0,
   },
-  timePreviewBlock: {
-    borderBottomWidth: StyleSheet.hairlineWidth,
+  timePreviewPair: {
     flex: 1,
     minWidth: 0,
-    paddingBottom: 3,
+  },
+  timePreviewParts: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 3,
+    marginTop: 3,
+  },
+  timePreviewPart: {
+    alignItems: "center",
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderRadius: 8,
+    flex: 1,
+    minHeight: 40,
+    minWidth: 0,
+    paddingHorizontal: 2,
+    paddingVertical: 3,
   },
   timePreviewTime: {
-    fontSize: 25,
+    fontSize: 20,
     fontWeight: "600",
-    lineHeight: 31,
-    marginTop: 1,
+    lineHeight: 24,
     textAlign: "center",
+  },
+  timePreviewSeparator: {
+    fontSize: 20,
+    fontWeight: "600",
+    lineHeight: 24,
+  },
+  timePreviewUnit: {
+    fontSize: 9,
+    fontWeight: "700",
+    lineHeight: 11,
+    marginTop: 1,
   },
   timeKeypadGrid: {
     width: "100%",
@@ -1461,13 +1606,13 @@ const styles = StyleSheet.create({
   timeKey: {
     alignItems: "center",
     flex: 1,
-    height: 80,
+    height: 68,
     justifyContent: "center",
   },
   timeKeyText: {
-    fontSize: 41,
-    fontWeight: "300",
-    lineHeight: 50,
+    fontSize: 25,
+    fontWeight: "400",
+    lineHeight: 31,
   },
   warningRoot: {
     alignItems: "center",
