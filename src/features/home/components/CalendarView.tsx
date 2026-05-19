@@ -18,10 +18,13 @@ import { Company, CompanySchedule } from "../types";
 import {
   addMonths,
   buildMonthGrid,
+  compareDateStrings,
   formatJapaneseDate,
   formatScheduleTime,
+  getScheduleEndDate,
   getSchedulesForDate,
   isMultiDaySchedule,
+  sortSchedules,
   startOfMonth,
   todayDateString,
 } from "../utils/scheduleUtils";
@@ -41,6 +44,158 @@ type CalendarViewProps = {
 
 const weekdays = ["日", "月", "火", "水", "木", "金", "土"];
 const maxCellSchedules = 2;
+const weekDayCount = 7;
+const weekCount = 6;
+const multiDayBannerHeight = 18;
+const multiDayBannerGap = 3;
+const multiDayBannerTop = 24;
+
+type WeekMultiDaySegment = {
+  schedule: CompanySchedule;
+  startIndex: number;
+  span: number;
+  lane: number;
+  continuesBefore: boolean;
+  continuesAfter: boolean;
+};
+
+const chunkMonthWeeks = (days: string[]) =>
+  Array.from({ length: weekCount }, (_, index) =>
+    days.slice(index * weekDayCount, index * weekDayCount + weekDayCount),
+  );
+
+const buildWeekMultiDaySegments = (
+  weekDates: string[],
+  schedules: CompanySchedule[],
+) => {
+  const weekStart = weekDates[0];
+  const weekEnd = weekDates[weekDates.length - 1];
+  const laneEndIndexes: number[] = [];
+  const segments: WeekMultiDaySegment[] = [];
+
+  if (!weekStart || !weekEnd) {
+    return segments;
+  }
+
+  const weekSchedules = sortSchedules(
+    schedules.filter((schedule) => {
+      if (!isMultiDaySchedule(schedule)) {
+        return false;
+      }
+
+      return (
+        compareDateStrings(schedule.startDate, weekEnd) <= 0 &&
+        compareDateStrings(getScheduleEndDate(schedule), weekStart) >= 0
+      );
+    }),
+  );
+
+  for (const schedule of weekSchedules) {
+    const scheduleEnd = getScheduleEndDate(schedule);
+    const clippedStart =
+      compareDateStrings(schedule.startDate, weekStart) < 0
+        ? weekStart
+        : schedule.startDate;
+    const clippedEnd =
+      compareDateStrings(scheduleEnd, weekEnd) > 0 ? weekEnd : scheduleEnd;
+    const startIndex = weekDates.indexOf(clippedStart);
+    const endIndex = weekDates.indexOf(clippedEnd);
+
+    if (startIndex < 0 || endIndex < startIndex) {
+      continue;
+    }
+
+    let lane = laneEndIndexes.findIndex(
+      (laneEndIndex) => laneEndIndex < startIndex,
+    );
+
+    if (lane === -1) {
+      lane = laneEndIndexes.length;
+      laneEndIndexes.push(endIndex);
+    } else {
+      laneEndIndexes[lane] = endIndex;
+    }
+
+    segments.push({
+      schedule,
+      startIndex,
+      span: endIndex - startIndex + 1,
+      lane,
+      continuesBefore: compareDateStrings(schedule.startDate, weekStart) < 0,
+      continuesAfter: compareDateStrings(scheduleEnd, weekEnd) > 0,
+    });
+  }
+
+  return segments;
+};
+
+export const mockCalendarCompanies: Company[] = [
+  {
+    id: "company-a",
+    type: "internship",
+    companyName: "青空商事",
+    aspiration: "high",
+    status: "未エントリー",
+    loginId: "",
+    password: "",
+    myPageUrl: "",
+    industry: "商社",
+    role: "総合職",
+    tags: ["夏インターン"],
+    questionAnswers: [],
+    memo: "",
+    favorite: false,
+    archived: false,
+    createdAt: "2026-05-20T00:00:00.000Z",
+    updatedAt: "2026-05-20T00:00:00.000Z",
+  },
+  {
+    id: "company-b",
+    type: "fullTime",
+    companyName: "未来テック",
+    aspiration: "middle",
+    status: "１次面接待ち",
+    loginId: "",
+    password: "",
+    myPageUrl: "",
+    industry: "IT",
+    role: "エンジニア",
+    tags: ["本選考"],
+    questionAnswers: [],
+    memo: "",
+    favorite: false,
+    archived: false,
+    createdAt: "2026-05-20T00:00:00.000Z",
+    updatedAt: "2026-05-20T00:00:00.000Z",
+  },
+];
+
+export const mockCalendarSchedules: CompanySchedule[] = [
+  {
+    id: "schedule-1",
+    companyId: "company-a",
+    title: "サマーインターン",
+    type: "インターン",
+    startDate: "2026-06-10",
+    endDate: "2026-06-12",
+    isAllDay: true,
+    createdAt: "2026-05-20T00:00:00.000Z",
+    updatedAt: "2026-05-20T00:00:00.000Z",
+  },
+  {
+    id: "schedule-2",
+    companyId: "company-b",
+    title: "一次面接",
+    type: "面接",
+    startDate: "2026-06-11",
+    endDate: "2026-06-11",
+    startTime: "14:00",
+    endTime: "15:00",
+    isAllDay: false,
+    createdAt: "2026-05-20T00:00:00.000Z",
+    updatedAt: "2026-05-20T00:00:00.000Z",
+  },
+];
 
 export const CalendarView = ({
   companies,
@@ -63,6 +218,21 @@ export const CalendarView = ({
     [companies],
   );
   const days = useMemo(() => buildMonthGrid(monthDate), [monthDate]);
+  const weekRows = useMemo(() => chunkMonthWeeks(days), [days]);
+  const schedulesByDate = useMemo(
+    () =>
+      new Map(
+        days.map((date) => [date, getSchedulesForDate(schedules, date)]),
+      ),
+    [days, schedules],
+  );
+  const weekMultiDaySegments = useMemo(
+    () =>
+      weekRows.map((weekDates) =>
+        buildWeekMultiDaySegments(weekDates, schedules),
+      ),
+    [schedules, weekRows],
+  );
   const selectedSchedules = useMemo(
     () => getSchedulesForDate(schedules, selectedDate),
     [schedules, selectedDate],
@@ -77,6 +247,16 @@ export const CalendarView = ({
 
   const getCompany = (schedule: CompanySchedule) =>
     companyById.get(schedule.companyId) ?? null;
+
+  const getScheduleColor = (schedule: CompanySchedule) => {
+    const company = getCompany(schedule);
+    const aspiration = theme.aspirations[company?.aspiration ?? "unset"];
+
+    return {
+      company,
+      color: aspiration.foreground,
+    };
+  };
 
   return (
     <ScrollView
@@ -158,114 +338,205 @@ export const CalendarView = ({
             ))}
           </View>
 
-          <View
-            style={[styles.grid, { borderColor: theme.colors.divider }]}>
-            {days.map((date) => {
-              const dateObject = new Date(
-                Number(date.slice(0, 4)),
-                Number(date.slice(5, 7)) - 1,
-                Number(date.slice(8, 10)),
+          <View style={[styles.grid, { borderColor: theme.colors.divider }]}>
+            {weekRows.map((weekDates, weekIndex) => {
+              const segments = weekMultiDaySegments[weekIndex] ?? [];
+              const laneCount = segments.reduce(
+                (count, segment) => Math.max(count, segment.lane + 1),
+                0,
               );
-              const dayIndex = dateObject.getDay();
-              const inMonth = date.slice(0, 7) === monthDate.slice(0, 7);
-              const isToday = date === today;
-              const selected = date === selectedDate;
-              const daySchedules = getSchedulesForDate(schedules, date);
-              const visibleSchedules = daySchedules.slice(0, maxCellSchedules);
-              const hiddenCount = daySchedules.length - visibleSchedules.length;
+              const bannerSpaceHeight =
+                laneCount * (multiDayBannerHeight + multiDayBannerGap);
+              const weekRowHeight = Math.max(
+                dayCellHeight,
+                multiDayBannerTop + bannerSpaceHeight + 42,
+              );
 
               return (
-                <Pressable
-                  key={date}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected }}
-                  onPress={() => setSelectedDate(date)}
-                  style={({ pressed }) => [
-                    styles.dayCell,
-                    { height: dayCellHeight },
-                    {
-                      backgroundColor: selected
-                        ? theme.colors.primarySubtle
-                        : theme.colors.surface,
-                      borderColor: selected
-                        ? theme.colors.primaryBorder
-                        : theme.colors.divider,
-                    },
-                    pressed && styles.pressed,
-                  ]}>
-                  <View style={styles.dayHeader}>
-                    <Text
-                      style={[
-                        styles.dayNumber,
-                        {
-                          color: !inMonth
-                            ? theme.colors.textDisabled
-                            : dayIndex === 0
-                              ? theme.colors.danger
-                              : dayIndex === 6
-                                ? theme.colors.primary
-                                : theme.colors.textPrimary,
-                        },
-                      ]}>
-                      {Number(date.slice(8, 10))}
-                    </Text>
-                    {isToday ? (
-                      <View
-                        style={[
-                          styles.todayDot,
-                          { backgroundColor: theme.colors.primary },
-                        ]}
-                      />
-                    ) : null}
-                  </View>
-
-                  <View style={styles.cellScheduleList}>
-                    {visibleSchedules.map((schedule) => {
-                      const company = getCompany(schedule);
-                      const aspiration =
-                        theme.aspirations[company?.aspiration ?? "unset"];
+                <View
+                  key={weekDates[0] ?? `week-${weekIndex}`}
+                  style={[styles.weekGridRow, { height: weekRowHeight }]}>
+                  <View style={styles.weekCellLayer}>
+                    {weekDates.map((date) => {
+                      const dateObject = new Date(
+                        Number(date.slice(0, 4)),
+                        Number(date.slice(5, 7)) - 1,
+                        Number(date.slice(8, 10)),
+                      );
+                      const dayIndex = dateObject.getDay();
+                      const inMonth =
+                        date.slice(0, 7) === monthDate.slice(0, 7);
+                      const isToday = date === today;
+                      const selected = date === selectedDate;
+                      const daySchedules = schedulesByDate.get(date) ?? [];
+                      const singleDaySchedules = daySchedules.filter(
+                        (schedule) => !isMultiDaySchedule(schedule),
+                      );
+                      const visibleSchedules = singleDaySchedules.slice(
+                        0,
+                        maxCellSchedules,
+                      );
+                      const hiddenCount =
+                        singleDaySchedules.length - visibleSchedules.length;
 
                       return (
                         <Pressable
-                          key={schedule.id}
+                          key={date}
+                          accessibilityRole="button"
+                          accessibilityState={{ selected }}
+                          onPress={() => setSelectedDate(date)}
+                          style={({ pressed }) => [
+                            styles.dayCell,
+                            {
+                              backgroundColor: selected
+                                ? theme.colors.primarySubtle
+                                : theme.colors.surface,
+                              borderColor: selected
+                                ? theme.colors.primaryBorder
+                                : theme.colors.divider,
+                            },
+                            pressed && styles.pressed,
+                          ]}>
+                          <View style={styles.dayHeader}>
+                            <Text
+                              style={[
+                                styles.dayNumber,
+                                {
+                                  color: !inMonth
+                                    ? theme.colors.textDisabled
+                                    : dayIndex === 0
+                                      ? theme.colors.danger
+                                      : dayIndex === 6
+                                        ? theme.colors.primary
+                                        : theme.colors.textPrimary,
+                                },
+                              ]}>
+                              {Number(date.slice(8, 10))}
+                            </Text>
+                            {isToday ? (
+                              <View
+                                style={[
+                                  styles.todayDot,
+                                  { backgroundColor: theme.colors.primary },
+                                ]}
+                              />
+                            ) : null}
+                          </View>
+
+                          <View
+                            style={[
+                              styles.cellScheduleList,
+                              {
+                                marginTop:
+                                  laneCount > 0
+                                    ? bannerSpaceHeight + 11
+                                    : 4,
+                              },
+                            ]}>
+                            {visibleSchedules.map((schedule) => {
+                              const { company, color } =
+                                getScheduleColor(schedule);
+
+                              return (
+                                <Pressable
+                                  key={schedule.id}
+                                  accessibilityRole="button"
+                                  accessibilityLabel={`${company?.companyName ?? "企業"} ${schedule.title || schedule.type}を編集`}
+                                  onPress={(event) => {
+                                    event.stopPropagation?.();
+                                    onOpenSchedule(schedule);
+                                  }}
+                                  style={({ pressed }) => [
+                                    styles.singleDaySchedule,
+                                    pressed && styles.pressed,
+                                  ]}>
+                                  <Text
+                                    numberOfLines={1}
+                                    style={[
+                                      styles.cellScheduleText,
+                                      { color },
+                                    ]}>
+                                    {!schedule.isAllDay && schedule.startTime
+                                      ? `${schedule.startTime} `
+                                      : ""}
+                                    {company?.companyName ?? "企業"}{" "}
+                                    {schedule.title || schedule.type}
+                                  </Text>
+                                </Pressable>
+                              );
+                            })}
+                            {hiddenCount > 0 ? (
+                              <Text
+                                numberOfLines={1}
+                                style={[
+                                  styles.moreText,
+                                  { color: theme.colors.textMuted },
+                                ]}>
+                                +{hiddenCount}件
+                              </Text>
+                            ) : null}
+                          </View>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+
+                  <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
+                    {segments.map((segment) => {
+                      const { schedule } = segment;
+                      const { company, color } = getScheduleColor(schedule);
+                      const left = `${
+                        (segment.startIndex / weekDayCount) * 100
+                      }%` as `${number}%`;
+                      const width = `${
+                        (segment.span / weekDayCount) * 100
+                      }%` as `${number}%`;
+
+                      return (
+                        <Pressable
+                          key={`${schedule.id}-${weekIndex}`}
                           accessibilityRole="button"
                           accessibilityLabel={`${company?.companyName ?? "企業"} ${schedule.title || schedule.type}を編集`}
                           onPress={(event) => {
                             event.stopPropagation?.();
                             onOpenSchedule(schedule);
                           }}
-                          style={[
-                            styles.cellSchedule,
+                          style={({ pressed }) => [
+                            styles.multiDayBanner,
                             {
-                              backgroundColor: aspiration.background,
-                              borderLeftColor: aspiration.foreground,
+                              backgroundColor: color,
+                              borderBottomLeftRadius: segment.continuesBefore
+                                ? 0
+                                : 5,
+                              borderBottomRightRadius: segment.continuesAfter
+                                ? 0
+                                : 5,
+                              borderTopLeftRadius: segment.continuesBefore
+                                ? 0
+                                : 5,
+                              borderTopRightRadius: segment.continuesAfter
+                                ? 0
+                                : 5,
+                              left,
+                              top:
+                                multiDayBannerTop +
+                                segment.lane *
+                                  (multiDayBannerHeight + multiDayBannerGap),
+                              width,
                             },
+                            pressed && styles.pressed,
                           ]}>
                           <Text
                             numberOfLines={1}
-                            style={[
-                              styles.cellScheduleText,
-                              { color: theme.colors.textPrimary },
-                            ]}>
-                            {isMultiDaySchedule(schedule) ? "複数日 " : ""}
+                            style={styles.multiDayBannerText}>
                             {company?.companyName ?? "企業"}{" "}
                             {schedule.title || schedule.type}
                           </Text>
                         </Pressable>
                       );
                     })}
-                    {hiddenCount > 0 ? (
-                      <Text
-                        numberOfLines={1}
-                        style={[
-                          styles.moreText,
-                          { color: theme.colors.textMuted },
-                        ]}>
-                        +{hiddenCount}件
-                      </Text>
-                    ) : null}
                   </View>
-                </Pressable>
+                </View>
               );
             })}
           </View>
@@ -470,15 +741,21 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   grid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
     borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  weekGridRow: {
+    position: "relative",
+  },
+  weekCellLayer: {
+    ...StyleSheet.absoluteFillObject,
+    flexDirection: "row",
   },
   dayCell: {
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderRightWidth: StyleSheet.hairlineWidth,
+    flex: 1,
+    minWidth: 0,
     padding: 5,
-    width: `${100 / 7}%`,
   },
   dayHeader: {
     alignItems: "center",
@@ -500,12 +777,10 @@ const styles = StyleSheet.create({
     gap: 3,
     marginTop: 4,
   },
-  cellSchedule: {
-    borderLeftWidth: 3,
-    borderRadius: 5,
-    minHeight: 17,
-    paddingHorizontal: 4,
+  singleDaySchedule: {
     justifyContent: "center",
+    minHeight: 15,
+    paddingHorizontal: 2,
   },
   cellScheduleText: {
     fontSize: 9,
@@ -517,6 +792,20 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     lineHeight: 12,
     paddingHorizontal: 4,
+  },
+  multiDayBanner: {
+    height: multiDayBannerHeight,
+    justifyContent: "center",
+    marginHorizontal: 1,
+    paddingHorizontal: 5,
+    position: "absolute",
+    zIndex: 2,
+  },
+  multiDayBannerText: {
+    color: "#FFFFFF",
+    fontSize: 9,
+    fontWeight: "800",
+    lineHeight: 12,
   },
   dayPanel: {
     borderRadius: 24,
