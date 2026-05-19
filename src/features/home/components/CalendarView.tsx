@@ -429,8 +429,8 @@ export const CalendarView = ({
                               {
                                 marginTop:
                                   laneCount > 0
-                                    ? bannerSpaceHeight + 11
-                                    : 4,
+                                    ? bannerSpaceHeight + 8
+                                    : 0,
                               },
                             ]}>
                             {visibleSchedules.map((schedule) => {
@@ -769,24 +769,27 @@ const styles = StyleSheet.create({
     width: 5,
   },
   cellScheduleList: {
-    gap: 3,
-    marginTop: 4,
+    alignItems: "flex-start",
+    gap: 1,
+    marginTop: 0,
   },
   singleDaySchedule: {
+    alignSelf: "stretch",
     justifyContent: "center",
-    minHeight: 15,
-    paddingHorizontal: 2,
+    minHeight: 16,
+    paddingHorizontal: 0,
   },
   cellScheduleText: {
-    fontSize: 9,
-    fontWeight: "700",
-    lineHeight: 12,
+    fontSize: 10,
+    fontWeight: "800",
+    lineHeight: 14,
+    textAlign: "left",
   },
   moreText: {
     fontSize: 9,
     fontWeight: "800",
     lineHeight: 12,
-    paddingHorizontal: 4,
+    paddingHorizontal: 0,
   },
   multiDayBanner: {
     height: multiDayBannerHeight,

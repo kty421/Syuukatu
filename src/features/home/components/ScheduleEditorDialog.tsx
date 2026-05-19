@@ -159,6 +159,7 @@ const getFieldValue = (
 const createEmptySchedule = (
   companyId: string,
   initialDate?: string | null,
+  defaultTitle = "",
 ): CompanySchedule => {
   const now = new Date().toISOString();
   const date = initialDate || todayDateString();
@@ -167,7 +168,7 @@ const createEmptySchedule = (
   return {
     id: createScheduleId(),
     companyId,
-    title: "",
+    title: defaultTitle,
     type: "その他",
     startDate: date,
     endDate: date,
@@ -208,7 +209,7 @@ export const ScheduleEditorDialog = ({
   onDelete,
 }: ScheduleEditorDialogProps) => {
   const [draft, setDraft] = useState<CompanySchedule>(() =>
-    createEmptySchedule(company.id, initialDate),
+    createEmptySchedule(company.id, initialDate, company.companyName),
   );
   const [error, setError] = useState<string | null>(null);
   const [overlaps, setOverlaps] = useState<CompanySchedule[]>([]);
@@ -216,7 +217,6 @@ export const ScheduleEditorDialog = ({
     useState<DatePickerTarget | null>(null);
   const [timePickerTarget, setTimePickerTarget] =
     useState<TimePickerTarget | null>(null);
-  const aspiration = theme.aspirations[company.aspiration];
 
   useEffect(() => {
     if (!visible) {
@@ -233,26 +233,26 @@ export const ScheduleEditorDialog = ({
             endTime: schedule.endTime || getDefaultTimeRange().endTime,
             memo: schedule.memo ?? "",
           }
-        : createEmptySchedule(company.id, initialDate),
+        : createEmptySchedule(company.id, initialDate, company.companyName),
     );
     setError(null);
     setOverlaps([]);
     setDatePickerTarget(null);
     setTimePickerTarget(null);
-  }, [company.id, initialDate, schedule, visible]);
+  }, [company.companyName, company.id, initialDate, schedule, visible]);
 
   const normalizedDraft = useMemo<CompanySchedule>(
     () => ({
       ...draft,
       companyId: company.id,
-      title: draft.title.trim() || "予定",
+      title: draft.title.trim() || company.companyName.trim() || "予定",
       type: "その他",
       memo: draft.memo?.trim(),
       endDate: draft.isAllDay ? draft.endDate || draft.startDate : draft.startDate,
       startTime: draft.isAllDay ? undefined : draft.startTime,
       endTime: draft.isAllDay ? undefined : draft.endTime,
     }),
-    [company.id, draft],
+    [company.companyName, company.id, draft],
   );
 
   const update = <K extends keyof CompanySchedule>(
@@ -418,39 +418,6 @@ export const ScheduleEditorDialog = ({
             keyboardShouldPersistTaps="always"
             showsVerticalScrollIndicator={false}>
             <View style={styles.form}>
-              <View
-                style={[
-                  styles.companyNotice,
-                  {
-                    backgroundColor: theme.colors.surfaceElevated,
-                    borderColor: theme.colors.border,
-                  },
-                ]}>
-                <View
-                  style={[
-                    styles.colorDot,
-                    { backgroundColor: aspiration.foreground },
-                  ]}
-                />
-                <View style={styles.companyNoticeText}>
-                  <Text
-                    numberOfLines={1}
-                    style={[
-                      styles.companyName,
-                      { color: theme.colors.textPrimary },
-                    ]}>
-                    {company.companyName || "企業名未入力"}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.colorDescription,
-                      { color: theme.colors.textMuted },
-                    ]}>
-                    この予定は志望度「{aspiration.label}」の色で表示されます
-                  </Text>
-                </View>
-              </View>
-
               <InputField
                 label="予定名"
                 theme={theme}
@@ -1673,34 +1640,6 @@ const styles = StyleSheet.create({
   content: {
     gap: 16,
     padding: 16,
-  },
-  companyNotice: {
-    alignItems: "center",
-    borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    flexDirection: "row",
-    gap: 10,
-    padding: 12,
-  },
-  colorDot: {
-    borderRadius: 999,
-    height: 12,
-    width: 12,
-  },
-  companyNoticeText: {
-    flex: 1,
-    minWidth: 0,
-  },
-  companyName: {
-    fontSize: 14,
-    fontWeight: "800",
-    lineHeight: 19,
-  },
-  colorDescription: {
-    fontSize: 12,
-    fontWeight: "600",
-    lineHeight: 17,
-    marginTop: 2,
   },
   schedulePanel: {
     borderRadius: 18,
