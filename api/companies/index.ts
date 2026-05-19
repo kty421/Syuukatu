@@ -3,6 +3,11 @@ import {
   toCompanyRow,
   upsertCompanyBodySchema
 } from '../_lib/company';
+import {
+  fromCompanyScheduleRow,
+  toCompanyScheduleRow,
+  upsertCompanyScheduleBodySchema
+} from '../_lib/schedule';
 import { getAuthenticatedSupabase } from '../_lib/auth';
 import {
   handleApiError,
@@ -46,6 +51,26 @@ export default async function handler(
     }
 
     if (req.method === 'DELETE') {
+      const scheduleId = getCompanyId(req.query.scheduleId);
+
+      if (scheduleId) {
+        const { error } = await supabase
+          .from('company_schedules')
+          .delete()
+          .eq('id', scheduleId)
+          .eq('user_id', user.id);
+
+        if (error) {
+          sendJson(res, 400, {
+            error: '日程の削除に失敗しました。'
+          });
+          return;
+        }
+
+        sendJson(res, 200, { ok: true });
+        return;
+      }
+
       const id = getCompanyId(req.query.id);
 
       if (!id) {
@@ -70,7 +95,48 @@ export default async function handler(
       return;
     }
 
-    const body = upsertCompanyBodySchema.parse(parseRequestBody(req.body));
+    const rawBody = parseRequestBody(req.body);
+    const scheduleBody = upsertCompanyScheduleBodySchema.safeParse(rawBody);
+
+    if (scheduleBody.success) {
+      const schedule = {
+        ...scheduleBody.data.schedule,
+        title:
+          scheduleBody.data.schedule.title.trim() ||
+          scheduleBody.data.schedule.type
+      };
+      const { data: ownedCompany, error: companyError } = await supabase
+        .from('companies')
+        .select('id')
+        .eq('id', schedule.companyId)
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (companyError || !ownedCompany) {
+        sendJson(res, 400, {
+          error: '企業情報を確認してください。'
+        });
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('company_schedules')
+        .upsert(toCompanyScheduleRow(schedule, user.id), { onConflict: 'id' })
+        .select('*')
+        .single();
+
+      if (error) {
+        sendJson(res, 400, {
+          error: '日程の保存に失敗しました。'
+        });
+        return;
+      }
+
+      sendJson(res, 200, { schedule: fromCompanyScheduleRow(data) });
+      return;
+    }
+
+    const body = upsertCompanyBodySchema.parse(rawBody);
     const { data, error } = await supabase
       .from('companies')
       .upsert(toCompanyRow(body.company, user.id), { onConflict: 'id' })

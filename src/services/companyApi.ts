@@ -1,4 +1,4 @@
-import { Company } from '../features/home/types';
+import { Company, CompanySchedule } from '../features/home/types';
 import { apiRequest } from './apiClient';
 
 type CompaniesResponse = {
@@ -7,6 +7,10 @@ type CompaniesResponse = {
 
 type CompanyResponse = {
   company: Company;
+};
+
+type CompanyScheduleResponse = {
+  schedule: CompanySchedule;
 };
 
 const stripPassword = (company: Company): Company => ({
@@ -42,6 +46,31 @@ export const deleteRemoteCompany = async (
   accessToken: string | null
 ) => {
   await apiRequest(`/api/companies?id=${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    accessToken
+  });
+};
+
+export const upsertRemoteCompanySchedule = async (
+  schedule: CompanySchedule,
+  accessToken: string | null
+) => {
+  const response = await apiRequest<CompanyScheduleResponse>('/api/companies', {
+    method: 'PUT',
+    accessToken,
+    body: {
+      schedule
+    }
+  });
+
+  return response.schedule;
+};
+
+export const deleteRemoteCompanySchedule = async (
+  id: string,
+  accessToken: string | null
+) => {
+  await apiRequest(`/api/companies?scheduleId=${encodeURIComponent(id)}`, {
     method: 'DELETE',
     accessToken
   });

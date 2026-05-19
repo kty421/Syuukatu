@@ -4,7 +4,7 @@ import { Platform, Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } fro
 
 import { AppTheme } from '../../../constants/theme';
 
-export type MainTab = 'companies' | 'questions';
+export type MainTab = 'companies' | 'questions' | 'calendar';
 
 type BottomNavigationProps = {
   value: MainTab;
@@ -19,7 +19,8 @@ const items: {
   icon: keyof typeof Ionicons.glyphMap;
 }[] = [
   { value: 'companies', label: '企業', icon: 'business-outline' },
-  { value: 'questions', label: '質問', icon: 'chatbubbles-outline' }
+  { value: 'questions', label: '質問', icon: 'chatbubbles-outline' },
+  { value: 'calendar', label: '日程', icon: 'calendar-outline' }
 ];
 
 const webCursor =
@@ -148,9 +149,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10
   },
   label: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
-    lineHeight: 16
+    lineHeight: 15
   },
   pressed: {
     opacity: 0.82
