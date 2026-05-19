@@ -1,12 +1,14 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Keyboard,
   Modal,
+  Platform,
   Pressable,
   StyleSheet,
   Switch,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
@@ -100,6 +102,34 @@ const compareTimeValues = (
   a: { hour: number; minute: number },
   b: { hour: number; minute: number },
 ) => a.hour * 60 + a.minute - (b.hour * 60 + b.minute);
+
+const sanitizeTimeText = (value: string) =>
+  value.replace(/[^\d:]/g, "").slice(0, 5);
+
+const normalizeTimeText = (value: string, fallback: string) => {
+  const fallbackTime = parseTimeValue(fallback);
+  const trimmedValue = value.trim();
+  const digits = trimmedValue.replace(/\D/g, "");
+
+  if (!trimmedValue || !digits) {
+    return formatTimeValue(fallbackTime);
+  }
+
+  if (trimmedValue.includes(":")) {
+    const [hourText = "", minuteText = ""] = trimmedValue.split(":");
+    const hour = Math.min(Math.max(Number(hourText) || 0, 0), 23);
+    const minute = Math.min(Math.max(Number(minuteText) || 0, 0), 59);
+
+    return formatTimeValue({ hour, minute });
+  }
+
+  const hourText = digits.length <= 2 ? digits : digits.slice(0, -2);
+  const minuteText = digits.length <= 2 ? "00" : digits.slice(-2);
+  const hour = Math.min(Math.max(Number(hourText) || 0, 0), 23);
+  const minute = Math.min(Math.max(Number(minuteText) || 0, 0), 59);
+
+  return formatTimeValue({ hour, minute });
+};
 
 const toMinutes = (time: { hour: number; minute: number }) =>
   time.hour * 60 + time.minute;
@@ -967,7 +997,320 @@ const TimePreviewPart = ({
   </Pressable>
 );
 
-const TimePickerSheet = ({
+type TimePickerSheetProps = {
+  visible: boolean;
+  startTime: string;
+  endTime: string;
+  theme: AppTheme;
+  onClose: () => void;
+  onSelect: (startTime: string, endTime: string) => void;
+};
+
+const TimePickerSheet = (props: TimePickerSheetProps) =>
+  Platform.OS === "web" ? (
+    <DesktopTimePickerDialog {...props} />
+  ) : (
+    <MobileTimePickerSheet {...props} />
+  );
+
+const DesktopTimePickerDialog = ({
+  visible,
+  startTime,
+  endTime,
+  theme,
+  onClose,
+  onSelect,
+}: TimePickerSheetProps) => {
+  const startInputRef = useRef<TextInput>(null);
+  const endInputRef = useRef<TextInput>(null);
+  const [startText, setStartText] = useState(startTime);
+  const [endText, setEndText] = useState(endTime);
+  const [focusedField, setFocusedField] = useState<"start" | "end" | null>(
+    null,
+  );
+
+  useEffect(() => {
+    if (!visible) {
+      return;
+    }
+
+    setStartText(startTime);
+    setEndText(endTime);
+    requestAnimationFrame(() => {
+      startInputRef.current?.focus();
+    });
+  }, [endTime, startTime, visible]);
+
+  if (!visible) {
+    return null;
+  }
+
+  const getNormalizedRange = (
+    nextStartText = startText,
+    nextEndText = endText,
+  ) => {
+    const normalizedStart = normalizeTimeText(nextStartText, startTime);
+    const normalizedEnd = normalizeTimeText(nextEndText, endTime);
+    const startValue = parseTimeValue(normalizedStart);
+    const endValue = parseTimeValue(normalizedEnd);
+    const correctedEnd =
+      compareTimeValues(endValue, startValue) < 0
+        ? normalizedStart
+        : normalizedEnd;
+
+    return {
+      start: normalizedStart,
+      end: correctedEnd,
+    };
+  };
+
+  const applyNormalizedText = () => {
+    const normalized = getNormalizedRange();
+    setStartText(normalized.start);
+    setEndText(normalized.end);
+
+    return normalized;
+  };
+
+  const submit = () => {
+    const normalized = applyNormalizedText();
+    onSelect(normalized.start, normalized.end);
+  };
+
+  const setDuration = (durationMinutes: number) => {
+    const normalizedStart = normalizeTimeText(startText, startTime);
+    const startValue = parseTimeValue(normalizedStart);
+    const nextEnd = formatTimeValue(
+      fromMinutes(toMinutes(startValue) + durationMinutes),
+    );
+
+    setStartText(normalizedStart);
+    setEndText(nextEnd);
+  };
+
+  const shiftRange = (minutes: number) => {
+    const normalized = getNormalizedRange();
+    const startValue = parseTimeValue(normalized.start);
+    const endValue = parseTimeValue(normalized.end);
+
+    setStartText(formatTimeValue(fromMinutes(toMinutes(startValue) + minutes)));
+    setEndText(formatTimeValue(fromMinutes(toMinutes(endValue) + minutes)));
+  };
+
+  const handleKey = (key: string) => {
+    if (key === "Enter") {
+      submit();
+    } else if (key === "Escape") {
+      onClose();
+    }
+  };
+
+  return (
+    <View style={[styles.pickerRoot, styles.desktopPickerRoot]}>
+      <Pressable
+        accessibilityLabel="時刻ピッカーを閉じる"
+        style={[
+          StyleSheet.absoluteFill,
+          { backgroundColor: theme.colors.overlay },
+        ]}
+        onPress={onClose}
+      />
+      <View
+        style={[
+          styles.desktopTimeDialog,
+          theme.shadows.floating,
+          {
+            backgroundColor: theme.colors.surface,
+            borderColor: theme.colors.border,
+          },
+        ]}>
+        <View
+          style={[
+            styles.desktopTimeHeader,
+            { borderBottomColor: theme.colors.divider },
+          ]}>
+          <Text
+            style={[
+              styles.desktopTimeTitle,
+              { color: theme.colors.textPrimary },
+            ]}>
+            時刻を編集
+          </Text>
+          <IconButton
+            icon="close"
+            label="時刻ピッカーを閉じる"
+            onPress={onClose}
+            theme={theme}
+            size="compact"
+            variant="plain"
+          />
+        </View>
+
+        <View style={styles.desktopTimeBody}>
+          <View style={styles.desktopTimeFields}>
+            <View style={styles.desktopTimeField}>
+              <Text
+                style={[
+                  styles.desktopTimeLabel,
+                  { color: theme.colors.textMuted },
+                ]}>
+                開始
+              </Text>
+              <TextInput
+                ref={startInputRef}
+                accessibilityLabel="開始時刻"
+                inputMode="numeric"
+                placeholder="09:00"
+                placeholderTextColor={theme.colors.placeholder}
+                selectTextOnFocus
+                value={startText}
+                onBlur={() => {
+                  setFocusedField(null);
+                  setStartText((current) => normalizeTimeText(current, startTime));
+                }}
+                onChangeText={(value) => setStartText(sanitizeTimeText(value))}
+                onFocus={() => setFocusedField("start")}
+                onKeyPress={(event) => handleKey(event.nativeEvent.key)}
+                onSubmitEditing={() => endInputRef.current?.focus()}
+                style={[
+                  styles.desktopTimeInput,
+                  {
+                    backgroundColor: theme.colors.surfaceElevated,
+                    borderColor:
+                      focusedField === "start"
+                        ? theme.colors.focusRing
+                        : theme.colors.border,
+                    color: theme.colors.textPrimary,
+                  },
+                ]}
+              />
+            </View>
+
+            <Ionicons
+              color={theme.colors.textMuted}
+              name="arrow-forward"
+              size={18}
+            />
+
+            <View style={styles.desktopTimeField}>
+              <Text
+                style={[
+                  styles.desktopTimeLabel,
+                  { color: theme.colors.textMuted },
+                ]}>
+                終了
+              </Text>
+              <TextInput
+                ref={endInputRef}
+                accessibilityLabel="終了時刻"
+                inputMode="numeric"
+                placeholder="10:00"
+                placeholderTextColor={theme.colors.placeholder}
+                selectTextOnFocus
+                value={endText}
+                onBlur={() => {
+                  setFocusedField(null);
+                  setEndText((current) => normalizeTimeText(current, endTime));
+                }}
+                onChangeText={(value) => setEndText(sanitizeTimeText(value))}
+                onFocus={() => setFocusedField("end")}
+                onKeyPress={(event) => handleKey(event.nativeEvent.key)}
+                onSubmitEditing={submit}
+                style={[
+                  styles.desktopTimeInput,
+                  {
+                    backgroundColor: theme.colors.surfaceElevated,
+                    borderColor:
+                      focusedField === "end"
+                        ? theme.colors.focusRing
+                        : theme.colors.border,
+                    color: theme.colors.textPrimary,
+                  },
+                ]}
+              />
+            </View>
+          </View>
+
+          <View style={styles.desktopTimeQuickRows}>
+            <View style={styles.desktopQuickRow}>
+              {[30, 60, 90, 120].map((minutes) => (
+                <Pressable
+                  key={minutes}
+                  accessibilityRole="button"
+                  onPress={() => setDuration(minutes)}
+                  style={({ pressed }) => [
+                    styles.desktopQuickChip,
+                    {
+                      backgroundColor: theme.colors.surfaceElevated,
+                      borderColor: theme.colors.border,
+                    },
+                    pressed && styles.pressed,
+                  ]}>
+                  <Text
+                    style={[
+                      styles.desktopQuickChipText,
+                      { color: theme.colors.textSecondary },
+                    ]}>
+                    {minutes === 60
+                      ? "1時間"
+                      : minutes === 120
+                        ? "2時間"
+                        : `${minutes}分`}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+
+            <View style={styles.desktopQuickRow}>
+              {[-15, 15].map((minutes) => (
+                <Pressable
+                  key={minutes}
+                  accessibilityRole="button"
+                  onPress={() => shiftRange(minutes)}
+                  style={({ pressed }) => [
+                    styles.desktopShiftButton,
+                    {
+                      borderColor: theme.colors.border,
+                    },
+                    pressed && styles.pressed,
+                  ]}>
+                  <Ionicons
+                    color={theme.colors.textSecondary}
+                    name={minutes < 0 ? "remove" : "add"}
+                    size={16}
+                  />
+                  <Text
+                    style={[
+                      styles.desktopShiftText,
+                      { color: theme.colors.textSecondary },
+                    ]}>
+                    15分
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        </View>
+
+        <View
+          style={[
+            styles.desktopTimeActions,
+            { borderTopColor: theme.colors.divider },
+          ]}>
+          <AppButton
+            label="キャンセル"
+            onPress={onClose}
+            theme={theme}
+            variant="ghost"
+          />
+          <AppButton label="適用" onPress={submit} theme={theme} />
+        </View>
+      </View>
+    </View>
+  );
+};
+
+const MobileTimePickerSheet = ({
   visible,
   startTime,
   endTime,
@@ -1460,6 +1803,11 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
     zIndex: 20,
   },
+  desktopPickerRoot: {
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 24,
+  },
   pickerSheet: {
     borderTopLeftRadius: 26,
     borderTopRightRadius: 26,
@@ -1474,6 +1822,95 @@ const styles = StyleSheet.create({
     maxHeight: "72%",
     paddingTop: 0,
     width: "100%",
+  },
+  desktopTimeDialog: {
+    borderRadius: 18,
+    borderWidth: StyleSheet.hairlineWidth,
+    maxWidth: 440,
+    overflow: "hidden",
+    width: "100%",
+  },
+  desktopTimeHeader: {
+    alignItems: "center",
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    minHeight: 58,
+    paddingHorizontal: 16,
+  },
+  desktopTimeTitle: {
+    fontSize: 16,
+    fontWeight: "800",
+    lineHeight: 22,
+  },
+  desktopTimeBody: {
+    gap: 16,
+    padding: 16,
+  },
+  desktopTimeFields: {
+    alignItems: "flex-end",
+    flexDirection: "row",
+    gap: 12,
+  },
+  desktopTimeField: {
+    flex: 1,
+    gap: 7,
+    minWidth: 0,
+  },
+  desktopTimeLabel: {
+    fontSize: 12,
+    fontWeight: "800",
+    lineHeight: 16,
+  },
+  desktopTimeInput: {
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    fontSize: 24,
+    fontWeight: "700",
+    height: 54,
+    paddingHorizontal: 14,
+    textAlign: "center",
+  },
+  desktopTimeQuickRows: {
+    gap: 10,
+  },
+  desktopQuickRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  desktopQuickChip: {
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    minHeight: 34,
+    paddingHorizontal: 12,
+    justifyContent: "center",
+  },
+  desktopQuickChipText: {
+    fontSize: 12,
+    fontWeight: "800",
+    lineHeight: 16,
+  },
+  desktopShiftButton: {
+    alignItems: "center",
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    flexDirection: "row",
+    gap: 4,
+    minHeight: 34,
+    paddingHorizontal: 12,
+  },
+  desktopShiftText: {
+    fontSize: 12,
+    fontWeight: "800",
+    lineHeight: 16,
+  },
+  desktopTimeActions: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    flexDirection: "row",
+    gap: 10,
+    justifyContent: "flex-end",
+    padding: 16,
   },
   pickerHeader: {
     alignItems: "center",

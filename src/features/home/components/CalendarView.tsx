@@ -456,10 +456,6 @@ export const CalendarView = ({
                                       styles.cellScheduleText,
                                       { color },
                                     ]}>
-                                    {!schedule.isAllDay && schedule.startTime
-                                      ? `${schedule.startTime} `
-                                      : ""}
-                                    {company?.companyName ?? "企業"}{" "}
                                     {schedule.title || schedule.type}
                                   </Text>
                                 </Pressable>
@@ -529,7 +525,6 @@ export const CalendarView = ({
                           <Text
                             numberOfLines={1}
                             style={styles.multiDayBannerText}>
-                            {company?.companyName ?? "企業"}{" "}
                             {schedule.title || schedule.type}
                           </Text>
                         </Pressable>
