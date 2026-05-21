@@ -2,7 +2,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Keyboard,
-  Modal,
   Platform,
   Pressable,
   StyleSheet,
@@ -31,9 +30,7 @@ import {
   addMonths,
   buildMonthGrid,
   compareDateStrings,
-  findOverlappingSchedules,
   formatJapaneseDate,
-  formatScheduleTime,
   startOfMonth,
   todayDateString,
   validateSchedule,
@@ -195,27 +192,10 @@ const createEmptySchedule = (
   };
 };
 
-const getConflictCompanyName = (
-  schedule: CompanySchedule,
-  currentCompany: ScheduleCompanyInfo,
-  companies: Company[],
-) => {
-  if (schedule.companyId === currentCompany.id) {
-    return currentCompany.companyName || "この企業";
-  }
-
-  return (
-    companies.find((company) => company.id === schedule.companyId)
-      ?.companyName ?? "企業名未設定"
-  );
-};
-
 export const ScheduleEditorDialog = ({
   visible,
   schedule,
   company,
-  allSchedules,
-  companies,
   scheduleCategories,
   theme,
   initialDate,
@@ -229,7 +209,6 @@ export const ScheduleEditorDialog = ({
     createEmptySchedule(company.id, initialDate, company.companyName),
   );
   const [error, setError] = useState<string | null>(null);
-  const [overlaps, setOverlaps] = useState<CompanySchedule[]>([]);
   const [datePickerTarget, setDatePickerTarget] =
     useState<DatePickerTarget | null>(null);
   const [timePickerTarget, setTimePickerTarget] =
@@ -255,7 +234,6 @@ export const ScheduleEditorDialog = ({
         : createEmptySchedule(company.id, initialDate, company.companyName),
     );
     setError(null);
-    setOverlaps([]);
     setDatePickerTarget(null);
     setTimePickerTarget(null);
     setCategoryPickerVisible(false);
@@ -383,22 +361,12 @@ export const ScheduleEditorDialog = ({
     setTimePickerTarget(null);
   };
 
-  const handleSave = (force = false) => {
+  const handleSave = () => {
     Keyboard.dismiss();
     const validationError = validateSchedule(normalizedDraft);
 
     if (validationError) {
       setError(validationError);
-      return;
-    }
-
-    const nextOverlaps = findOverlappingSchedules(
-      normalizedDraft,
-      allSchedules,
-    );
-
-    if (nextOverlaps.length > 0 && !force) {
-      setOverlaps(nextOverlaps);
       return;
     }
 
@@ -425,7 +393,7 @@ export const ScheduleEditorDialog = ({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="予定を保存"
-            onPress={() => handleSave(false)}
+            onPress={handleSave}
             style={({ pressed }) => [
               styles.headerSaveButton,
               pressed && styles.pressed,
@@ -638,67 +606,6 @@ export const ScheduleEditorDialog = ({
         </View>
       </FullScreenModalShell>
 
-      <Modal
-        animationType="fade"
-        onRequestClose={() => setOverlaps([])}
-        statusBarTranslucent
-        transparent
-        visible={overlaps.length > 0}>
-        <View style={styles.warningRoot}>
-          <Pressable
-            accessibilityLabel="重複警告を閉じる"
-            style={[
-              StyleSheet.absoluteFill,
-              { backgroundColor: theme.colors.overlay },
-            ]}
-            onPress={() => setOverlaps([])}
-          />
-          <View
-            style={[
-              styles.warningCard,
-              theme.shadows.floating,
-              {
-                backgroundColor: theme.colors.surface,
-                borderColor: theme.colors.border,
-              },
-            ]}>
-            <Text
-              style={[styles.warningTitle, { color: theme.colors.textPrimary }]}>
-              この日程は既存の予定と重なっています
-            </Text>
-            <View style={styles.warningList}>
-              {overlaps.map((item) => (
-                <Text
-                  key={item.id}
-                  style={[
-                    styles.warningItem,
-                    { color: theme.colors.textSecondary },
-                  ]}>
-                  {formatJapaneseDate(item.startDate)} {formatScheduleTime(item)}{" "}
-                  {getConflictCompanyName(item, company, companies)}{" "}
-                  {item.title || "予定"}
-                </Text>
-              ))}
-            </View>
-            <View style={styles.warningActions}>
-              <AppButton
-                label="修正する"
-                onPress={() => setOverlaps([])}
-                theme={theme}
-                variant="secondary"
-              />
-              <AppButton
-                label="このまま保存する"
-                onPress={() => {
-                  setOverlaps([]);
-                  handleSave(true);
-                }}
-                theme={theme}
-              />
-            </View>
-          </View>
-        </View>
-      </Modal>
     </>
   );
 };

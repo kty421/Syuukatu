@@ -441,22 +441,12 @@ export const CalendarView = ({
                               },
                             ]}>
                             {visibleSchedules.map((schedule) => {
-                              const { company, color } =
-                                getScheduleColor(schedule);
+                              const { color } = getScheduleColor(schedule);
 
                               return (
-                                <Pressable
+                                <View
                                   key={schedule.id}
-                                  accessibilityRole="button"
-                                  accessibilityLabel={`${company?.companyName ?? "企業"} ${schedule.title || schedule.type}を編集`}
-                                  onPress={(event) => {
-                                    event.stopPropagation?.();
-                                    onOpenSchedule(schedule);
-                                  }}
-                                  style={({ pressed }) => [
-                                    styles.singleDaySchedule,
-                                    pressed && styles.pressed,
-                                  ]}>
+                                  style={styles.singleDaySchedule}>
                                   <Text
                                     numberOfLines={1}
                                     style={[
@@ -465,7 +455,7 @@ export const CalendarView = ({
                                     ]}>
                                     {schedule.title || schedule.type}
                                   </Text>
-                                </Pressable>
+                                </View>
                               );
                             })}
                             {hiddenCount > 0 ? (
@@ -484,10 +474,10 @@ export const CalendarView = ({
                     })}
                   </View>
 
-                  <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
+                  <View pointerEvents="none" style={StyleSheet.absoluteFill}>
                     {segments.map((segment) => {
                       const { schedule } = segment;
-                      const { company, color } = getScheduleColor(schedule);
+                      const { color } = getScheduleColor(schedule);
                       const left = `${
                         (segment.startIndex / weekDayCount) * 100
                       }%` as `${number}%`;
@@ -496,15 +486,9 @@ export const CalendarView = ({
                       }%` as `${number}%`;
 
                       return (
-                        <Pressable
+                        <View
                           key={`${schedule.id}-${weekIndex}`}
-                          accessibilityRole="button"
-                          accessibilityLabel={`${company?.companyName ?? "企業"} ${schedule.title || schedule.type}を編集`}
-                          onPress={(event) => {
-                            event.stopPropagation?.();
-                            onOpenSchedule(schedule);
-                          }}
-                          style={({ pressed }) => [
+                          style={[
                             styles.multiDayBanner,
                             {
                               backgroundColor: color,
@@ -527,14 +511,13 @@ export const CalendarView = ({
                                   (multiDayBannerHeight + multiDayBannerGap),
                               width,
                             },
-                            pressed && styles.pressed,
                           ]}>
                           <Text
                             numberOfLines={1}
                             style={styles.multiDayBannerText}>
                             {schedule.title || schedule.type}
                           </Text>
-                        </Pressable>
+                        </View>
                       );
                     })}
                   </View>
