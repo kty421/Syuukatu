@@ -562,9 +562,20 @@ const ColorPaletteSheet = ({
   onClose: () => void;
   onSelect: (colorCode: string) => void;
 }) => {
+  const { width } = useWindowDimensions();
   const sheetY = useRef(new Animated.Value(360)).current;
   const [rendered, setRendered] = useState(visible);
   const usedColorSet = new Set(usedColorCodes.map(normalizeColorCode));
+  const compact = width < 768;
+  const narrow = width < 380;
+  const columnCount = compact ? 8 : 12;
+  const sheetHorizontalPadding = compact ? (narrow ? 10 : 14) : 24;
+  const paletteMaxWidth = compact ? 420 : 680;
+  const paletteCellWidth = `${100 / columnCount}%` as `${number}%`;
+  const ringSize = compact ? (narrow ? 32 : 36) : 42;
+  const circleSize = compact ? (narrow ? 26 : 30) : 34;
+  const checkSize = compact ? (narrow ? 16 : 18) : 20;
+  const rowGap = compact ? (narrow ? 8 : 10) : 12;
 
   useEffect(() => {
     if (visible) {
@@ -605,6 +616,7 @@ const ColorPaletteSheet = ({
           styles.paletteSheet,
           {
             paddingBottom: Math.max(bottomInset, 16) + 16,
+            paddingHorizontal: sheetHorizontalPadding,
             transform: [{ translateY: sheetY }],
           },
         ]}>
@@ -620,7 +632,7 @@ const ColorPaletteSheet = ({
             <Text style={styles.sheetCloseText}>閉じる</Text>
           </Pressable>
         </View>
-        <View style={styles.paletteGrid}>
+        <View style={[styles.paletteGrid, { maxWidth: paletteMaxWidth }]}>
           {scheduleCategoryPalette.map((colorCode) => {
             const selected =
               normalizeColorCode(selectedColor) ===
@@ -641,11 +653,19 @@ const ColorPaletteSheet = ({
                 onPress={() => onSelect(colorCode)}
                 style={({ pressed }) => [
                   styles.paletteCell,
+                  {
+                    marginBottom: rowGap,
+                    width: paletteCellWidth,
+                  },
                   pressed && styles.pressed,
                 ]}>
                 <View
                   style={[
                     styles.paletteSelectedRing,
+                    {
+                      height: ringSize,
+                      width: ringSize,
+                    },
                     selected && styles.paletteSelectedRingActive,
                   ]}>
                   <View
@@ -659,12 +679,14 @@ const ColorPaletteSheet = ({
                             ? "#D1D5DB"
                             : "transparent",
                         borderWidth: used ? 4 : luminance > 0.9 ? 1 : 0,
+                        height: circleSize,
+                        width: circleSize,
                       },
                     ]}>
                     {used ? (
                       <Ionicons
                         name="checkmark"
-                        size={24}
+                        size={checkSize}
                         color={usedAsOutline ? markerColor : "#FFFFFF"}
                       />
                     ) : null}
@@ -913,8 +935,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     borderTopLeftRadius: 18,
     borderTopRightRadius: 18,
-    paddingHorizontal: 18,
     paddingTop: 16,
+    width: "100%",
   },
   sheetHeader: {
     alignItems: "center",
@@ -943,23 +965,18 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "center",
-    maxWidth: 360,
     width: "100%",
   },
   paletteCell: {
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 22,
-    width: "16.6667%",
   },
   paletteSelectedRing: {
     alignItems: "center",
     borderColor: "transparent",
     borderRadius: 999,
     borderWidth: 2,
-    height: 48,
     justifyContent: "center",
-    width: 48,
   },
   paletteSelectedRingActive: {
     borderColor: "#111111",
@@ -967,9 +984,7 @@ const styles = StyleSheet.create({
   paletteCircle: {
     alignItems: "center",
     borderRadius: 999,
-    height: 40,
     justifyContent: "center",
-    width: 40,
   },
   alertRoot: {
     alignItems: "center",

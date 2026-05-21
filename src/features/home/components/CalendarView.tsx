@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Platform,
   Pressable,
   ScrollView,
   StyleProp,
@@ -53,6 +54,10 @@ const cellScheduleGap = 0;
 const multiDayBannerHeight = 12;
 const multiDayBannerGap = 2;
 const multiDayBannerTop = 22;
+const calendarScheduleFontSize = Platform.OS === "web" ? 9 : 10;
+const calendarScheduleFontWeight =
+  Platform.OS === "web" ? ("700" as const) : ("800" as const);
+const calendarScheduleLineHeight = Platform.OS === "web" ? 11 : 12;
 
 type WeekMultiDaySegment = {
   schedule: CompanySchedule;
@@ -707,6 +712,9 @@ export const CalendarView = ({
                   scheduleCategories,
                   theme,
                 );
+                const panelTimeText = schedule.isAllDay
+                  ? "終日"
+                  : formatScheduleTime(schedule);
 
                 return (
                   <Pressable
@@ -748,7 +756,7 @@ export const CalendarView = ({
                           compactCalendar && styles.panelTimeCompact,
                           { color: theme.colors.textMuted },
                         ]}>
-                        {formatScheduleTime(schedule)}
+                        {panelTimeText}
                       </Text>
                     )}
                     <View
@@ -891,9 +899,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
   },
   cellScheduleText: {
-    fontSize: 10,
-    fontWeight: "800",
-    lineHeight: 12,
+    fontSize: calendarScheduleFontSize,
+    fontWeight: calendarScheduleFontWeight,
+    lineHeight: calendarScheduleLineHeight,
     textAlign: "left",
   },
   multiDayBanner: {
@@ -906,9 +914,9 @@ const styles = StyleSheet.create({
   },
   multiDayBannerText: {
     color: "#FFFFFF",
-    fontSize: 10,
-    fontWeight: "800",
-    lineHeight: 12,
+    fontSize: calendarScheduleFontSize,
+    fontWeight: calendarScheduleFontWeight,
+    lineHeight: calendarScheduleLineHeight,
   },
   overflowBadge: {
     bottom: 0,
