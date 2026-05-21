@@ -2,6 +2,53 @@ export type ApplicationType = "internship" | "fullTime";
 
 export type AspirationLevel = "high" | "middle" | "low" | "unset";
 
+export const scheduleTypes = [
+  "面接",
+  "GD",
+  "説明会",
+  "ES締切",
+  "Webテスト",
+  "インターン",
+  "OB訪問",
+  "面談",
+  "その他",
+] as const;
+
+export type ScheduleType = (typeof scheduleTypes)[number];
+
+export type ScheduleCategory = {
+  id: string;
+  name: string;
+  colorCode: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ScheduleCategoryDraft = Omit<
+  ScheduleCategory,
+  "id" | "createdAt" | "updatedAt"
+> & {
+  id?: string;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type CompanySchedule = {
+  id: string;
+  companyId: string;
+  title: string;
+  type: ScheduleType;
+  categoryId?: string | null;
+  startDate: string;
+  endDate?: string;
+  startTime?: string;
+  endTime?: string;
+  isAllDay: boolean;
+  memo?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type CompanyQuestionAnswer = {
   id: string;
   companyId?: string | null;
@@ -97,4 +144,8 @@ export type Company = {
 
 export type CompanyDraft = Omit<Company, "id" | "createdAt" | "updatedAt"> & {
   id?: string;
+};
+
+export type CompanyEditorDraft = CompanyDraft & {
+  schedules?: CompanySchedule[];
 };

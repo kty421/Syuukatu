@@ -23,6 +23,7 @@ import {
   GestureDetector,
   ScrollView,
 } from "react-native-gesture-handler";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import Animated, {
   Easing,
   Extrapolation,
@@ -50,25 +51,40 @@ import {
   ApplicationType,
   Company,
   CompanyDraft,
+  CompanyEditorDraft,
   CompanyQuestionAnswer,
+  CompanySchedule,
   QuestionLabel,
   QuestionMemo,
+  ScheduleCategory,
+  ScheduleCategoryDraft,
   SelectionStatus,
 } from "../types";
 import { getStatusList, normalizeSelectionStatus } from "../utils/companyUtils";
+import { getScheduleCategoryPresentation } from "../utils/scheduleCategoryUtils";
+import { formatScheduleTime, sortSchedules } from "../utils/scheduleUtils";
 import { QuestionMemoDialog } from "./QuestionMemoDialog";
+import { ScheduleEditorDialog } from "./ScheduleEditorDialog";
 
 type CompanyEditorModalProps = {
   visible: boolean;
   type: ApplicationType;
   company?: Company | null;
   questionMemos: QuestionMemo[];
+  schedules: CompanySchedule[];
+  allSchedules: CompanySchedule[];
+  companies: Company[];
+  scheduleCategories: ScheduleCategory[];
   questionLabels: QuestionLabel[];
   theme: AppTheme;
   allowPasswordStorage: boolean;
   onClose: () => void;
-  onSave: (draft: CompanyDraft) => Promise<void>;
+  onSave: (draft: CompanyEditorDraft) => Promise<void>;
   onCreateQuestionLabel: (name: string) => Promise<QuestionLabel>;
+  onSaveScheduleCategory: (
+    category: ScheduleCategoryDraft | ScheduleCategory,
+  ) => Promise<ScheduleCategory>;
+  onDeleteScheduleCategory: (categoryId: string) => Promise<void>;
 };
 
 type FormState = CompanyDraft;
@@ -77,6 +93,7 @@ const createDraftId = (prefix: string) =>
   `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
 const createEmptyForm = (type: ApplicationType): FormState => ({
+  id: createDraftId("company"),
   type,
   companyName: "",
   aspiration: "unset",
@@ -98,17 +115,24 @@ export const CompanyEditorModal = ({
   type,
   company,
   questionMemos,
+  schedules: companySchedules,
+  allSchedules,
+  companies,
+  scheduleCategories,
   questionLabels,
   theme,
   allowPasswordStorage,
   onClose,
   onSave,
   onCreateQuestionLabel,
+  onSaveScheduleCategory,
+  onDeleteScheduleCategory,
 }: CompanyEditorModalProps) => {
   const insets = useSafeAreaInsets();
   const keyboardInset = useKeyboardInset();
   const { height: windowHeight } = useWindowDimensions();
   const [form, setForm] = useState<FormState>(createEmptyForm(type));
+  const [schedules, setSchedules] = useState<CompanySchedule[]>([]);
   const [tagText, setTagText] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -116,6 +140,9 @@ export const CompanyEditorModal = ({
   const [isStatusPickerOpen, setIsStatusPickerOpen] = useState(false);
   const [editingQuestionAnswer, setEditingQuestionAnswer] =
     useState<CompanyQuestionAnswer | null>(null);
+  const [editingSchedule, setEditingSchedule] =
+    useState<CompanySchedule | null>(null);
+  const [scheduleEditorVisible, setScheduleEditorVisible] = useState(false);
   const [isRendered, setIsRendered] = useState(visible);
   const companyNameInputRef = useRef<TextInput>(null);
   const isClosingRef = useRef(false);
@@ -159,6 +186,8 @@ export const CompanyEditorModal = ({
     setIsSaving(false);
     setIsStatusPickerOpen(false);
     setEditingQuestionAnswer(null);
+    setEditingSchedule(null);
+    setScheduleEditorVisible(false);
   }, [resetMotionState]);
 
   const backdropStyle = useAnimatedStyle(() => {
@@ -431,11 +460,14 @@ export const CompanyEditorModal = ({
         : createEmptyForm(type);
 
       setForm(nextForm);
+      setSchedules(sortSchedules(company ? companySchedules : []));
       setTagText(nextForm.tags.join(", "));
       setShowPassword(false);
       setError(null);
       setIsStatusPickerOpen(false);
       setEditingQuestionAnswer(null);
+      setEditingSchedule(null);
+      setScheduleEditorVisible(false);
       setIsRendered(true);
       requestAnimationFrame(openSheet);
       return;
@@ -445,7 +477,15 @@ export const CompanyEditorModal = ({
       setIsRendered(false);
       resetTransientState();
     }
-  }, [company, openSheet, questionMemos, resetTransientState, type, visible]);
+  }, [
+    company,
+    companySchedules,
+    openSheet,
+    questionMemos,
+    resetTransientState,
+    type,
+    visible,
+  ]);
 
   const update = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((current) => ({ ...current, [key]: value }));
@@ -482,8 +522,10 @@ export const CompanyEditorModal = ({
     setIsSaving(true);
     setError(null);
 
-    const payload: CompanyDraft = {
+    const companyId = form.id || createDraftId("company");
+    const payload: CompanyEditorDraft = {
       ...form,
+      id: companyId,
       companyName,
       loginId: form.loginId.trim(),
       password: allowPasswordStorage ? form.password.trim() : "",
@@ -496,6 +538,12 @@ export const CompanyEditorModal = ({
         .filter(Boolean),
       questionAnswers: normalizeQuestionAnswers(),
       memo: form.memo?.trim(),
+      schedules: schedules.map((schedule) => ({
+        ...schedule,
+        companyId,
+        title: schedule.title.trim() || schedule.type || companyName,
+        memo: schedule.memo?.trim(),
+      })),
     };
 
     try {
@@ -551,6 +599,44 @@ export const CompanyEditorModal = ({
       (form.questionAnswers ?? []).filter((item) => item.id !== id),
     );
   };
+
+  const openCreateSchedule = () => {
+    Keyboard.dismiss();
+    setEditingSchedule(null);
+    requestAnimationFrame(() => {
+      setScheduleEditorVisible(true);
+    });
+  };
+
+  const openSchedule = (schedule: CompanySchedule) => {
+    Keyboard.dismiss();
+    setEditingSchedule(schedule);
+    requestAnimationFrame(() => {
+      setScheduleEditorVisible(true);
+    });
+  };
+
+  const saveSchedule = (schedule: CompanySchedule) => {
+    setSchedules((current) =>
+      sortSchedules(
+        current.some((item) => item.id === schedule.id)
+          ? current.map((item) => (item.id === schedule.id ? schedule : item))
+          : [...current, schedule],
+      ),
+    );
+  };
+
+  const deleteSchedule = (id: string) => {
+    setSchedules((current) => current.filter((schedule) => schedule.id !== id));
+  };
+
+  const scheduleConflictCandidates = useMemo(
+    () => [
+      ...allSchedules.filter((schedule) => schedule.companyId !== form.id),
+      ...schedules,
+    ],
+    [allSchedules, form.id, schedules],
+  );
 
   if (!isRendered && !visible) {
     return null;
@@ -628,7 +714,8 @@ export const CompanyEditorModal = ({
               </Animated.View>
             </GestureDetector>
 
-            <ScrollView
+            <KeyboardAwareScrollView
+              bottomOffset={32}
               contentContainerStyle={[
                 styles.content,
                 { paddingBottom: Math.max(28, keyboardInset + 28) },
@@ -677,6 +764,95 @@ export const CompanyEditorModal = ({
                     onOpen={() => setIsStatusPickerOpen(true)}
                     onClose={() => setIsStatusPickerOpen(false)}
                     onChange={(value) => update("status", value)}
+                  />
+                </FormSection>
+
+                <FormSection theme={theme} title="日程">
+                  {schedules.length > 0 ? (
+                    <View style={styles.scheduleList}>
+                      {schedules.map((schedule) => {
+                        const category = getScheduleCategoryPresentation(
+                          schedule,
+                          scheduleCategories,
+                          theme,
+                        );
+
+                        return (
+                          <Pressable
+                            key={schedule.id}
+                            accessibilityRole="button"
+                            accessibilityLabel={`${schedule.title || schedule.type}を編集`}
+                            onPress={() => openSchedule(schedule)}
+                            style={({ pressed }) => [
+                              styles.scheduleRow,
+                              {
+                                backgroundColor: theme.colors.surfaceElevated,
+                                borderColor: theme.colors.border,
+                              },
+                              pressed && styles.pressed,
+                            ]}>
+                            <View style={styles.scheduleRowBody}>
+                              <View
+                                style={[
+                                  styles.scheduleDot,
+                                  { backgroundColor: category.color },
+                                ]}
+                              />
+                              <View style={styles.scheduleTextBlock}>
+                                <Text
+                                  numberOfLines={1}
+                                  style={[
+                                    styles.scheduleTitle,
+                                    { color: theme.colors.textPrimary },
+                                  ]}>
+                                  {schedule.title || schedule.type}
+                                </Text>
+                                <Text
+                                  numberOfLines={1}
+                                  style={[
+                                    styles.scheduleMeta,
+                                    { color: theme.colors.textMuted },
+                                  ]}>
+                                  {formatScheduleTime(schedule)}
+                                </Text>
+                              </View>
+                            </View>
+                            <IconButton
+                              icon="create-outline"
+                              label="日程を編集"
+                              onPress={(event) => {
+                                event?.stopPropagation();
+                                openSchedule(schedule);
+                              }}
+                              theme={theme}
+                              tone="neutral"
+                              size="compact"
+                              variant="plain"
+                            />
+                            <IconButton
+                              icon="trash-outline"
+                              label="日程を削除"
+                              onPress={(event) => {
+                                event?.stopPropagation();
+                                deleteSchedule(schedule.id);
+                              }}
+                              theme={theme}
+                              tone="danger"
+                              size="compact"
+                              variant="plain"
+                            />
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  ) : null}
+
+                  <AppButton
+                    label="日程を追加"
+                    icon="calendar-outline"
+                    onPress={openCreateSchedule}
+                    theme={theme}
+                    variant="secondary"
                   />
                 </FormSection>
 
@@ -849,7 +1025,7 @@ export const CompanyEditorModal = ({
                   variant="primary"
                 />
               </DismissKeyboardView>
-            </ScrollView>
+            </KeyboardAwareScrollView>
           </SafeAreaView>
         </Animated.View>
 
@@ -860,6 +1036,25 @@ export const CompanyEditorModal = ({
           onClose={() => setEditingQuestionAnswer(null)}
           onSave={saveQuestionAnswer}
           onCreateLabel={onCreateQuestionLabel}
+        />
+
+        <ScheduleEditorDialog
+          visible={scheduleEditorVisible}
+          schedule={editingSchedule}
+          company={{
+            id: form.id ?? "",
+            companyName: form.companyName,
+            aspiration: form.aspiration,
+          }}
+          allSchedules={scheduleConflictCandidates}
+          companies={companies}
+          scheduleCategories={scheduleCategories}
+          theme={theme}
+          onClose={() => setScheduleEditorVisible(false)}
+          onSave={saveSchedule}
+          onDelete={editingSchedule ? deleteSchedule : undefined}
+          onSaveScheduleCategory={onSaveScheduleCategory}
+          onDeleteScheduleCategory={onDeleteScheduleCategory}
         />
       </View>
     </Modal>
@@ -1325,6 +1520,46 @@ const styles = StyleSheet.create({
   qaList: {
     gap: 8,
   },
+  scheduleList: {
+    gap: 8,
+  },
+  scheduleRow: {
+    alignItems: "center",
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    flexDirection: "row",
+    gap: 10,
+    minHeight: 56,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  scheduleRowBody: {
+    alignItems: "center",
+    flex: 1,
+    flexDirection: "row",
+    gap: 10,
+    minWidth: 0,
+  },
+  scheduleDot: {
+    borderRadius: 999,
+    height: 10,
+    width: 10,
+  },
+  scheduleTextBlock: {
+    flex: 1,
+    minWidth: 0,
+  },
+  scheduleTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    lineHeight: 19,
+  },
+  scheduleMeta: {
+    fontSize: 12,
+    fontWeight: "600",
+    lineHeight: 17,
+    marginTop: 2,
+  },
   qaRow: {
     alignItems: "center",
     borderRadius: 16,
@@ -1369,5 +1604,8 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
     lineHeight: 18,
+  },
+  pressed: {
+    opacity: 0.72,
   },
 });

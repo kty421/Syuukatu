@@ -10,6 +10,12 @@ import {
   upsertQuestionMemoBodySchema
 } from '../_lib/question';
 import {
+  CompanyScheduleRow,
+  fromCompanyScheduleRow,
+  fromScheduleCategoryRow,
+  ScheduleCategoryRow
+} from '../_lib/schedule';
+import {
   handleApiError,
   handleCorsPreflight,
   parseRequestBody,
@@ -39,7 +45,14 @@ export default async function handler(
     if (req.method === 'GET') {
       const includeCompanies =
         getSingleQueryValue(req.query.includeCompanies) === '1';
-      const [memoResult, labelResult, companyResult] = await Promise.all([
+      const [
+        memoResult,
+        labelResult,
+        companyResult,
+        scheduleResult,
+        categoryResult
+      ] =
+        await Promise.all([
         supabase
           .from('question_memos')
           .select('*, question_memo_labels(label_id)')
@@ -54,10 +67,29 @@ export default async function handler(
               .from('companies')
               .select('*')
               .order('updated_at', { ascending: false })
+          : Promise.resolve({ data: null, error: null }),
+        includeCompanies
+          ? supabase
+              .from('company_schedules')
+              .select('*')
+              .order('start_date', { ascending: true })
+              .order('start_time', { ascending: true })
+          : Promise.resolve({ data: null, error: null }),
+        includeCompanies
+          ? supabase
+              .from('schedule_categories')
+              .select('*')
+              .order('created_at', { ascending: true })
           : Promise.resolve({ data: null, error: null })
       ]);
 
-      if (memoResult.error || labelResult.error || companyResult.error) {
+      if (
+        memoResult.error ||
+        labelResult.error ||
+        companyResult.error ||
+        scheduleResult.error ||
+        categoryResult.error
+      ) {
         sendJson(res, 400, {
           error: '質問メモの読み込みに失敗しました。'
         });
@@ -67,6 +99,16 @@ export default async function handler(
       sendJson(res, 200, {
         companies: includeCompanies
           ? (companyResult.data ?? []).map(fromCompanyRow)
+          : undefined,
+        companySchedules: includeCompanies
+          ? ((scheduleResult.data ?? []) as CompanyScheduleRow[]).map(
+              fromCompanyScheduleRow
+            )
+          : undefined,
+        scheduleCategories: includeCompanies
+          ? ((categoryResult.data ?? []) as ScheduleCategoryRow[]).map(
+              fromScheduleCategoryRow
+            )
           : undefined,
         questionMemos: ((memoResult.data ?? []) as QuestionMemoRow[]).map(
           fromQuestionMemoRow

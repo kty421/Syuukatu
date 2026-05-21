@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 
 import { AppTheme } from '../../../constants/theme';
 import { AppButton } from '../../../ui/AppButton';
@@ -12,6 +13,10 @@ type QuestionCompanyPickerModalProps = {
   companies: Company[];
   questionCountsByCompany: Record<string, number>;
   theme: AppTheme;
+  title?: string;
+  createButtonLabel?: string;
+  selectAccessibilityLabel?: (company: Company) => string;
+  getCompanyMeta?: (company: Company) => string;
   onClose: () => void;
   onSelect: (company: Company) => void;
   onCreateCompany: (companyName: string) => Promise<void>;
@@ -22,6 +27,12 @@ export const QuestionCompanyPickerModal = ({
   companies,
   questionCountsByCompany,
   theme,
+  title = '企業を選択',
+  createButtonLabel = '追加して質問を書く',
+  selectAccessibilityLabel = (company) =>
+    `${company.companyName}に質問メモを追加`,
+  getCompanyMeta = (company) =>
+    `${company.status} / 質問${questionCountsByCompany[company.id] ?? 0}件`,
   onClose,
   onSelect,
   onCreateCompany
@@ -52,12 +63,14 @@ export const QuestionCompanyPickerModal = ({
   return (
     <FullScreenModalShell
       visible={visible}
-      title="企業を選択"
+      title={title}
       theme={theme}
       onClose={onClose}
     >
-      <ScrollView
+      <KeyboardAwareScrollView
+        bottomOffset={28}
         contentContainerStyle={styles.body}
+        keyboardDismissMode="interactive"
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
@@ -84,7 +97,7 @@ export const QuestionCompanyPickerModal = ({
                 ) : null}
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel={`${company.companyName}に質問メモを追加`}
+                  accessibilityLabel={selectAccessibilityLabel(company)}
                   onPress={() => onSelect(company)}
                   style={({ pressed }) => [
                     styles.row,
@@ -102,7 +115,7 @@ export const QuestionCompanyPickerModal = ({
                       numberOfLines={1}
                       style={[styles.metaText, { color: theme.colors.textMuted }]}
                     >
-                      {company.status} / 質問{questionCountsByCompany[company.id] ?? 0}件
+                      {getCompanyMeta(company)}
                     </Text>
                   </View>
                 </Pressable>
@@ -134,7 +147,7 @@ export const QuestionCompanyPickerModal = ({
               </Text>
             ) : null}
             <AppButton
-              label="追加して質問を書く"
+              label={createButtonLabel}
               icon="add"
               loading={isCreating}
               disabled={!trimmedCompanyName || isCreating}
@@ -146,7 +159,7 @@ export const QuestionCompanyPickerModal = ({
             />
           </View>
         </View>
-      </ScrollView>
+      </KeyboardAwareScrollView>
     </FullScreenModalShell>
   );
 };

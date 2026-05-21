@@ -47,6 +47,7 @@ import { SearchField } from "../../ui/SearchField";
 import { SectionHeader } from "../../ui/SectionHeader";
 import { ApplicationTypeSegment } from "./components/ApplicationTypeSegment";
 import { BottomNavigation, MainTab } from "./components/BottomNavigation";
+import { CalendarView } from "./components/CalendarView";
 import { CompanyCard } from "./components/CompanyCard";
 import { CompanyEditorModal } from "./components/CompanyEditorModal";
 import { ConfirmActionDialog } from "./components/ConfirmActionDialog";
@@ -58,12 +59,14 @@ import {
 } from "./components/QuestionListView";
 import { QuestionLabelSettingsModal } from "./components/QuestionLabelSettingsModal";
 import { QuestionMemoDialog } from "./components/QuestionMemoDialog";
+import { ScheduleEditorDialog } from "./components/ScheduleEditorDialog";
 import { useCompanies } from "./hooks/useCompanies";
 import {
   ApplicationType,
   applicationTypeLabels,
   Company,
-  CompanyDraft,
+  CompanyEditorDraft,
+  CompanySchedule,
   QuestionLabel,
   QuestionMemo,
   SelectionStatus,
@@ -82,6 +85,7 @@ import {
   sortQuestionMemos,
   UNASSIGNED_COMPANY_TITLE,
 } from "./utils/questionMemoUtils";
+import { todayDateString } from "./utils/scheduleUtils";
 import { useConfirmAction } from "./utils/confirmAction";
 
 const transitionValueByType: Record<ApplicationType, number> = {
@@ -350,6 +354,8 @@ export const HomeScreen = ({
 }: HomeScreenProps) => {
   const {
     companies,
+    companySchedules,
+    scheduleCategories,
     questionMemos,
     questionLabels,
     isLoading,
@@ -367,6 +373,10 @@ export const HomeScreen = ({
     importLocalCompanies,
     dismissLocalMigration,
     clearLocalAccountData,
+    upsertCompanySchedule,
+    deleteCompanySchedule,
+    upsertScheduleCategory,
+    deleteScheduleCategory,
   } = useCompanies({ userId: user.id, getAccessToken });
 
   const colorScheme = useColorScheme();
@@ -403,6 +413,16 @@ export const HomeScreen = ({
   const [editorVisible, setEditorVisible] = useState(false);
   const [editorType, setEditorType] = useState<ApplicationType>("internship");
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
+  const [editingCalendarSchedule, setEditingCalendarSchedule] =
+    useState<CompanySchedule | null>(null);
+  const [scheduleEditorCompany, setScheduleEditorCompany] =
+    useState<Company | null>(null);
+  const [scheduleCreateInitialDate, setScheduleCreateInitialDate] = useState<
+    string | null
+  >(null);
+  const [scheduleEditorVisible, setScheduleEditorVisible] = useState(false);
+  const [scheduleCompanyPickerVisible, setScheduleCompanyPickerVisible] =
+    useState(false);
   const [editingQuestionMemo, setEditingQuestionMemo] = useState<{
     item: QuestionMemo;
   } | null>(null);
@@ -530,6 +550,14 @@ export const HomeScreen = ({
       }, {}),
     [questionMemos],
   );
+  const scheduleCountsByCompany = useMemo(
+    () =>
+      companySchedules.reduce<Record<string, number>>((counts, schedule) => {
+        counts[schedule.companyId] = (counts[schedule.companyId] ?? 0) + 1;
+        return counts;
+      }, {}),
+    [companySchedules],
+  );
   const editorQuestionMemos = useMemo(
     () =>
       editingCompany
@@ -538,6 +566,15 @@ export const HomeScreen = ({
           )
         : [],
     [editingCompany, questionMemos],
+  );
+  const editorCompanySchedules = useMemo(
+    () =>
+      editingCompany
+        ? companySchedules.filter(
+            (schedule) => schedule.companyId === editingCompany.id,
+          )
+        : [],
+    [companySchedules, editingCompany],
   );
   const editingQuestionCompany = useMemo(() => {
     const companyId = editingQuestionMemo?.item.companyId;
@@ -548,6 +585,19 @@ export const HomeScreen = ({
 
     return companies.find((company) => company.id === companyId) ?? null;
   }, [companies, editingQuestionMemo]);
+  const editingCalendarCompany = useMemo(() => {
+    if (!editingCalendarSchedule) {
+      return null;
+    }
+
+    return (
+      companies.find(
+        (company) => company.id === editingCalendarSchedule.companyId,
+      ) ?? null
+    );
+  }, [companies, editingCalendarSchedule]);
+  const currentScheduleEditorCompany =
+    scheduleEditorCompany ?? editingCalendarCompany;
 
   const { internshipCount, fullTimeCount } = useMemo(
     () =>
@@ -579,6 +629,12 @@ export const HomeScreen = ({
   const screenBackgroundStyle =
     homeView === "companies" ? animatedThemeStyle : neutralBackgroundStyle;
   const pageMotionStyle = homeView === "companies" ? edgePullStyle : null;
+  const screenTitle =
+    homeView === "companies"
+      ? "企業一覧"
+      : homeView === "questions"
+        ? "質問一覧"
+        : "カレンダー";
   const fabBottom = navigationReservedHeight + 8;
   const showPasswordControls = Platform.OS !== "web";
   const companyListContentContainerStyle = useMemo(
@@ -917,10 +973,12 @@ export const HomeScreen = ({
   }, []);
 
   const handleSave = useCallback(
-    async (draft: CompanyDraft) => {
+    async (draft: CompanyEditorDraft) => {
+      const { schedules: schedulesFromDraft, ...companyDraft } = draft;
       const draftQuestionAnswers = draft.questionAnswers ?? [];
+      const draftSchedules = schedulesFromDraft ?? [];
       const savedCompany = await upsertCompany({
-        ...draft,
+        ...companyDraft,
         questionAnswers: [],
       });
       const previousQuestionIds = new Set(
@@ -930,6 +988,14 @@ export const HomeScreen = ({
       );
       const nextQuestionIds = new Set(
         draftQuestionAnswers.map((questionAnswer) => questionAnswer.id),
+      );
+      const previousScheduleIds = new Set(
+        companySchedules
+          .filter((schedule) => schedule.companyId === savedCompany.id)
+          .map((schedule) => schedule.id),
+      );
+      const nextScheduleIds = new Set(
+        draftSchedules.map((schedule) => schedule.id),
       );
 
       const questionSyncPromise = Promise.all([
@@ -961,16 +1027,39 @@ export const HomeScreen = ({
           "error",
         );
       });
+
+      const scheduleSyncPromise = Promise.all([
+        Promise.all(
+          draftSchedules.map((schedule) =>
+            upsertCompanySchedule({
+              ...schedule,
+              companyId: savedCompany.id,
+            }),
+          ),
+        ),
+        Promise.all(
+          [...previousScheduleIds]
+            .filter((id) => !nextScheduleIds.has(id))
+            .map(deleteCompanySchedule),
+        ),
+      ]);
+
+      void scheduleSyncPromise.catch(() => {
+        showToast("企業は保存しましたが、日程の保存に失敗しました", "error");
+      });
       void runHapticsSafely(() =>
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success),
       );
       showToast(draft.id ? "変更を保存しました" : "登録しました");
     },
     [
+      companySchedules,
+      deleteCompanySchedule,
       deleteQuestionMemoById,
       questionMemos,
       showToast,
       upsertCompany,
+      upsertCompanySchedule,
       upsertQuestionMemo,
     ],
   );
@@ -1085,6 +1174,28 @@ export const HomeScreen = ({
     });
   }, []);
 
+  const openScheduleCompanyPicker = useCallback((date: string) => {
+    Keyboard.dismiss();
+    setScheduleCreateInitialDate(date || todayDateString());
+    setScheduleCompanyPickerVisible(true);
+    void runHapticsSafely(() =>
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light),
+    );
+  }, []);
+
+  const startScheduleForCompany = useCallback(
+    (company: Company) => {
+      setScheduleCompanyPickerVisible(false);
+      setEditingCalendarSchedule(null);
+      setScheduleEditorCompany(company);
+      setScheduleCreateInitialDate(
+        (current) => current || todayDateString(),
+      );
+      setScheduleEditorVisible(true);
+    },
+    [],
+  );
+
   const createCompanyForQuestion = useCallback(
     async (companyName: string) => {
       const trimmedName = companyName.trim();
@@ -1122,6 +1233,45 @@ export const HomeScreen = ({
       }
     },
     [activeType, showToast, startQuestionMemoForCompany, upsertCompany],
+  );
+
+  const createCompanyForSchedule = useCallback(
+    async (companyName: string) => {
+      const trimmedName = companyName.trim();
+
+      if (!trimmedName) {
+        return;
+      }
+
+      try {
+        const savedCompany = await upsertCompany({
+          type: activeType,
+          companyName: trimmedName,
+          aspiration: "unset",
+          status: getStatusList(activeType)[0],
+          loginId: "",
+          password: "",
+          myPageUrl: "",
+          industry: "",
+          role: "",
+          tags: [],
+          questionAnswers: [],
+          memo: "",
+          favorite: false,
+          archived: false,
+        });
+
+        void runHapticsSafely(() =>
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success),
+        );
+        showToast("企業を追加しました");
+        startScheduleForCompany(savedCompany);
+      } catch (error) {
+        showToast("企業の追加に失敗しました", "error");
+        throw error;
+      }
+    },
+    [activeType, showToast, startScheduleForCompany, upsertCompany],
   );
 
   const closeQuestionMemo = useCallback(() => {
@@ -1426,7 +1576,7 @@ export const HomeScreen = ({
                   styles.compactTitle,
                   { color: theme.colors.textPrimary },
                 ]}>
-                {homeView === "companies" ? "企業一覧" : "質問一覧"}
+                {screenTitle}
               </Text>
             </View>
             <View style={styles.titleSide}>
@@ -1454,29 +1604,31 @@ export const HomeScreen = ({
           />
         ) : null}
 
-        <View
-          style={[
-            containerStyle,
-            styles.searchArea,
-            { paddingHorizontal: metrics.contentPadding },
-          ]}>
-          <SearchField
-            value={searchValue}
-            placeholder={searchPlaceholder}
-            theme={theme}
-            onChangeText={
-              homeView === "questions" ? setQuestionQuery : setCompanyQuery
-            }
-            onClear={() => {
-              if (homeView === "questions") {
-                clearQuestionSearch();
-                return;
+        {homeView !== "calendar" ? (
+          <View
+            style={[
+              containerStyle,
+              styles.searchArea,
+              { paddingHorizontal: metrics.contentPadding },
+            ]}>
+            <SearchField
+              value={searchValue}
+              placeholder={searchPlaceholder}
+              theme={theme}
+              onChangeText={
+                homeView === "questions" ? setQuestionQuery : setCompanyQuery
               }
+              onClear={() => {
+                if (homeView === "questions") {
+                  clearQuestionSearch();
+                  return;
+                }
 
-              clearCompanySearch();
-            }}
-          />
-        </View>
+                clearCompanySearch();
+              }}
+            />
+          </View>
+        ) : null}
 
         {localMigrationAvailable ? (
           <View
@@ -1560,7 +1712,7 @@ export const HomeScreen = ({
               showsVerticalScrollIndicator={false}
             />
           </DismissKeyboardView>
-        ) : (
+        ) : homeView === "questions" ? (
           <QuestionListView
             entries={filteredQuestionEntries}
             labels={questionLabels}
@@ -1584,29 +1736,53 @@ export const HomeScreen = ({
             onOpenCompany={openCompanyFromQuestion}
             onDelete={deleteQuestionMemo}
           />
+        ) : (
+          <CalendarView
+            companies={companies}
+            schedules={companySchedules}
+            scheduleCategories={scheduleCategories}
+            isLoading={isLoading}
+            theme={theme}
+            contentPadding={metrics.contentPadding}
+            bottomPadding={bottomPadding}
+            containerStyle={containerStyle}
+            onOpenSchedule={(schedule) => {
+              const company =
+                companies.find((item) => item.id === schedule.companyId) ??
+                null;
+              setEditingCalendarSchedule(schedule);
+              setScheduleEditorCompany(company);
+              setScheduleCreateInitialDate(null);
+              setScheduleEditorVisible(true);
+            }}
+            onOpenCompany={openEditModal}
+            onCreateSchedule={openScheduleCompanyPicker}
+          />
         )}
       </Animated.View>
 
-      <FloatingActionButton
-        label={
-          homeView === "questions"
-            ? "質問を追加"
-            : `${applicationTypeLabels[activeType]}を追加`
-        }
-        onPress={() => {
-          if (homeView === "questions") {
-            void openQuestionCompanyPicker();
-            return;
+      {homeView !== "calendar" ? (
+        <FloatingActionButton
+          label={
+            homeView === "questions"
+              ? "質問を追加"
+              : `${applicationTypeLabels[activeType]}を追加`
           }
+          onPress={() => {
+            if (homeView === "questions") {
+              void openQuestionCompanyPicker();
+              return;
+            }
 
-          void openCreateModal(activeType);
-        }}
-        theme={theme}
-        style={{
-          bottom: fabBottom,
-          right: metrics.contentPadding,
-        }}
-      />
+            void openCreateModal(activeType);
+          }}
+          theme={theme}
+          style={{
+            bottom: fabBottom,
+            right: metrics.contentPadding,
+          }}
+        />
+      ) : null}
 
       <BottomNavigation
         value={homeView}
@@ -1627,12 +1803,18 @@ export const HomeScreen = ({
         type={editorType}
         company={editingCompany}
         questionMemos={editorQuestionMemos}
+        schedules={editorCompanySchedules}
+        allSchedules={companySchedules}
+        companies={companies}
+        scheduleCategories={scheduleCategories}
         questionLabels={questionLabels}
         theme={theme}
         allowPasswordStorage={showPasswordControls}
         onClose={() => setEditorVisible(false)}
         onSave={handleSave}
         onCreateQuestionLabel={createQuestionLabel}
+        onSaveScheduleCategory={upsertScheduleCategory}
+        onDeleteScheduleCategory={deleteScheduleCategory}
       />
 
       <QuestionMemoDialog
@@ -1647,6 +1829,41 @@ export const HomeScreen = ({
         }}
         onCreateLabel={createQuestionLabel}
       />
+
+      {currentScheduleEditorCompany ? (
+        <ScheduleEditorDialog
+          visible={scheduleEditorVisible}
+          schedule={editingCalendarSchedule}
+          company={{
+            id: currentScheduleEditorCompany.id,
+            companyName: currentScheduleEditorCompany.companyName,
+            aspiration: currentScheduleEditorCompany.aspiration,
+          }}
+          allSchedules={companySchedules}
+          companies={companies}
+          scheduleCategories={scheduleCategories}
+          theme={theme}
+          initialDate={scheduleCreateInitialDate}
+          onClose={() => {
+            setScheduleEditorVisible(false);
+            setEditingCalendarSchedule(null);
+            setScheduleEditorCompany(null);
+            setScheduleCreateInitialDate(null);
+          }}
+          onSave={(schedule) => {
+            void upsertCompanySchedule(schedule)
+              .then(() => showToast("日程を保存しました"))
+              .catch(() => showToast("日程の保存に失敗しました", "error"));
+          }}
+          onDelete={(scheduleId) => {
+            void deleteCompanySchedule(scheduleId)
+              .then(() => showToast("日程を削除しました"))
+              .catch(() => showToast("日程の削除に失敗しました", "error"));
+          }}
+          onSaveScheduleCategory={upsertScheduleCategory}
+          onDeleteScheduleCategory={deleteScheduleCategory}
+        />
+      ) : null}
 
       <QuestionLabelSettingsModal
         visible={questionLabelSettingsVisible}
@@ -1667,6 +1884,24 @@ export const HomeScreen = ({
         onClose={() => setQuestionCompanyPickerVisible(false)}
         onSelect={startQuestionMemoForCompany}
         onCreateCompany={createCompanyForQuestion}
+      />
+
+      <QuestionCompanyPickerModal
+        visible={scheduleCompanyPickerVisible}
+        companies={availableCompanies}
+        questionCountsByCompany={questionCountsByCompany}
+        title="予定を追加する企業を選択"
+        createButtonLabel="追加して日程を作る"
+        selectAccessibilityLabel={(company) =>
+          `${company.companyName}に予定を追加`
+        }
+        getCompanyMeta={(company) =>
+          `${company.status} / 日程${scheduleCountsByCompany[company.id] ?? 0}件`
+        }
+        theme={theme}
+        onClose={() => setScheduleCompanyPickerVisible(false)}
+        onSelect={startScheduleForCompany}
+        onCreateCompany={createCompanyForSchedule}
       />
 
       <HomeMenuModal

@@ -162,14 +162,6 @@ export const QuestionMemoDialog = <
                 </View>
                 <View style={styles.companyCopy}>
                   <Text
-                    style={[
-                      styles.companyCaption,
-                      { color: theme.colors.textSecondary }
-                    ]}
-                  >
-                    追加先の企業
-                  </Text>
-                  <Text
                     numberOfLines={1}
                     style={[
                       styles.companyName,
@@ -179,15 +171,6 @@ export const QuestionMemoDialog = <
                     {company.companyName}
                   </Text>
                 </View>
-                <Text
-                  numberOfLines={1}
-                  style={[
-                    styles.companyStatus,
-                    { color: theme.colors.textSecondary }
-                  ]}
-                >
-                  {company.status}
-                </Text>
               </View>
             ) : null}
             <InputField
@@ -350,23 +333,10 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0
   },
-  companyCaption: {
-    fontSize: 11,
-    fontWeight: '700',
-    lineHeight: 15
-  },
   companyName: {
     fontSize: 15,
     fontWeight: '800',
-    lineHeight: 20,
-    marginTop: 2
-  },
-  companyStatus: {
-    flexShrink: 1,
-    fontSize: 12,
-    fontWeight: '700',
-    lineHeight: 16,
-    maxWidth: '34%'
+    lineHeight: 20
   },
   saveNotice: {
     alignItems: 'center',

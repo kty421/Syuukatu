@@ -381,6 +381,13 @@ export const HomeMenuModal = ({
                   theme={theme}
                   onPress={() => runMenuAction(() => onViewChange("questions"))}
                 />
+                <MenuActionRow
+                  icon="calendar-outline"
+                  label="カレンダー"
+                  selected={activeView === "calendar"}
+                  theme={theme}
+                  onPress={() => runMenuAction(() => onViewChange("calendar"))}
+                />
               </View>
 
               <View style={styles.menuSection}>

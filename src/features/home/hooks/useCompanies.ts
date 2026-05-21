@@ -3,6 +3,8 @@ import { Platform } from 'react-native';
 
 import {
   deleteRemoteCompany,
+  deleteRemoteCompanySchedule,
+  upsertRemoteCompanySchedule,
   upsertRemoteCompany
 } from '../../../services/companyApi';
 import { fetchRemoteHomeData } from '../../../services/homeDataApi';
@@ -14,6 +16,10 @@ import {
   updateRemoteQuestionLabel,
   upsertRemoteQuestionMemo
 } from '../../../services/questionApi';
+import {
+  deleteRemoteScheduleCategory,
+  upsertRemoteScheduleCategory
+} from '../../../services/scheduleCategoryApi';
 import {
   clearAccountLocalData,
   deleteCompanyCredential,
@@ -27,10 +33,14 @@ import {
 import {
   Company,
   CompanyDraft,
+  CompanySchedule,
   QuestionLabel,
   QuestionMemo,
-  QuestionMemoDraft
+  QuestionMemoDraft,
+  ScheduleCategory,
+  ScheduleCategoryDraft
 } from '../types';
+import { sortSchedules } from '../utils/scheduleUtils';
 
 const createId = () =>
   `company-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -38,6 +48,10 @@ const createQuestionId = () =>
   `qa-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 const createLabelId = () =>
   `label-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+const createScheduleId = () =>
+  `schedule-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+const createScheduleCategoryId = () =>
+  `schedule-category-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 const LOCAL_QUESTION_LABEL_PREVIEW_NOTICE =
   'ローカルプレビューとして反映しました。API反映後に再確認してください。';
 const shouldKeepLocalQuestionLabelPreview = __DEV__ && Platform.OS === 'ios';
@@ -67,6 +81,17 @@ const sortQuestionLabels = (labels: QuestionLabel[]) =>
       return sortOrderDiff;
     }
 
+    const timeOrder = toTime(a.createdAt) - toTime(b.createdAt);
+
+    if (timeOrder !== 0) {
+      return timeOrder;
+    }
+
+    return a.name.localeCompare(b.name, 'ja');
+  });
+
+const sortScheduleCategories = (categories: ScheduleCategory[]) =>
+  [...categories].sort((a, b) => {
     const timeOrder = toTime(a.createdAt) - toTime(b.createdAt);
 
     if (timeOrder !== 0) {
@@ -145,6 +170,12 @@ export const useCompanies = ({
   getAccessToken
 }: UseCompaniesParams) => {
   const [companies, setCompanies] = useState<Company[]>([]);
+  const [companySchedules, setCompanySchedules] = useState<CompanySchedule[]>(
+    []
+  );
+  const [scheduleCategories, setScheduleCategories] = useState<
+    ScheduleCategory[]
+  >([]);
   const [questionMemos, setQuestionMemos] = useState<QuestionMemo[]>([]);
   const [questionLabels, setQuestionLabels] = useState<QuestionLabel[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -152,6 +183,8 @@ export const useCompanies = ({
   const [localMigrationAvailable, setLocalMigrationAvailable] = useState(false);
   const [isMigratingLocalData, setIsMigratingLocalData] = useState(false);
   const companiesRef = useRef<Company[]>([]);
+  const companySchedulesRef = useRef<CompanySchedule[]>([]);
+  const scheduleCategoriesRef = useRef<ScheduleCategory[]>([]);
   const questionMemosRef = useRef<QuestionMemo[]>([]);
   const questionLabelsRef = useRef<QuestionLabel[]>([]);
   const pendingQuestionLabelSavesRef = useRef(
@@ -171,6 +204,48 @@ export const useCompanies = ({
         const resolvedCompanies = nextCompanies(currentCompanies);
         companiesRef.current = resolvedCompanies;
         return resolvedCompanies;
+      });
+    },
+    []
+  );
+
+  const setCompanySchedulesState = useCallback(
+    (
+      nextSchedules:
+        | CompanySchedule[]
+        | ((current: CompanySchedule[]) => CompanySchedule[])
+    ) => {
+      if (typeof nextSchedules !== 'function') {
+        companySchedulesRef.current = nextSchedules;
+        setCompanySchedules(nextSchedules);
+        return;
+      }
+
+      setCompanySchedules((currentSchedules) => {
+        const resolvedSchedules = nextSchedules(currentSchedules);
+        companySchedulesRef.current = resolvedSchedules;
+        return resolvedSchedules;
+      });
+    },
+    []
+  );
+
+  const setScheduleCategoriesState = useCallback(
+    (
+      nextCategories:
+        | ScheduleCategory[]
+        | ((current: ScheduleCategory[]) => ScheduleCategory[])
+    ) => {
+      if (typeof nextCategories !== 'function') {
+        scheduleCategoriesRef.current = nextCategories;
+        setScheduleCategories(nextCategories);
+        return;
+      }
+
+      setScheduleCategories((currentCategories) => {
+        const resolvedCategories = nextCategories(currentCategories);
+        scheduleCategoriesRef.current = resolvedCategories;
+        return resolvedCategories;
       });
     },
     []
@@ -260,6 +335,10 @@ export const useCompanies = ({
 
         if (isMounted) {
           setCompaniesState(loadedCompanies);
+          setCompanySchedulesState(sortSchedules(homeData.companySchedules));
+          setScheduleCategoriesState(
+            sortScheduleCategories(homeData.scheduleCategories)
+          );
           setQuestionMemosState(
             mergeQuestionMemosByNewestUpdate(
               homeData.questionMemos,
@@ -288,6 +367,8 @@ export const useCompanies = ({
   }, [
     getAccessToken,
     setCompaniesState,
+    setCompanySchedulesState,
+    setScheduleCategoriesState,
     setQuestionLabelsState,
     setQuestionMemosState,
     userId
@@ -356,6 +437,228 @@ export const useCompanies = ({
       return nextCompany;
     },
     [getAccessToken, setCompaniesState]
+  );
+
+  const upsertCompanySchedule = useCallback(
+    async (draft: CompanySchedule) => {
+      const currentSchedules = companySchedulesRef.current;
+      const now = new Date().toISOString();
+      const existing = draft.id
+        ? currentSchedules.find((schedule) => schedule.id === draft.id)
+        : undefined;
+      const nextSchedule: CompanySchedule = {
+        ...draft,
+        id: draft.id || createScheduleId(),
+        title: draft.title.trim() || draft.type || '予定',
+        memo: draft.memo?.trim(),
+        endDate: draft.endDate || draft.startDate,
+        startTime: draft.isAllDay ? undefined : draft.startTime,
+        endTime: draft.isAllDay ? undefined : draft.endTime,
+        createdAt: existing?.createdAt ?? draft.createdAt ?? now,
+        updatedAt: now
+      };
+      const nextSchedules = existing
+        ? currentSchedules.map((schedule) =>
+            schedule.id === nextSchedule.id ? nextSchedule : schedule
+          )
+        : [...currentSchedules, nextSchedule];
+
+      setCompanySchedulesState(sortSchedules(nextSchedules));
+      setStorageError(null);
+
+      try {
+        const accessToken = await getAccessToken();
+        const savedSchedule = await upsertRemoteCompanySchedule(
+          nextSchedule,
+          accessToken
+        );
+        setCompanySchedulesState((latestSchedules) =>
+          sortSchedules(
+            latestSchedules.map((schedule) =>
+              schedule.id === nextSchedule.id ? savedSchedule : schedule
+            )
+          )
+        );
+        setStorageError(null);
+      } catch (error) {
+        setCompanySchedulesState((latestSchedules) => {
+          const latestSchedule = latestSchedules.find(
+            (schedule) => schedule.id === nextSchedule.id
+          );
+
+          if (
+            !latestSchedule ||
+            latestSchedule.updatedAt !== nextSchedule.updatedAt
+          ) {
+            return latestSchedules;
+          }
+
+          return existing
+            ? sortSchedules(
+                latestSchedules.map((schedule) =>
+                  schedule.id === existing.id ? existing : schedule
+                )
+              )
+            : latestSchedules.filter(
+                (schedule) => schedule.id !== nextSchedule.id
+              );
+        });
+        setStorageError('日程の保存を完了できませんでした。');
+        throw error;
+      }
+
+      return nextSchedule;
+    },
+    [getAccessToken, setCompanySchedulesState]
+  );
+
+  const deleteCompanySchedule = useCallback(
+    async (id: string) => {
+      const currentSchedules = companySchedulesRef.current;
+      const deletedSchedule = currentSchedules.find(
+        (schedule) => schedule.id === id
+      );
+
+      if (!deletedSchedule) {
+        return;
+      }
+
+      setCompanySchedulesState(
+        currentSchedules.filter((schedule) => schedule.id !== id)
+      );
+      setStorageError(null);
+
+      try {
+        const accessToken = await getAccessToken();
+        await deleteRemoteCompanySchedule(id, accessToken);
+        setStorageError(null);
+      } catch (error) {
+        setCompanySchedulesState((latestSchedules) => {
+          if (latestSchedules.some((schedule) => schedule.id === id)) {
+            return latestSchedules;
+          }
+
+          return sortSchedules([...latestSchedules, deletedSchedule]);
+        });
+        setStorageError('日程の削除に失敗しました。');
+        throw error;
+      }
+    },
+    [getAccessToken, setCompanySchedulesState]
+  );
+
+  const upsertScheduleCategory = useCallback(
+    async (draft: ScheduleCategoryDraft | ScheduleCategory) => {
+      const currentCategories = scheduleCategoriesRef.current;
+      const now = new Date().toISOString();
+      const existing = draft.id
+        ? currentCategories.find((category) => category.id === draft.id)
+        : undefined;
+      const trimmedName = draft.name.trim();
+
+      if (!trimmedName) {
+        throw new Error('Schedule category name is required.');
+      }
+
+      const nextCategory: ScheduleCategory = {
+        id: draft.id ?? createScheduleCategoryId(),
+        name: trimmedName,
+        colorCode: draft.colorCode,
+        createdAt: existing?.createdAt ?? draft.createdAt ?? now,
+        updatedAt: now
+      };
+      const nextCategories = existing
+        ? currentCategories.map((category) =>
+            category.id === nextCategory.id ? nextCategory : category
+          )
+        : [...currentCategories, nextCategory];
+
+      setScheduleCategoriesState(sortScheduleCategories(nextCategories));
+      setStorageError(null);
+
+      try {
+        const accessToken = await getAccessToken();
+        const savedCategory = await upsertRemoteScheduleCategory(
+          nextCategory,
+          accessToken
+        );
+        setScheduleCategoriesState((latestCategories) =>
+          sortScheduleCategories(
+            latestCategories.map((category) =>
+              category.id === nextCategory.id ? savedCategory : category
+            )
+          )
+        );
+        setStorageError(null);
+        return savedCategory;
+      } catch (error) {
+        setScheduleCategoriesState((latestCategories) => {
+          const latestCategory = latestCategories.find(
+            (category) => category.id === nextCategory.id
+          );
+
+          if (
+            !latestCategory ||
+            latestCategory.updatedAt !== nextCategory.updatedAt
+          ) {
+            return latestCategories;
+          }
+
+          return existing
+            ? sortScheduleCategories(
+                latestCategories.map((category) =>
+                  category.id === existing.id ? existing : category
+                )
+              )
+            : latestCategories.filter(
+                (category) => category.id !== nextCategory.id
+              );
+        });
+        setStorageError('色カテゴリの保存に失敗しました。');
+        throw error;
+      }
+    },
+    [getAccessToken, setScheduleCategoriesState]
+  );
+
+  const deleteScheduleCategory = useCallback(
+    async (id: string) => {
+      const currentCategories = scheduleCategoriesRef.current;
+      const currentSchedules = companySchedulesRef.current;
+      const deletedCategory = currentCategories.find(
+        (category) => category.id === id
+      );
+
+      if (!deletedCategory) {
+        return;
+      }
+
+      setScheduleCategoriesState(
+        currentCategories.filter((category) => category.id !== id)
+      );
+      setCompanySchedulesState(
+        sortSchedules(
+          currentSchedules.map((schedule) =>
+            schedule.categoryId === id
+              ? { ...schedule, categoryId: null }
+              : schedule
+          )
+        )
+      );
+      setStorageError(null);
+
+      try {
+        const accessToken = await getAccessToken();
+        await deleteRemoteScheduleCategory(id, accessToken);
+        setStorageError(null);
+      } catch (error) {
+        setScheduleCategoriesState(currentCategories);
+        setCompanySchedulesState(currentSchedules);
+        setStorageError('色カテゴリの削除に失敗しました。');
+        throw error;
+      }
+    },
+    [getAccessToken, setCompanySchedulesState, setScheduleCategoriesState]
   );
 
   const upsertQuestionMemo = useCallback(
@@ -742,6 +1045,7 @@ export const useCompanies = ({
     async (id: string) => {
       const currentCompanies = companiesRef.current;
       const currentQuestionMemos = questionMemosRef.current;
+      const currentSchedules = companySchedulesRef.current;
       const deletedCompany = currentCompanies.find(
         (company) => company.id === id
       );
@@ -759,6 +1063,9 @@ export const useCompanies = ({
             ? { ...questionMemo, companyId: null }
             : questionMemo
         )
+      );
+      setCompanySchedulesState(
+        currentSchedules.filter((schedule) => schedule.companyId !== id)
       );
       setStorageError(null);
 
@@ -788,11 +1095,17 @@ export const useCompanies = ({
             return sortCompanies([...latestCompanies, deletedCompany]);
           });
           setQuestionMemosState(currentQuestionMemos);
+          setCompanySchedulesState(currentSchedules);
           setStorageError('削除に失敗しました。もう一度お試しください。');
         }
       })();
     },
-    [getAccessToken, setCompaniesState, setQuestionMemosState]
+    [
+      getAccessToken,
+      setCompaniesState,
+      setCompanySchedulesState,
+      setQuestionMemosState
+    ]
   );
 
   const importLocalCompanies = useCallback(async () => {
@@ -868,6 +1181,10 @@ export const useCompanies = ({
       const hydratedCompanies = await hydrateNativePasswords(homeData.companies);
 
       setCompaniesState(hydratedCompanies);
+      setCompanySchedulesState(sortSchedules(homeData.companySchedules));
+      setScheduleCategoriesState(
+        sortScheduleCategories(homeData.scheduleCategories)
+      );
       setQuestionMemosState(
         mergeQuestionMemosByNewestUpdate(
           homeData.questionMemos,
@@ -883,6 +1200,8 @@ export const useCompanies = ({
   }, [
     getAccessToken,
     setCompaniesState,
+    setCompanySchedulesState,
+    setScheduleCategoriesState,
     setQuestionLabelsState,
     setQuestionMemosState
   ]);
@@ -893,6 +1212,8 @@ export const useCompanies = ({
 
   return {
     companies,
+    companySchedules,
+    scheduleCategories,
     questionMemos,
     questionLabels,
     isLoading,
@@ -900,6 +1221,10 @@ export const useCompanies = ({
     localMigrationAvailable,
     isMigratingLocalData,
     upsertCompany,
+    upsertCompanySchedule,
+    deleteCompanySchedule,
+    upsertScheduleCategory,
+    deleteScheduleCategory,
     upsertQuestionMemo,
     deleteQuestionMemo,
     createQuestionLabel,
