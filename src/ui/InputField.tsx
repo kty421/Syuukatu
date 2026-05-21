@@ -34,6 +34,7 @@ type InputFieldProps = TextInputProps & {
   label: string;
   theme: AppTheme;
   required?: boolean;
+  hideLabel?: boolean;
   errorMessage?: string | null;
   trailing?: ReactNode;
   fieldKey?: string;
@@ -46,6 +47,7 @@ export const InputField = forwardRef<TextInput, InputFieldProps>(
       label,
       theme,
       required,
+      hideLabel,
       errorMessage,
       trailing,
       fieldKey,
@@ -76,12 +78,14 @@ export const InputField = forwardRef<TextInput, InputFieldProps>(
 
     return (
       <View onLayout={handleLayout}>
-        <Text style={[styles.label, { color: theme.colors.textSecondary }]}>
-          {label}
-          {required ? (
-            <Text style={{ color: theme.colors.danger }}> *</Text>
-          ) : null}
-        </Text>
+        {hideLabel ? null : (
+          <Text style={[styles.label, { color: theme.colors.textSecondary }]}>
+            {label}
+            {required ? (
+              <Text style={{ color: theme.colors.danger }}> *</Text>
+            ) : null}
+          </Text>
+        )}
         <Pressable
           accessibilityRole="button"
           onPress={(event) => {

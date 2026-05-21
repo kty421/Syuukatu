@@ -1,7 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Platform,
   Pressable,
   ScrollView,
   StyleProp,
@@ -24,7 +25,6 @@ import {
   formatScheduleTime,
   getScheduleEndDate,
   getSchedulesForDate,
-  isMultiDaySchedule,
   sortSchedules,
   startOfMonth,
   todayDateString,
@@ -40,17 +40,24 @@ type CalendarViewProps = {
   bottomPadding: number;
   containerStyle: StyleProp<ViewStyle>;
   onOpenSchedule: (schedule: CompanySchedule) => void;
-  onOpenCompany: (company: Company) => void;
+  onDeleteSchedule: (schedule: CompanySchedule) => void;
   onCreateSchedule: (date: string) => void;
 };
 
 const weekdays = ["日", "月", "火", "水", "木", "金", "土"];
-const maxCellSchedules = 2;
 const weekDayCount = 7;
 const weekCount = 6;
-const multiDayBannerHeight = 18;
-const multiDayBannerGap = 3;
-const multiDayBannerTop = 24;
+const dayCellVerticalPadding = 4;
+const dayHeaderHeight = 15;
+const cellScheduleHeight = 13;
+const cellScheduleGap = 0;
+const multiDayBannerHeight = 12;
+const multiDayBannerGap = 2;
+const multiDayBannerTop = 22;
+const calendarScheduleFontSize = Platform.OS === "web" ? 9 : 10;
+const calendarScheduleFontWeight =
+  Platform.OS === "web" ? ("700" as const) : ("800" as const);
+const calendarScheduleLineHeight = Platform.OS === "web" ? 11 : 12;
 
 type WeekMultiDaySegment = {
   schedule: CompanySchedule;
@@ -65,6 +72,46 @@ const chunkMonthWeeks = (days: string[]) =>
   Array.from({ length: weekCount }, (_, index) =>
     days.slice(index * weekDayCount, index * weekDayCount + weekDayCount),
   );
+
+const getAllDayBannerSpaceHeight = (laneCount: number) =>
+  laneCount * (multiDayBannerHeight + multiDayBannerGap);
+
+const getVisibleAllDayLaneLimit = (dayCellHeight: number) =>
+  Math.max(
+    0,
+    Math.floor(
+      (dayCellHeight - multiDayBannerTop + multiDayBannerGap) /
+        (multiDayBannerHeight + multiDayBannerGap),
+    ),
+  );
+
+const getVisibleTimedScheduleCount = (
+  dayCellHeight: number,
+  visibleAllDayLaneCount: number,
+) => {
+  const allDayOffset =
+    visibleAllDayLaneCount > 0
+      ? getAllDayBannerSpaceHeight(visibleAllDayLaneCount) + 8
+      : 0;
+  const availableHeight =
+    dayCellHeight - dayCellVerticalPadding * 2 - dayHeaderHeight - allDayOffset;
+
+  if (availableHeight <= 0) {
+    return 0;
+  }
+
+  return Math.max(
+    0,
+    Math.floor(
+      (availableHeight + cellScheduleGap) /
+        (cellScheduleHeight + cellScheduleGap),
+    ),
+  );
+};
+
+const segmentCoversCell = (segment: WeekMultiDaySegment, cellIndex: number) =>
+  segment.startIndex <= cellIndex &&
+  cellIndex < segment.startIndex + segment.span;
 
 const buildWeekMultiDaySegments = (
   weekDates: string[],
@@ -81,7 +128,7 @@ const buildWeekMultiDaySegments = (
 
   const weekSchedules = sortSchedules(
     schedules.filter((schedule) => {
-      if (!isMultiDaySchedule(schedule)) {
+      if (!schedule.isAllDay) {
         return false;
       }
 
@@ -209,10 +256,12 @@ export const CalendarView = ({
   bottomPadding,
   containerStyle,
   onOpenSchedule,
-  onOpenCompany,
+  onDeleteSchedule,
   onCreateSchedule,
 }: CalendarViewProps) => {
-  const { height } = useWindowDimensions();
+  const { height, width } = useWindowDimensions();
+  const scrollViewRef = useRef<ScrollView>(null);
+  const dayPanelTopRef = useRef(0);
   const today = todayDateString();
   const [monthDate, setMonthDate] = useState(startOfMonth(today));
   const [selectedDate, setSelectedDate] = useState(today);
@@ -224,9 +273,7 @@ export const CalendarView = ({
   const weekRows = useMemo(() => chunkMonthWeeks(days), [days]);
   const schedulesByDate = useMemo(
     () =>
-      new Map(
-        days.map((date) => [date, getSchedulesForDate(schedules, date)]),
-      ),
+      new Map(days.map((date) => [date, getSchedulesForDate(schedules, date)])),
     [days, schedules],
   );
   const weekMultiDaySegments = useMemo(
@@ -244,9 +291,28 @@ export const CalendarView = ({
     monthDate.slice(5, 7),
   )}月`;
   const dayCellHeight = Math.min(
-    Math.max(Math.floor((height - bottomPadding - 176) / 6), 54),
-    78,
+    Math.max(Math.floor((height - bottomPadding - 144) / 6), 62),
+    88,
   );
+  const visibleAllDayLaneLimit = getVisibleAllDayLaneLimit(dayCellHeight);
+  const compactCalendar = width < 768;
+  const calendarHorizontalPadding = compactCalendar
+    ? Math.max(contentPadding - 8, 12)
+    : contentPadding;
+  const overflowBadgeWidth = compactCalendar ? 26 : 38;
+  const overflowBadgeHeight = compactCalendar ? 23 : 34;
+  const overflowBadgeTextInset = compactCalendar ? 1 : 3;
+  const overflowBadgeFontSize = compactCalendar ? 8 : 9;
+
+  const selectDate = (date: string) => {
+    setSelectedDate(date);
+    requestAnimationFrame(() => {
+      scrollViewRef.current?.scrollTo({
+        animated: true,
+        y: Math.max(dayPanelTopRef.current - 10, 0),
+      });
+    });
+  };
 
   const getCompany = (schedule: CompanySchedule) =>
     companyById.get(schedule.companyId) ?? null;
@@ -267,9 +333,10 @@ export const CalendarView = ({
 
   return (
     <ScrollView
+      ref={scrollViewRef}
       contentContainerStyle={{
         paddingBottom: bottomPadding,
-        paddingHorizontal: contentPadding,
+        paddingHorizontal: calendarHorizontalPadding,
         paddingTop: 8,
       }}
       showsVerticalScrollIndicator={false}>
@@ -293,7 +360,10 @@ export const CalendarView = ({
             />
             <View style={styles.monthTitleBlock}>
               <Text
-                style={[styles.monthTitle, { color: theme.colors.textPrimary }]}>
+                style={[
+                  styles.monthTitle,
+                  { color: theme.colors.textPrimary },
+                ]}>
                 {monthTitle}
               </Text>
               <Pressable
@@ -311,7 +381,10 @@ export const CalendarView = ({
                   pressed && styles.pressed,
                 ]}>
                 <Text
-                  style={[styles.todayButtonText, { color: theme.colors.primary }]}>
+                  style={[
+                    styles.todayButtonText,
+                    { color: theme.colors.primary },
+                  ]}>
                   今日
                 </Text>
               </Pressable>
@@ -348,50 +421,63 @@ export const CalendarView = ({
           <View style={[styles.grid, { borderColor: theme.colors.divider }]}>
             {weekRows.map((weekDates, weekIndex) => {
               const segments = weekMultiDaySegments[weekIndex] ?? [];
-              const laneCount = segments.reduce(
-                (count, segment) => Math.max(count, segment.lane + 1),
-                0,
-              );
-              const bannerSpaceHeight =
-                laneCount * (multiDayBannerHeight + multiDayBannerGap);
-              const weekRowHeight = Math.max(
-                dayCellHeight,
-                multiDayBannerTop + bannerSpaceHeight + 42,
+              const visibleSegments = segments.filter(
+                (segment) => segment.lane < visibleAllDayLaneLimit,
               );
 
               return (
                 <View
                   key={weekDates[0] ?? `week-${weekIndex}`}
-                  style={[styles.weekGridRow, { height: weekRowHeight }]}>
+                  style={[styles.weekGridRow, { height: dayCellHeight }]}>
                   <View style={styles.weekCellLayer}>
-                    {weekDates.map((date) => {
+                    {weekDates.map((date, cellIndex) => {
                       const dateObject = new Date(
                         Number(date.slice(0, 4)),
                         Number(date.slice(5, 7)) - 1,
                         Number(date.slice(8, 10)),
                       );
-                      const dayIndex = dateObject.getDay();
+                      const weekdayIndex = dateObject.getDay();
                       const inMonth =
                         date.slice(0, 7) === monthDate.slice(0, 7);
                       const isToday = date === today;
                       const selected = date === selectedDate;
                       const daySchedules = schedulesByDate.get(date) ?? [];
-                      const singleDaySchedules = daySchedules.filter(
-                        (schedule) => !isMultiDaySchedule(schedule),
+                      const timedSchedules = daySchedules.filter(
+                        (schedule) => !schedule.isAllDay,
                       );
-                      const visibleSchedules = singleDaySchedules.slice(
+                      const dateLaneCount = visibleSegments.reduce(
+                        (count, segment) =>
+                          segmentCoversCell(segment, cellIndex)
+                            ? Math.max(count, segment.lane + 1)
+                            : count,
                         0,
-                        maxCellSchedules,
                       );
+                      const dateBannerSpaceHeight =
+                        getAllDayBannerSpaceHeight(dateLaneCount);
+                      const visibleScheduleCount = getVisibleTimedScheduleCount(
+                        dayCellHeight,
+                        dateLaneCount,
+                      );
+                      const visibleSchedules = timedSchedules.slice(
+                        0,
+                        visibleScheduleCount,
+                      );
+                      const hiddenAllDayCount = segments.filter(
+                        (segment) =>
+                          segmentCoversCell(segment, cellIndex) &&
+                          segment.lane >= visibleAllDayLaneLimit,
+                      ).length;
                       const hiddenCount =
-                        singleDaySchedules.length - visibleSchedules.length;
+                        hiddenAllDayCount +
+                        timedSchedules.length -
+                        visibleSchedules.length;
 
                       return (
                         <Pressable
                           key={date}
                           accessibilityRole="button"
                           accessibilityState={{ selected }}
-                          onPress={() => setSelectedDate(date)}
+                          onPress={() => selectDate(date)}
                           style={({ pressed }) => [
                             styles.dayCell,
                             {
@@ -411,9 +497,9 @@ export const CalendarView = ({
                                 {
                                   color: !inMonth
                                     ? theme.colors.textDisabled
-                                    : dayIndex === 0
+                                    : weekdayIndex === 0
                                       ? theme.colors.danger
-                                      : dayIndex === 6
+                                      : weekdayIndex === 6
                                         ? theme.colors.primary
                                         : theme.colors.textPrimary,
                                 },
@@ -435,29 +521,20 @@ export const CalendarView = ({
                               styles.cellScheduleList,
                               {
                                 marginTop:
-                                  laneCount > 0
-                                    ? bannerSpaceHeight + 8
+                                  dateLaneCount > 0
+                                    ? dateBannerSpaceHeight + 8
                                     : 0,
                               },
                             ]}>
                             {visibleSchedules.map((schedule) => {
-                              const { company, color } =
-                                getScheduleColor(schedule);
+                              const { color } = getScheduleColor(schedule);
 
                               return (
-                                <Pressable
+                                <View
                                   key={schedule.id}
-                                  accessibilityRole="button"
-                                  accessibilityLabel={`${company?.companyName ?? "企業"} ${schedule.title || schedule.type}を編集`}
-                                  onPress={(event) => {
-                                    event.stopPropagation?.();
-                                    onOpenSchedule(schedule);
-                                  }}
-                                  style={({ pressed }) => [
-                                    styles.singleDaySchedule,
-                                    pressed && styles.pressed,
-                                  ]}>
+                                  style={styles.singleDaySchedule}>
                                   <Text
+                                    ellipsizeMode="clip"
                                     numberOfLines={1}
                                     style={[
                                       styles.cellScheduleText,
@@ -465,29 +542,54 @@ export const CalendarView = ({
                                     ]}>
                                     {schedule.title || schedule.type}
                                   </Text>
-                                </Pressable>
+                                </View>
                               );
                             })}
-                            {hiddenCount > 0 ? (
-                              <Text
-                                numberOfLines={1}
-                                style={[
-                                  styles.moreText,
-                                  { color: theme.colors.textMuted },
-                                ]}>
-                                +{hiddenCount}件
-                              </Text>
-                            ) : null}
                           </View>
+                          {hiddenCount > 0 ? (
+                            <View
+                              pointerEvents="none"
+                              style={[
+                                styles.overflowBadge,
+                                {
+                                  height: overflowBadgeHeight,
+                                  width: overflowBadgeWidth,
+                                },
+                              ]}>
+                              <View
+                                style={[
+                                  styles.overflowBadgeTriangle,
+                                  {
+                                    borderBottomColor:
+                                      theme.colors.primaryBorder,
+                                    borderBottomWidth: overflowBadgeHeight,
+                                    borderLeftWidth: overflowBadgeWidth,
+                                  },
+                                ]}
+                              />
+                              <Text
+                                style={[
+                                  styles.overflowBadgeText,
+                                  {
+                                    bottom: overflowBadgeTextInset,
+                                    fontSize: overflowBadgeFontSize,
+                                    lineHeight: overflowBadgeFontSize + 2,
+                                    right: overflowBadgeTextInset,
+                                  },
+                                ]}>
+                                +{hiddenCount}
+                              </Text>
+                            </View>
+                          ) : null}
                         </Pressable>
                       );
                     })}
                   </View>
 
-                  <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
-                    {segments.map((segment) => {
+                  <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+                    {visibleSegments.map((segment) => {
                       const { schedule } = segment;
-                      const { company, color } = getScheduleColor(schedule);
+                      const { color } = getScheduleColor(schedule);
                       const left = `${
                         (segment.startIndex / weekDayCount) * 100
                       }%` as `${number}%`;
@@ -496,15 +598,9 @@ export const CalendarView = ({
                       }%` as `${number}%`;
 
                       return (
-                        <Pressable
+                        <View
                           key={`${schedule.id}-${weekIndex}`}
-                          accessibilityRole="button"
-                          accessibilityLabel={`${company?.companyName ?? "企業"} ${schedule.title || schedule.type}を編集`}
-                          onPress={(event) => {
-                            event.stopPropagation?.();
-                            onOpenSchedule(schedule);
-                          }}
-                          style={({ pressed }) => [
+                          style={[
                             styles.multiDayBanner,
                             {
                               backgroundColor: color,
@@ -527,14 +623,14 @@ export const CalendarView = ({
                                   (multiDayBannerHeight + multiDayBannerGap),
                               width,
                             },
-                            pressed && styles.pressed,
                           ]}>
                           <Text
+                            ellipsizeMode="clip"
                             numberOfLines={1}
                             style={styles.multiDayBannerText}>
                             {schedule.title || schedule.type}
                           </Text>
-                        </Pressable>
+                        </View>
                       );
                     })}
                   </View>
@@ -545,6 +641,9 @@ export const CalendarView = ({
         </View>
 
         <View
+          onLayout={(event) => {
+            dayPanelTopRef.current = event.nativeEvent.layout.y;
+          }}
           style={[
             styles.dayPanel,
             theme.shadows.surface,
@@ -562,7 +661,10 @@ export const CalendarView = ({
           <View style={styles.panelHeader}>
             <View style={styles.panelTitleBlock}>
               <Text
-                style={[styles.panelTitle, { color: theme.colors.textPrimary }]}>
+                style={[
+                  styles.panelTitle,
+                  { color: theme.colors.textPrimary },
+                ]}>
                 {formatJapaneseDate(selectedDate)}
               </Text>
               <Text
@@ -587,13 +689,6 @@ export const CalendarView = ({
                 size={16}
                 color={theme.colors.textOnPrimary}
               />
-              <Text
-                style={[
-                  styles.addScheduleText,
-                  { color: theme.colors.textOnPrimary },
-                ]}>
-                追加
-              </Text>
             </Pressable>
           </View>
 
@@ -617,6 +712,9 @@ export const CalendarView = ({
                   scheduleCategories,
                   theme,
                 );
+                const panelTimeText = schedule.isAllDay
+                  ? "終日"
+                  : formatScheduleTime(schedule);
 
                 return (
                   <Pressable
@@ -630,11 +728,37 @@ export const CalendarView = ({
                       },
                       pressed && styles.pressed,
                     ]}>
-                    <Text
-                      numberOfLines={1}
-                      style={[styles.panelTime, { color: theme.colors.textMuted }]}>
-                      {formatScheduleTime(schedule)}
-                    </Text>
+                    {compactCalendar && !schedule.isAllDay ? (
+                      <View style={styles.panelTimeStack}>
+                        <Text
+                          numberOfLines={1}
+                          style={[
+                            styles.panelTimeStackText,
+                            { color: theme.colors.textMuted },
+                          ]}>
+                          {schedule.startTime ?? ""}
+                        </Text>
+                        <Text
+                          numberOfLines={1}
+                          style={[
+                            styles.panelTimeStackText,
+                            { color: theme.colors.textMuted },
+                          ]}>
+                          {schedule.endTime ?? ""}
+                        </Text>
+                      </View>
+                    ) : (
+                      <Text
+                        ellipsizeMode="clip"
+                        numberOfLines={compactCalendar ? 2 : 1}
+                        style={[
+                          styles.panelTime,
+                          compactCalendar && styles.panelTimeCompact,
+                          { color: theme.colors.textMuted },
+                        ]}>
+                        {panelTimeText}
+                      </Text>
+                    )}
                     <View
                       style={[
                         styles.panelDot,
@@ -660,35 +784,17 @@ export const CalendarView = ({
                       </Text>
                     </View>
                     <IconButton
-                      icon="create-outline"
-                      label="予定を編集"
+                      icon="trash-outline"
+                      label="予定を削除"
                       onPress={(event) => {
                         event.stopPropagation?.();
-                        onOpenSchedule(schedule);
+                        onDeleteSchedule(schedule);
                       }}
                       theme={theme}
+                      tone="danger"
                       size="compact"
                       variant="plain"
                     />
-                    {company ? (
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel={`${company.companyName}を開く`}
-                        onPress={(event) => {
-                          event.stopPropagation?.();
-                          onOpenCompany(company);
-                        }}
-                        style={({ pressed }) => [
-                          styles.openCompanyButton,
-                          pressed && styles.pressed,
-                        ]}>
-                        <Ionicons
-                          name="business-outline"
-                          size={17}
-                          color={theme.colors.textMuted}
-                        />
-                      </Pressable>
-                    ) : null}
                   </Pressable>
                 );
               })}
@@ -749,6 +855,7 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
   },
   weekGridRow: {
+    overflow: "hidden",
     position: "relative",
   },
   weekCellLayer: {
@@ -760,13 +867,15 @@ const styles = StyleSheet.create({
     borderRightWidth: StyleSheet.hairlineWidth,
     flex: 1,
     minWidth: 0,
-    padding: 5,
+    overflow: "hidden",
+    padding: dayCellVerticalPadding,
+    position: "relative",
   },
   dayHeader: {
     alignItems: "center",
     flexDirection: "row",
     gap: 4,
-    minHeight: 16,
+    minHeight: dayHeaderHeight,
   },
   dayNumber: {
     fontSize: 11,
@@ -780,40 +889,55 @@ const styles = StyleSheet.create({
   },
   cellScheduleList: {
     alignItems: "flex-start",
-    gap: 1,
+    gap: cellScheduleGap,
     marginTop: 0,
   },
   singleDaySchedule: {
     alignSelf: "stretch",
     justifyContent: "center",
-    minHeight: 16,
+    minHeight: cellScheduleHeight,
     paddingHorizontal: 0,
   },
   cellScheduleText: {
-    fontSize: 10,
-    fontWeight: "800",
-    lineHeight: 14,
+    fontSize: calendarScheduleFontSize,
+    fontWeight: calendarScheduleFontWeight,
+    lineHeight: calendarScheduleLineHeight,
     textAlign: "left",
-  },
-  moreText: {
-    fontSize: 9,
-    fontWeight: "800",
-    lineHeight: 12,
-    paddingHorizontal: 0,
   },
   multiDayBanner: {
     height: multiDayBannerHeight,
     justifyContent: "center",
     marginHorizontal: 1,
-    paddingHorizontal: 5,
+    paddingHorizontal: 2,
     position: "absolute",
     zIndex: 2,
   },
   multiDayBannerText: {
     color: "#FFFFFF",
-    fontSize: 9,
-    fontWeight: "800",
-    lineHeight: 12,
+    fontSize: calendarScheduleFontSize,
+    fontWeight: calendarScheduleFontWeight,
+    lineHeight: calendarScheduleLineHeight,
+  },
+  overflowBadge: {
+    bottom: 0,
+    position: "absolute",
+    right: 0,
+    zIndex: 4,
+  },
+  overflowBadgeTriangle: {
+    borderLeftColor: "transparent",
+    borderStyle: "solid",
+    bottom: 0,
+    height: 0,
+    opacity: 0.88,
+    position: "absolute",
+    right: 0,
+    width: 0,
+  },
+  overflowBadgeText: {
+    color: "#FFFFFF",
+    fontWeight: "900",
+    position: "absolute",
   },
   dayPanel: {
     borderRadius: 24,
@@ -852,15 +976,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderRadius: 14,
     borderWidth: StyleSheet.hairlineWidth,
-    flexDirection: "row",
-    gap: 4,
+    height: 36,
+    justifyContent: "center",
     minHeight: 36,
-    paddingHorizontal: 12,
-  },
-  addScheduleText: {
-    fontSize: 12,
-    fontWeight: "800",
-    lineHeight: 16,
+    width: 36,
   },
   emptyState: {
     alignItems: "center",
@@ -889,6 +1008,21 @@ const styles = StyleSheet.create({
     lineHeight: 15,
     width: 72,
   },
+  panelTimeCompact: {
+    lineHeight: 14,
+    width: 48,
+  },
+  panelTimeStack: {
+    alignItems: "flex-start",
+    gap: 2,
+    justifyContent: "center",
+    width: 42,
+  },
+  panelTimeStackText: {
+    fontSize: 11,
+    fontWeight: "800",
+    lineHeight: 14,
+  },
   panelDot: {
     borderRadius: 999,
     height: 10,
@@ -908,13 +1042,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     lineHeight: 17,
     marginTop: 2,
-  },
-  openCompanyButton: {
-    alignItems: "center",
-    borderRadius: 12,
-    height: 34,
-    justifyContent: "center",
-    width: 34,
   },
   pressed: {
     opacity: 0.72,

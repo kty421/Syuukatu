@@ -489,10 +489,7 @@ export const HomeScreen = ({
     () =>
       [...companies]
         .filter((company) => !company.archived)
-        .sort(
-          (a, b) =>
-            toTimestamp(b.updatedAt) - toTimestamp(a.updatedAt),
-        ),
+        .sort((a, b) => toTimestamp(b.updatedAt) - toTimestamp(a.updatedAt)),
     [companies],
   );
   const companySearchIndex = useMemo(
@@ -634,7 +631,7 @@ export const HomeScreen = ({
       ? "企業一覧"
       : homeView === "questions"
         ? "質問一覧"
-        : "カレンダー";
+        : "日程";
   const fabBottom = navigationReservedHeight + 8;
   const showPasswordControls = Platform.OS !== "web";
   const companyListContentContainerStyle = useMemo(
@@ -1183,17 +1180,41 @@ export const HomeScreen = ({
     );
   }, []);
 
-  const startScheduleForCompany = useCallback(
-    (company: Company) => {
-      setScheduleCompanyPickerVisible(false);
-      setEditingCalendarSchedule(null);
-      setScheduleEditorCompany(company);
-      setScheduleCreateInitialDate(
-        (current) => current || todayDateString(),
-      );
-      setScheduleEditorVisible(true);
+  const startScheduleForCompany = useCallback((company: Company) => {
+    setScheduleCompanyPickerVisible(false);
+    setEditingCalendarSchedule(null);
+    setScheduleEditorCompany(company);
+    setScheduleCreateInitialDate((current) => current || todayDateString());
+    setScheduleEditorVisible(true);
+  }, []);
+
+  const deleteCalendarSchedule = useCallback(
+    (schedule: CompanySchedule) => {
+      const company =
+        companies.find((item) => item.id === schedule.companyId) ?? null;
+
+      confirmDestructiveAction({
+        title: "予定を削除しますか？",
+        message: `${company?.companyName ?? "企業名未設定"}の「${
+          schedule.title || schedule.type
+        }」を削除します。`,
+        confirmLabel: "OK",
+        onConfirm: async () => {
+          try {
+            await deleteCompanySchedule(schedule.id);
+            void runHapticsSafely(() =>
+              Haptics.notificationAsync(
+                Haptics.NotificationFeedbackType.Warning,
+              ),
+            );
+            showToast("日程を削除しました");
+          } catch {
+            showToast("日程の削除に失敗しました", "error");
+          }
+        },
+      });
     },
-    [],
+    [companies, confirmDestructiveAction, deleteCompanySchedule, showToast],
   );
 
   const createCompanyForQuestion = useCallback(
@@ -1339,9 +1360,9 @@ export const HomeScreen = ({
         setSelectedQuestionLabelId(null);
       }
 
-      showToast('ラベルを削除しました');
+      showToast("ラベルを削除しました");
     },
-    [deleteQuestionLabel, selectedQuestionLabelId, showToast]
+    [deleteQuestionLabel, selectedQuestionLabelId, showToast],
   );
 
   const saveQuestionMemo = useCallback(
@@ -1755,7 +1776,7 @@ export const HomeScreen = ({
               setScheduleCreateInitialDate(null);
               setScheduleEditorVisible(true);
             }}
-            onOpenCompany={openEditModal}
+            onDeleteSchedule={deleteCalendarSchedule}
             onCreateSchedule={openScheduleCompanyPicker}
           />
         )}
