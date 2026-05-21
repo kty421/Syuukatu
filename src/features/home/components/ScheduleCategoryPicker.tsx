@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
+  Keyboard,
   Modal,
   Platform,
   Pressable,
@@ -486,7 +487,10 @@ const CategoryEditorScreen = ({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="色を選択"
-            onPress={() => setPaletteVisible(true)}
+            onPress={() => {
+              Keyboard.dismiss();
+              setPaletteVisible(true);
+            }}
             style={({ pressed }) => [
               styles.colorRow,
               pressed && styles.rowPressed,

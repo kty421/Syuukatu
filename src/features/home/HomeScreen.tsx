@@ -489,10 +489,7 @@ export const HomeScreen = ({
     () =>
       [...companies]
         .filter((company) => !company.archived)
-        .sort(
-          (a, b) =>
-            toTimestamp(b.updatedAt) - toTimestamp(a.updatedAt),
-        ),
+        .sort((a, b) => toTimestamp(b.updatedAt) - toTimestamp(a.updatedAt)),
     [companies],
   );
   const companySearchIndex = useMemo(
@@ -634,7 +631,7 @@ export const HomeScreen = ({
       ? "企業一覧"
       : homeView === "questions"
         ? "質問一覧"
-        : "カレンダー";
+        : "日程";
   const fabBottom = navigationReservedHeight + 8;
   const showPasswordControls = Platform.OS !== "web";
   const companyListContentContainerStyle = useMemo(
@@ -1183,18 +1180,13 @@ export const HomeScreen = ({
     );
   }, []);
 
-  const startScheduleForCompany = useCallback(
-    (company: Company) => {
-      setScheduleCompanyPickerVisible(false);
-      setEditingCalendarSchedule(null);
-      setScheduleEditorCompany(company);
-      setScheduleCreateInitialDate(
-        (current) => current || todayDateString(),
-      );
-      setScheduleEditorVisible(true);
-    },
-    [],
-  );
+  const startScheduleForCompany = useCallback((company: Company) => {
+    setScheduleCompanyPickerVisible(false);
+    setEditingCalendarSchedule(null);
+    setScheduleEditorCompany(company);
+    setScheduleCreateInitialDate((current) => current || todayDateString());
+    setScheduleEditorVisible(true);
+  }, []);
 
   const deleteCalendarSchedule = useCallback(
     (schedule: CompanySchedule) => {
@@ -1368,9 +1360,9 @@ export const HomeScreen = ({
         setSelectedQuestionLabelId(null);
       }
 
-      showToast('ラベルを削除しました');
+      showToast("ラベルを削除しました");
     },
-    [deleteQuestionLabel, selectedQuestionLabelId, showToast]
+    [deleteQuestionLabel, selectedQuestionLabelId, showToast],
   );
 
   const saveQuestionMemo = useCallback(
