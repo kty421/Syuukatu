@@ -10,7 +10,7 @@ export const upsertRemoteScheduleCategory = async (
   accessToken: string | null
 ) => {
   const response = await apiRequest<ScheduleCategoryResponse>(
-    '/api/schedule-categories',
+    '/api/companies',
     {
       method: 'PUT',
       accessToken,
@@ -27,7 +27,7 @@ export const deleteRemoteScheduleCategory = async (
   id: string,
   accessToken: string | null
 ) => {
-  await apiRequest(`/api/schedule-categories?id=${encodeURIComponent(id)}`, {
+  await apiRequest(`/api/companies?categoryId=${encodeURIComponent(id)}`, {
     method: 'DELETE',
     accessToken
   });
