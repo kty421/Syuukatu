@@ -1196,6 +1196,35 @@ export const HomeScreen = ({
     [],
   );
 
+  const deleteCalendarSchedule = useCallback(
+    (schedule: CompanySchedule) => {
+      const company =
+        companies.find((item) => item.id === schedule.companyId) ?? null;
+
+      confirmDestructiveAction({
+        title: "予定を削除しますか？",
+        message: `${company?.companyName ?? "企業名未設定"}の「${
+          schedule.title || schedule.type
+        }」を削除します。`,
+        confirmLabel: "OK",
+        onConfirm: async () => {
+          try {
+            await deleteCompanySchedule(schedule.id);
+            void runHapticsSafely(() =>
+              Haptics.notificationAsync(
+                Haptics.NotificationFeedbackType.Warning,
+              ),
+            );
+            showToast("日程を削除しました");
+          } catch {
+            showToast("日程の削除に失敗しました", "error");
+          }
+        },
+      });
+    },
+    [companies, confirmDestructiveAction, deleteCompanySchedule, showToast],
+  );
+
   const createCompanyForQuestion = useCallback(
     async (companyName: string) => {
       const trimmedName = companyName.trim();
@@ -1755,7 +1784,7 @@ export const HomeScreen = ({
               setScheduleCreateInitialDate(null);
               setScheduleEditorVisible(true);
             }}
-            onOpenCompany={openEditModal}
+            onDeleteSchedule={deleteCalendarSchedule}
             onCreateSchedule={openScheduleCompanyPicker}
           />
         )}

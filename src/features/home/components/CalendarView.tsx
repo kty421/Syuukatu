@@ -24,7 +24,6 @@ import {
   formatScheduleTime,
   getScheduleEndDate,
   getSchedulesForDate,
-  isMultiDaySchedule,
   sortSchedules,
   startOfMonth,
   todayDateString,
@@ -40,7 +39,7 @@ type CalendarViewProps = {
   bottomPadding: number;
   containerStyle: StyleProp<ViewStyle>;
   onOpenSchedule: (schedule: CompanySchedule) => void;
-  onOpenCompany: (company: Company) => void;
+  onDeleteSchedule: (schedule: CompanySchedule) => void;
   onCreateSchedule: (date: string) => void;
 };
 
@@ -81,7 +80,7 @@ const buildWeekMultiDaySegments = (
 
   const weekSchedules = sortSchedules(
     schedules.filter((schedule) => {
-      if (!isMultiDaySchedule(schedule)) {
+      if (!schedule.isAllDay) {
         return false;
       }
 
@@ -209,7 +208,7 @@ export const CalendarView = ({
   bottomPadding,
   containerStyle,
   onOpenSchedule,
-  onOpenCompany,
+  onDeleteSchedule,
   onCreateSchedule,
 }: CalendarViewProps) => {
   const { height } = useWindowDimensions();
@@ -364,27 +363,38 @@ export const CalendarView = ({
                   key={weekDates[0] ?? `week-${weekIndex}`}
                   style={[styles.weekGridRow, { height: weekRowHeight }]}>
                   <View style={styles.weekCellLayer}>
-                    {weekDates.map((date) => {
+                    {weekDates.map((date, cellIndex) => {
                       const dateObject = new Date(
                         Number(date.slice(0, 4)),
                         Number(date.slice(5, 7)) - 1,
                         Number(date.slice(8, 10)),
                       );
-                      const dayIndex = dateObject.getDay();
+                      const weekdayIndex = dateObject.getDay();
                       const inMonth =
                         date.slice(0, 7) === monthDate.slice(0, 7);
                       const isToday = date === today;
                       const selected = date === selectedDate;
                       const daySchedules = schedulesByDate.get(date) ?? [];
-                      const singleDaySchedules = daySchedules.filter(
-                        (schedule) => !isMultiDaySchedule(schedule),
+                      const timedSchedules = daySchedules.filter(
+                        (schedule) => !schedule.isAllDay,
                       );
-                      const visibleSchedules = singleDaySchedules.slice(
+                      const visibleSchedules = timedSchedules.slice(
                         0,
                         maxCellSchedules,
                       );
                       const hiddenCount =
-                        singleDaySchedules.length - visibleSchedules.length;
+                        timedSchedules.length - visibleSchedules.length;
+                      const dateLaneCount = segments.reduce(
+                        (count, segment) =>
+                          segment.startIndex <= cellIndex &&
+                          cellIndex < segment.startIndex + segment.span
+                            ? Math.max(count, segment.lane + 1)
+                            : count,
+                        0,
+                      );
+                      const dateBannerSpaceHeight =
+                        dateLaneCount *
+                        (multiDayBannerHeight + multiDayBannerGap);
 
                       return (
                         <Pressable
@@ -411,9 +421,9 @@ export const CalendarView = ({
                                 {
                                   color: !inMonth
                                     ? theme.colors.textDisabled
-                                    : dayIndex === 0
+                                    : weekdayIndex === 0
                                       ? theme.colors.danger
-                                      : dayIndex === 6
+                                      : weekdayIndex === 6
                                         ? theme.colors.primary
                                         : theme.colors.textPrimary,
                                 },
@@ -435,8 +445,8 @@ export const CalendarView = ({
                               styles.cellScheduleList,
                               {
                                 marginTop:
-                                  laneCount > 0
-                                    ? bannerSpaceHeight + 8
+                                  dateLaneCount > 0
+                                    ? dateBannerSpaceHeight + 8
                                     : 0,
                               },
                             ]}>
@@ -653,25 +663,18 @@ export const CalendarView = ({
                       size="compact"
                       variant="plain"
                     />
-                    {company ? (
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel={`${company.companyName}を開く`}
-                        onPress={(event) => {
-                          event.stopPropagation?.();
-                          onOpenCompany(company);
-                        }}
-                        style={({ pressed }) => [
-                          styles.openCompanyButton,
-                          pressed && styles.pressed,
-                        ]}>
-                        <Ionicons
-                          name="business-outline"
-                          size={17}
-                          color={theme.colors.textMuted}
-                        />
-                      </Pressable>
-                    ) : null}
+                    <IconButton
+                      icon="trash-outline"
+                      label="予定を削除"
+                      onPress={(event) => {
+                        event.stopPropagation?.();
+                        onDeleteSchedule(schedule);
+                      }}
+                      theme={theme}
+                      tone="danger"
+                      size="compact"
+                      variant="plain"
+                    />
                   </Pressable>
                 );
               })}
@@ -891,13 +894,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     lineHeight: 17,
     marginTop: 2,
-  },
-  openCompanyButton: {
-    alignItems: "center",
-    borderRadius: 12,
-    height: 34,
-    justifyContent: "center",
-    width: 34,
   },
   pressed: {
     opacity: 0.72,
