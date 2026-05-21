@@ -4,10 +4,12 @@ import {
   ActivityIndicator,
   Animated,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextStyle,
   TextInput,
   useWindowDimensions,
   View,
@@ -45,6 +47,10 @@ const dangerRed = "#FF3B30";
 const rowTextColor = "#111111";
 const chevronColor = "#8E8E93";
 const sheetBackdrop = "rgba(0,0,0,0.4)";
+const webInputOutlineReset =
+  Platform.OS === "web"
+    ? ({ outlineColor: "transparent", outlineStyle: "none", outlineWidth: 0 } as unknown as TextStyle)
+    : null;
 
 const normalizeColorCode = (colorCode: string) =>
   colorCode.trim().toUpperCase();
@@ -350,6 +356,7 @@ const CategoryEditorScreen = ({
   const [paletteVisible, setPaletteVisible] = useState(false);
   const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [nameFocused, setNameFocused] = useState(false);
 
   useEffect(() => {
     setName(category?.name ?? "");
@@ -359,6 +366,7 @@ const CategoryEditorScreen = ({
     setPaletteVisible(false);
     setDeleteConfirmVisible(false);
     setDeleting(false);
+    setNameFocused(false);
     requestAnimationFrame(() => {
       inputRef.current?.focus();
     });
@@ -433,7 +441,15 @@ const CategoryEditorScreen = ({
         ]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}>
-        <View style={styles.formCard}>
+        <View
+          style={[
+            styles.formCard,
+            {
+              borderColor: nameFocused
+                ? theme.colors.focusRing
+                : "transparent",
+            },
+          ]}>
           <View style={styles.nameInputRow}>
             <TextInput
               ref={inputRef}
@@ -450,7 +466,9 @@ const CategoryEditorScreen = ({
               onSubmitEditing={() => {
                 void saveCategory();
               }}
-              style={styles.nameInput}
+              onFocus={() => setNameFocused(true)}
+              onBlur={() => setNameFocused(false)}
+              style={[styles.nameInput, webInputOutlineReset]}
             />
             {name.length > 0 ? (
               <Pressable
@@ -819,6 +837,7 @@ const styles = StyleSheet.create({
   formCard: {
     backgroundColor: "#FFFFFF",
     borderRadius: 8,
+    borderWidth: StyleSheet.hairlineWidth,
     marginHorizontal: 16,
     overflow: "hidden",
   },

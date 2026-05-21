@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -46,13 +46,13 @@ type CalendarViewProps = {
 const weekdays = ["日", "月", "火", "水", "木", "金", "土"];
 const weekDayCount = 7;
 const weekCount = 6;
-const dayCellVerticalPadding = 5;
-const dayHeaderHeight = 16;
-const cellScheduleHeight = 16;
-const cellScheduleGap = 1;
-const multiDayBannerHeight = 18;
-const multiDayBannerGap = 3;
-const multiDayBannerTop = 24;
+const dayCellVerticalPadding = 4;
+const dayHeaderHeight = 15;
+const cellScheduleHeight = 13;
+const cellScheduleGap = 0;
+const multiDayBannerHeight = 12;
+const multiDayBannerGap = 2;
+const multiDayBannerTop = 22;
 
 type WeekMultiDaySegment = {
   schedule: CompanySchedule;
@@ -89,10 +89,7 @@ const getVisibleTimedScheduleCount = (
       ? getAllDayBannerSpaceHeight(visibleAllDayLaneCount) + 8
       : 0;
   const availableHeight =
-    dayCellHeight -
-    dayCellVerticalPadding * 2 -
-    dayHeaderHeight -
-    allDayOffset;
+    dayCellHeight - dayCellVerticalPadding * 2 - dayHeaderHeight - allDayOffset;
 
   if (availableHeight <= 0) {
     return 0;
@@ -257,7 +254,9 @@ export const CalendarView = ({
   onDeleteSchedule,
   onCreateSchedule,
 }: CalendarViewProps) => {
-  const { height } = useWindowDimensions();
+  const { height, width } = useWindowDimensions();
+  const scrollViewRef = useRef<ScrollView>(null);
+  const dayPanelTopRef = useRef(0);
   const today = todayDateString();
   const [monthDate, setMonthDate] = useState(startOfMonth(today));
   const [selectedDate, setSelectedDate] = useState(today);
@@ -269,9 +268,7 @@ export const CalendarView = ({
   const weekRows = useMemo(() => chunkMonthWeeks(days), [days]);
   const schedulesByDate = useMemo(
     () =>
-      new Map(
-        days.map((date) => [date, getSchedulesForDate(schedules, date)]),
-      ),
+      new Map(days.map((date) => [date, getSchedulesForDate(schedules, date)])),
     [days, schedules],
   );
   const weekMultiDaySegments = useMemo(
@@ -289,10 +286,28 @@ export const CalendarView = ({
     monthDate.slice(5, 7),
   )}月`;
   const dayCellHeight = Math.min(
-    Math.max(Math.floor((height - bottomPadding - 176) / 6), 54),
-    78,
+    Math.max(Math.floor((height - bottomPadding - 144) / 6), 62),
+    88,
   );
   const visibleAllDayLaneLimit = getVisibleAllDayLaneLimit(dayCellHeight);
+  const compactCalendar = width < 768;
+  const calendarHorizontalPadding = compactCalendar
+    ? Math.max(contentPadding - 8, 12)
+    : contentPadding;
+  const overflowBadgeWidth = compactCalendar ? 26 : 38;
+  const overflowBadgeHeight = compactCalendar ? 23 : 34;
+  const overflowBadgeTextInset = compactCalendar ? 1 : 3;
+  const overflowBadgeFontSize = compactCalendar ? 8 : 9;
+
+  const selectDate = (date: string) => {
+    setSelectedDate(date);
+    requestAnimationFrame(() => {
+      scrollViewRef.current?.scrollTo({
+        animated: true,
+        y: Math.max(dayPanelTopRef.current - 10, 0),
+      });
+    });
+  };
 
   const getCompany = (schedule: CompanySchedule) =>
     companyById.get(schedule.companyId) ?? null;
@@ -313,9 +328,10 @@ export const CalendarView = ({
 
   return (
     <ScrollView
+      ref={scrollViewRef}
       contentContainerStyle={{
         paddingBottom: bottomPadding,
-        paddingHorizontal: contentPadding,
+        paddingHorizontal: calendarHorizontalPadding,
         paddingTop: 8,
       }}
       showsVerticalScrollIndicator={false}>
@@ -339,7 +355,10 @@ export const CalendarView = ({
             />
             <View style={styles.monthTitleBlock}>
               <Text
-                style={[styles.monthTitle, { color: theme.colors.textPrimary }]}>
+                style={[
+                  styles.monthTitle,
+                  { color: theme.colors.textPrimary },
+                ]}>
                 {monthTitle}
               </Text>
               <Pressable
@@ -357,7 +376,10 @@ export const CalendarView = ({
                   pressed && styles.pressed,
                 ]}>
                 <Text
-                  style={[styles.todayButtonText, { color: theme.colors.primary }]}>
+                  style={[
+                    styles.todayButtonText,
+                    { color: theme.colors.primary },
+                  ]}>
                   今日
                 </Text>
               </Pressable>
@@ -427,11 +449,10 @@ export const CalendarView = ({
                       );
                       const dateBannerSpaceHeight =
                         getAllDayBannerSpaceHeight(dateLaneCount);
-                      const visibleScheduleCount =
-                        getVisibleTimedScheduleCount(
-                          dayCellHeight,
-                          dateLaneCount,
-                        );
+                      const visibleScheduleCount = getVisibleTimedScheduleCount(
+                        dayCellHeight,
+                        dateLaneCount,
+                      );
                       const visibleSchedules = timedSchedules.slice(
                         0,
                         visibleScheduleCount,
@@ -451,7 +472,7 @@ export const CalendarView = ({
                           key={date}
                           accessibilityRole="button"
                           accessibilityState={{ selected }}
-                          onPress={() => setSelectedDate(date)}
+                          onPress={() => selectDate(date)}
                           style={({ pressed }) => [
                             styles.dayCell,
                             {
@@ -493,8 +514,6 @@ export const CalendarView = ({
                           <View
                             style={[
                               styles.cellScheduleList,
-                              hiddenCount > 0 &&
-                                styles.cellScheduleListWithOverflow,
                               {
                                 marginTop:
                                   dateLaneCount > 0
@@ -510,6 +529,7 @@ export const CalendarView = ({
                                   key={schedule.id}
                                   style={styles.singleDaySchedule}>
                                   <Text
+                                    ellipsizeMode="clip"
                                     numberOfLines={1}
                                     style={[
                                       styles.cellScheduleText,
@@ -524,17 +544,34 @@ export const CalendarView = ({
                           {hiddenCount > 0 ? (
                             <View
                               pointerEvents="none"
-                              style={styles.overflowBadge}>
+                              style={[
+                                styles.overflowBadge,
+                                {
+                                  height: overflowBadgeHeight,
+                                  width: overflowBadgeWidth,
+                                },
+                              ]}>
                               <View
                                 style={[
                                   styles.overflowBadgeTriangle,
                                   {
                                     borderBottomColor:
                                       theme.colors.primaryBorder,
+                                    borderBottomWidth: overflowBadgeHeight,
+                                    borderLeftWidth: overflowBadgeWidth,
                                   },
                                 ]}
                               />
-                              <Text style={styles.overflowBadgeText}>
+                              <Text
+                                style={[
+                                  styles.overflowBadgeText,
+                                  {
+                                    bottom: overflowBadgeTextInset,
+                                    fontSize: overflowBadgeFontSize,
+                                    lineHeight: overflowBadgeFontSize + 2,
+                                    right: overflowBadgeTextInset,
+                                  },
+                                ]}>
                                 +{hiddenCount}
                               </Text>
                             </View>
@@ -583,6 +620,7 @@ export const CalendarView = ({
                             },
                           ]}>
                           <Text
+                            ellipsizeMode="clip"
                             numberOfLines={1}
                             style={styles.multiDayBannerText}>
                             {schedule.title || schedule.type}
@@ -598,6 +636,9 @@ export const CalendarView = ({
         </View>
 
         <View
+          onLayout={(event) => {
+            dayPanelTopRef.current = event.nativeEvent.layout.y;
+          }}
           style={[
             styles.dayPanel,
             theme.shadows.surface,
@@ -615,7 +656,10 @@ export const CalendarView = ({
           <View style={styles.panelHeader}>
             <View style={styles.panelTitleBlock}>
               <Text
-                style={[styles.panelTitle, { color: theme.colors.textPrimary }]}>
+                style={[
+                  styles.panelTitle,
+                  { color: theme.colors.textPrimary },
+                ]}>
                 {formatJapaneseDate(selectedDate)}
               </Text>
               <Text
@@ -640,13 +684,6 @@ export const CalendarView = ({
                 size={16}
                 color={theme.colors.textOnPrimary}
               />
-              <Text
-                style={[
-                  styles.addScheduleText,
-                  { color: theme.colors.textOnPrimary },
-                ]}>
-                追加
-              </Text>
             </Pressable>
           </View>
 
@@ -683,11 +720,37 @@ export const CalendarView = ({
                       },
                       pressed && styles.pressed,
                     ]}>
-                    <Text
-                      numberOfLines={1}
-                      style={[styles.panelTime, { color: theme.colors.textMuted }]}>
-                      {formatScheduleTime(schedule)}
-                    </Text>
+                    {compactCalendar && !schedule.isAllDay ? (
+                      <View style={styles.panelTimeStack}>
+                        <Text
+                          numberOfLines={1}
+                          style={[
+                            styles.panelTimeStackText,
+                            { color: theme.colors.textMuted },
+                          ]}>
+                          {schedule.startTime ?? ""}
+                        </Text>
+                        <Text
+                          numberOfLines={1}
+                          style={[
+                            styles.panelTimeStackText,
+                            { color: theme.colors.textMuted },
+                          ]}>
+                          {schedule.endTime ?? ""}
+                        </Text>
+                      </View>
+                    ) : (
+                      <Text
+                        ellipsizeMode="clip"
+                        numberOfLines={compactCalendar ? 2 : 1}
+                        style={[
+                          styles.panelTime,
+                          compactCalendar && styles.panelTimeCompact,
+                          { color: theme.colors.textMuted },
+                        ]}>
+                        {formatScheduleTime(schedule)}
+                      </Text>
+                    )}
                     <View
                       style={[
                         styles.panelDot,
@@ -712,17 +775,6 @@ export const CalendarView = ({
                         {schedule.title || schedule.type}
                       </Text>
                     </View>
-                    <IconButton
-                      icon="create-outline"
-                      label="予定を編集"
-                      onPress={(event) => {
-                        event.stopPropagation?.();
-                        onOpenSchedule(schedule);
-                      }}
-                      theme={theme}
-                      size="compact"
-                      variant="plain"
-                    />
                     <IconButton
                       icon="trash-outline"
                       label="予定を削除"
@@ -815,7 +867,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     flexDirection: "row",
     gap: 4,
-    minHeight: 16,
+    minHeight: dayHeaderHeight,
   },
   dayNumber: {
     fontSize: 11,
@@ -829,50 +881,43 @@ const styles = StyleSheet.create({
   },
   cellScheduleList: {
     alignItems: "flex-start",
-    gap: 1,
+    gap: cellScheduleGap,
     marginTop: 0,
-  },
-  cellScheduleListWithOverflow: {
-    paddingRight: 24,
   },
   singleDaySchedule: {
     alignSelf: "stretch",
     justifyContent: "center",
-    minHeight: 16,
+    minHeight: cellScheduleHeight,
     paddingHorizontal: 0,
   },
   cellScheduleText: {
     fontSize: 10,
     fontWeight: "800",
-    lineHeight: 14,
+    lineHeight: 12,
     textAlign: "left",
   },
   multiDayBanner: {
     height: multiDayBannerHeight,
     justifyContent: "center",
     marginHorizontal: 1,
-    paddingHorizontal: 5,
+    paddingHorizontal: 2,
     position: "absolute",
     zIndex: 2,
   },
   multiDayBannerText: {
     color: "#FFFFFF",
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: "800",
     lineHeight: 12,
   },
   overflowBadge: {
     bottom: 0,
-    height: 34,
     position: "absolute",
     right: 0,
-    width: 38,
     zIndex: 4,
   },
   overflowBadgeTriangle: {
-    borderBottomWidth: 34,
     borderLeftColor: "transparent",
-    borderLeftWidth: 38,
     borderStyle: "solid",
     bottom: 0,
     height: 0,
@@ -882,13 +927,9 @@ const styles = StyleSheet.create({
     width: 0,
   },
   overflowBadgeText: {
-    bottom: 3,
     color: "#FFFFFF",
-    fontSize: 9,
     fontWeight: "900",
-    lineHeight: 12,
     position: "absolute",
-    right: 3,
   },
   dayPanel: {
     borderRadius: 24,
@@ -927,15 +968,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderRadius: 14,
     borderWidth: StyleSheet.hairlineWidth,
-    flexDirection: "row",
-    gap: 4,
+    height: 36,
+    justifyContent: "center",
     minHeight: 36,
-    paddingHorizontal: 12,
-  },
-  addScheduleText: {
-    fontSize: 12,
-    fontWeight: "800",
-    lineHeight: 16,
+    width: 36,
   },
   emptyState: {
     alignItems: "center",
@@ -963,6 +999,21 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     lineHeight: 15,
     width: 72,
+  },
+  panelTimeCompact: {
+    lineHeight: 14,
+    width: 48,
+  },
+  panelTimeStack: {
+    alignItems: "flex-start",
+    gap: 2,
+    justifyContent: "center",
+    width: 42,
+  },
+  panelTimeStackText: {
+    fontSize: 11,
+    fontWeight: "800",
+    lineHeight: 14,
   },
   panelDot: {
     borderRadius: 999,

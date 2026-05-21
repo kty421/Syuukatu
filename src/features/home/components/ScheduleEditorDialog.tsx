@@ -385,7 +385,7 @@ export const ScheduleEditorDialog = ({
     <>
       <FullScreenModalShell
         visible={visible}
-        title=""
+        title="詳細"
         theme={theme}
         closeIcon="close"
         onClose={onClose}
@@ -414,6 +414,7 @@ export const ScheduleEditorDialog = ({
             <View style={styles.form}>
               <InputField
                 label="予定名"
+                hideLabel
                 theme={theme}
                 value={draft.title}
                 placeholder="一次面接、ES締切など"
@@ -439,13 +440,6 @@ export const ScheduleEditorDialog = ({
                   ]}
                 />
                 <View style={styles.categorySelectBody}>
-                  <Text
-                    style={[
-                      styles.categorySelectLabel,
-                      { color: theme.colors.textMuted },
-                    ]}>
-                    色
-                  </Text>
                   <Text
                     numberOfLines={1}
                     style={[
@@ -505,7 +499,7 @@ export const ScheduleEditorDialog = ({
                 {draft.isAllDay ? (
                   <View style={styles.dateCardRow}>
                     <DateValueCard
-                      label="開始日"
+                      label=""
                       value={formatJapaneseDate(draft.startDate)}
                       theme={theme}
                       onPress={() => openDatePicker("start")}
@@ -518,7 +512,7 @@ export const ScheduleEditorDialog = ({
                       />
                     </View>
                     <DateValueCard
-                      label="終了日"
+                      label=""
                       value={formatJapaneseDate(draft.endDate || draft.startDate)}
                       theme={theme}
                       onPress={() => openDatePicker("end")}
@@ -527,7 +521,7 @@ export const ScheduleEditorDialog = ({
                 ) : (
                   <View style={styles.dateCardRow}>
                     <TimedValueCard
-                      label="開始"
+                      label=""
                       date={formatJapaneseDate(draft.startDate)}
                       time={draft.startTime ?? ""}
                       theme={theme}
@@ -542,7 +536,7 @@ export const ScheduleEditorDialog = ({
                       />
                     </View>
                     <TimedValueCard
-                      label="終了"
+                      label=""
                       date={formatJapaneseDate(draft.startDate)}
                       time={draft.endTime ?? ""}
                       theme={theme}
@@ -632,12 +626,18 @@ const DateValueCard = ({
       },
       pressed && styles.pressed,
     ]}>
-    <Text style={[styles.dateValueLabel, { color: theme.colors.textMuted }]}>
-      {label}
-    </Text>
+    {label ? (
+      <Text style={[styles.dateValueLabel, { color: theme.colors.textMuted }]}>
+        {label}
+      </Text>
+    ) : null}
     <Text
       numberOfLines={1}
-      style={[styles.dateValueText, { color: theme.colors.textPrimary }]}>
+      style={[
+        styles.dateValueText,
+        !label && styles.dateValueTextWithoutLabel,
+        { color: theme.colors.textPrimary },
+      ]}>
       {value}
     </Text>
   </Pressable>
@@ -666,9 +666,11 @@ const TimedValueCard = ({
         borderColor: theme.colors.border,
       },
     ]}>
-    <Text style={[styles.dateValueLabel, { color: theme.colors.textMuted }]}>
-      {label}
-    </Text>
+    {label ? (
+      <Text style={[styles.dateValueLabel, { color: theme.colors.textMuted }]}>
+        {label}
+      </Text>
+    ) : null}
     <Pressable
       accessibilityRole="button"
       onPress={onPressDate}
@@ -1698,20 +1700,20 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     flex: 1,
     justifyContent: "center",
-    minHeight: 74,
+    minHeight: 50,
     minWidth: 0,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
   },
   timedValueCard: {
     borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
     flex: 1,
-    gap: 7,
-    minHeight: 112,
+    gap: 4,
+    minHeight: 62,
     minWidth: 0,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
   },
   dateValueLabel: {
     fontSize: 11,
@@ -1723,6 +1725,9 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     lineHeight: 19,
     marginTop: 6,
+  },
+  dateValueTextWithoutLabel: {
+    marginTop: 0,
   },
   timedPressable: {
     minHeight: 22,
@@ -1737,7 +1742,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderBottomWidth: StyleSheet.hairlineWidth,
     justifyContent: "center",
-    minHeight: 34,
+    minHeight: 26,
   },
   timeButtonText: {
     fontSize: 18,
