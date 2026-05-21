@@ -44,9 +44,12 @@ type CalendarViewProps = {
 };
 
 const weekdays = ["日", "月", "火", "水", "木", "金", "土"];
-const maxCellSchedules = 2;
 const weekDayCount = 7;
 const weekCount = 6;
+const dayCellVerticalPadding = 5;
+const dayHeaderHeight = 16;
+const cellScheduleHeight = 16;
+const cellScheduleGap = 1;
 const multiDayBannerHeight = 18;
 const multiDayBannerGap = 3;
 const multiDayBannerTop = 24;
@@ -64,6 +67,49 @@ const chunkMonthWeeks = (days: string[]) =>
   Array.from({ length: weekCount }, (_, index) =>
     days.slice(index * weekDayCount, index * weekDayCount + weekDayCount),
   );
+
+const getAllDayBannerSpaceHeight = (laneCount: number) =>
+  laneCount * (multiDayBannerHeight + multiDayBannerGap);
+
+const getVisibleAllDayLaneLimit = (dayCellHeight: number) =>
+  Math.max(
+    0,
+    Math.floor(
+      (dayCellHeight - multiDayBannerTop + multiDayBannerGap) /
+        (multiDayBannerHeight + multiDayBannerGap),
+    ),
+  );
+
+const getVisibleTimedScheduleCount = (
+  dayCellHeight: number,
+  visibleAllDayLaneCount: number,
+) => {
+  const allDayOffset =
+    visibleAllDayLaneCount > 0
+      ? getAllDayBannerSpaceHeight(visibleAllDayLaneCount) + 8
+      : 0;
+  const availableHeight =
+    dayCellHeight -
+    dayCellVerticalPadding * 2 -
+    dayHeaderHeight -
+    allDayOffset;
+
+  if (availableHeight <= 0) {
+    return 0;
+  }
+
+  return Math.max(
+    0,
+    Math.floor(
+      (availableHeight + cellScheduleGap) /
+        (cellScheduleHeight + cellScheduleGap),
+    ),
+  );
+};
+
+const segmentCoversCell = (segment: WeekMultiDaySegment, cellIndex: number) =>
+  segment.startIndex <= cellIndex &&
+  cellIndex < segment.startIndex + segment.span;
 
 const buildWeekMultiDaySegments = (
   weekDates: string[],
@@ -246,6 +292,7 @@ export const CalendarView = ({
     Math.max(Math.floor((height - bottomPadding - 176) / 6), 54),
     78,
   );
+  const visibleAllDayLaneLimit = getVisibleAllDayLaneLimit(dayCellHeight);
 
   const getCompany = (schedule: CompanySchedule) =>
     companyById.get(schedule.companyId) ?? null;
@@ -347,21 +394,14 @@ export const CalendarView = ({
           <View style={[styles.grid, { borderColor: theme.colors.divider }]}>
             {weekRows.map((weekDates, weekIndex) => {
               const segments = weekMultiDaySegments[weekIndex] ?? [];
-              const laneCount = segments.reduce(
-                (count, segment) => Math.max(count, segment.lane + 1),
-                0,
-              );
-              const bannerSpaceHeight =
-                laneCount * (multiDayBannerHeight + multiDayBannerGap);
-              const weekRowHeight = Math.max(
-                dayCellHeight,
-                multiDayBannerTop + bannerSpaceHeight + 42,
+              const visibleSegments = segments.filter(
+                (segment) => segment.lane < visibleAllDayLaneLimit,
               );
 
               return (
                 <View
                   key={weekDates[0] ?? `week-${weekIndex}`}
-                  style={[styles.weekGridRow, { height: weekRowHeight }]}>
+                  style={[styles.weekGridRow, { height: dayCellHeight }]}>
                   <View style={styles.weekCellLayer}>
                     {weekDates.map((date, cellIndex) => {
                       const dateObject = new Date(
@@ -378,23 +418,33 @@ export const CalendarView = ({
                       const timedSchedules = daySchedules.filter(
                         (schedule) => !schedule.isAllDay,
                       );
-                      const visibleSchedules = timedSchedules.slice(
-                        0,
-                        maxCellSchedules,
-                      );
-                      const hiddenCount =
-                        timedSchedules.length - visibleSchedules.length;
-                      const dateLaneCount = segments.reduce(
+                      const dateLaneCount = visibleSegments.reduce(
                         (count, segment) =>
-                          segment.startIndex <= cellIndex &&
-                          cellIndex < segment.startIndex + segment.span
+                          segmentCoversCell(segment, cellIndex)
                             ? Math.max(count, segment.lane + 1)
                             : count,
                         0,
                       );
                       const dateBannerSpaceHeight =
-                        dateLaneCount *
-                        (multiDayBannerHeight + multiDayBannerGap);
+                        getAllDayBannerSpaceHeight(dateLaneCount);
+                      const visibleScheduleCount =
+                        getVisibleTimedScheduleCount(
+                          dayCellHeight,
+                          dateLaneCount,
+                        );
+                      const visibleSchedules = timedSchedules.slice(
+                        0,
+                        visibleScheduleCount,
+                      );
+                      const hiddenAllDayCount = segments.filter(
+                        (segment) =>
+                          segmentCoversCell(segment, cellIndex) &&
+                          segment.lane >= visibleAllDayLaneLimit,
+                      ).length;
+                      const hiddenCount =
+                        hiddenAllDayCount +
+                        timedSchedules.length -
+                        visibleSchedules.length;
 
                       return (
                         <Pressable
@@ -443,6 +493,8 @@ export const CalendarView = ({
                           <View
                             style={[
                               styles.cellScheduleList,
+                              hiddenCount > 0 &&
+                                styles.cellScheduleListWithOverflow,
                               {
                                 marginTop:
                                   dateLaneCount > 0
@@ -468,24 +520,32 @@ export const CalendarView = ({
                                 </View>
                               );
                             })}
-                            {hiddenCount > 0 ? (
-                              <Text
-                                numberOfLines={1}
-                                style={[
-                                  styles.moreText,
-                                  { color: theme.colors.textMuted },
-                                ]}>
-                                +{hiddenCount}件
-                              </Text>
-                            ) : null}
                           </View>
+                          {hiddenCount > 0 ? (
+                            <View
+                              pointerEvents="none"
+                              style={styles.overflowBadge}>
+                              <View
+                                style={[
+                                  styles.overflowBadgeTriangle,
+                                  {
+                                    borderBottomColor:
+                                      theme.colors.primaryBorder,
+                                  },
+                                ]}
+                              />
+                              <Text style={styles.overflowBadgeText}>
+                                +{hiddenCount}
+                              </Text>
+                            </View>
+                          ) : null}
                         </Pressable>
                       );
                     })}
                   </View>
 
                   <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-                    {segments.map((segment) => {
+                    {visibleSegments.map((segment) => {
                       const { schedule } = segment;
                       const { color } = getScheduleColor(schedule);
                       const left = `${
@@ -735,6 +795,7 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
   },
   weekGridRow: {
+    overflow: "hidden",
     position: "relative",
   },
   weekCellLayer: {
@@ -746,7 +807,9 @@ const styles = StyleSheet.create({
     borderRightWidth: StyleSheet.hairlineWidth,
     flex: 1,
     minWidth: 0,
-    padding: 5,
+    overflow: "hidden",
+    padding: dayCellVerticalPadding,
+    position: "relative",
   },
   dayHeader: {
     alignItems: "center",
@@ -769,6 +832,9 @@ const styles = StyleSheet.create({
     gap: 1,
     marginTop: 0,
   },
+  cellScheduleListWithOverflow: {
+    paddingRight: 24,
+  },
   singleDaySchedule: {
     alignSelf: "stretch",
     justifyContent: "center",
@@ -780,12 +846,6 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     lineHeight: 14,
     textAlign: "left",
-  },
-  moreText: {
-    fontSize: 9,
-    fontWeight: "800",
-    lineHeight: 12,
-    paddingHorizontal: 0,
   },
   multiDayBanner: {
     height: multiDayBannerHeight,
@@ -800,6 +860,35 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontWeight: "800",
     lineHeight: 12,
+  },
+  overflowBadge: {
+    bottom: 0,
+    height: 34,
+    position: "absolute",
+    right: 0,
+    width: 38,
+    zIndex: 4,
+  },
+  overflowBadgeTriangle: {
+    borderBottomWidth: 34,
+    borderLeftColor: "transparent",
+    borderLeftWidth: 38,
+    borderStyle: "solid",
+    bottom: 0,
+    height: 0,
+    opacity: 0.88,
+    position: "absolute",
+    right: 0,
+    width: 0,
+  },
+  overflowBadgeText: {
+    bottom: 3,
+    color: "#FFFFFF",
+    fontSize: 9,
+    fontWeight: "900",
+    lineHeight: 12,
+    position: "absolute",
+    right: 3,
   },
   dayPanel: {
     borderRadius: 24,
