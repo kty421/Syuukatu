@@ -56,9 +56,12 @@ import {
   CompanySchedule,
   QuestionLabel,
   QuestionMemo,
+  ScheduleCategory,
+  ScheduleCategoryDraft,
   SelectionStatus,
 } from "../types";
 import { getStatusList, normalizeSelectionStatus } from "../utils/companyUtils";
+import { getScheduleCategoryPresentation } from "../utils/scheduleCategoryUtils";
 import { formatScheduleTime, sortSchedules } from "../utils/scheduleUtils";
 import { QuestionMemoDialog } from "./QuestionMemoDialog";
 import { ScheduleEditorDialog } from "./ScheduleEditorDialog";
@@ -71,12 +74,17 @@ type CompanyEditorModalProps = {
   schedules: CompanySchedule[];
   allSchedules: CompanySchedule[];
   companies: Company[];
+  scheduleCategories: ScheduleCategory[];
   questionLabels: QuestionLabel[];
   theme: AppTheme;
   allowPasswordStorage: boolean;
   onClose: () => void;
   onSave: (draft: CompanyEditorDraft) => Promise<void>;
   onCreateQuestionLabel: (name: string) => Promise<QuestionLabel>;
+  onSaveScheduleCategory: (
+    category: ScheduleCategoryDraft | ScheduleCategory,
+  ) => Promise<ScheduleCategory>;
+  onDeleteScheduleCategory: (categoryId: string) => Promise<void>;
 };
 
 type FormState = CompanyDraft;
@@ -110,12 +118,15 @@ export const CompanyEditorModal = ({
   schedules: companySchedules,
   allSchedules,
   companies,
+  scheduleCategories,
   questionLabels,
   theme,
   allowPasswordStorage,
   onClose,
   onSave,
   onCreateQuestionLabel,
+  onSaveScheduleCategory,
+  onDeleteScheduleCategory,
 }: CompanyEditorModalProps) => {
   const insets = useSafeAreaInsets();
   const keyboardInset = useKeyboardInset();
@@ -759,72 +770,80 @@ export const CompanyEditorModal = ({
                 <FormSection theme={theme} title="日程">
                   {schedules.length > 0 ? (
                     <View style={styles.scheduleList}>
-                      {schedules.map((schedule) => (
-                        <Pressable
-                          key={schedule.id}
-                          accessibilityRole="button"
-                          accessibilityLabel={`${schedule.title || schedule.type}を編集`}
-                          onPress={() => openSchedule(schedule)}
-                          style={({ pressed }) => [
-                            styles.scheduleRow,
-                            {
-                              backgroundColor: theme.colors.surfaceElevated,
-                              borderColor: theme.colors.border,
-                            },
-                            pressed && styles.pressed,
-                          ]}>
-                          <View style={styles.scheduleRowBody}>
-                            <View
-                              style={[
-                                styles.scheduleDot,
-                                { backgroundColor: aspirationTheme.foreground },
-                              ]}
-                            />
-                            <View style={styles.scheduleTextBlock}>
-                              <Text
-                                numberOfLines={1}
+                      {schedules.map((schedule) => {
+                        const category = getScheduleCategoryPresentation(
+                          schedule,
+                          scheduleCategories,
+                          theme,
+                        );
+
+                        return (
+                          <Pressable
+                            key={schedule.id}
+                            accessibilityRole="button"
+                            accessibilityLabel={`${schedule.title || schedule.type}を編集`}
+                            onPress={() => openSchedule(schedule)}
+                            style={({ pressed }) => [
+                              styles.scheduleRow,
+                              {
+                                backgroundColor: theme.colors.surfaceElevated,
+                                borderColor: theme.colors.border,
+                              },
+                              pressed && styles.pressed,
+                            ]}>
+                            <View style={styles.scheduleRowBody}>
+                              <View
                                 style={[
-                                  styles.scheduleTitle,
-                                  { color: theme.colors.textPrimary },
-                                ]}>
-                                {schedule.title || schedule.type}
-                              </Text>
-                              <Text
-                                numberOfLines={1}
-                                style={[
-                                  styles.scheduleMeta,
-                                  { color: theme.colors.textMuted },
-                                ]}>
-                                {formatScheduleTime(schedule)}
-                              </Text>
+                                  styles.scheduleDot,
+                                  { backgroundColor: category.color },
+                                ]}
+                              />
+                              <View style={styles.scheduleTextBlock}>
+                                <Text
+                                  numberOfLines={1}
+                                  style={[
+                                    styles.scheduleTitle,
+                                    { color: theme.colors.textPrimary },
+                                  ]}>
+                                  {schedule.title || schedule.type}
+                                </Text>
+                                <Text
+                                  numberOfLines={1}
+                                  style={[
+                                    styles.scheduleMeta,
+                                    { color: theme.colors.textMuted },
+                                  ]}>
+                                  {formatScheduleTime(schedule)}
+                                </Text>
+                              </View>
                             </View>
-                          </View>
-                          <IconButton
-                            icon="create-outline"
-                            label="日程を編集"
-                            onPress={(event) => {
-                              event?.stopPropagation();
-                              openSchedule(schedule);
-                            }}
-                            theme={theme}
-                            tone="neutral"
-                            size="compact"
-                            variant="plain"
-                          />
-                          <IconButton
-                            icon="trash-outline"
-                            label="日程を削除"
-                            onPress={(event) => {
-                              event?.stopPropagation();
-                              deleteSchedule(schedule.id);
-                            }}
-                            theme={theme}
-                            tone="danger"
-                            size="compact"
-                            variant="plain"
-                          />
-                        </Pressable>
-                      ))}
+                            <IconButton
+                              icon="create-outline"
+                              label="日程を編集"
+                              onPress={(event) => {
+                                event?.stopPropagation();
+                                openSchedule(schedule);
+                              }}
+                              theme={theme}
+                              tone="neutral"
+                              size="compact"
+                              variant="plain"
+                            />
+                            <IconButton
+                              icon="trash-outline"
+                              label="日程を削除"
+                              onPress={(event) => {
+                                event?.stopPropagation();
+                                deleteSchedule(schedule.id);
+                              }}
+                              theme={theme}
+                              tone="danger"
+                              size="compact"
+                              variant="plain"
+                            />
+                          </Pressable>
+                        );
+                      })}
                     </View>
                   ) : null}
 
@@ -1029,10 +1048,13 @@ export const CompanyEditorModal = ({
           }}
           allSchedules={scheduleConflictCandidates}
           companies={companies}
+          scheduleCategories={scheduleCategories}
           theme={theme}
           onClose={() => setScheduleEditorVisible(false)}
           onSave={saveSchedule}
           onDelete={editingSchedule ? deleteSchedule : undefined}
+          onSaveScheduleCategory={onSaveScheduleCategory}
+          onDeleteScheduleCategory={onDeleteScheduleCategory}
         />
       </View>
     </Modal>

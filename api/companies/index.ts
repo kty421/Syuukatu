@@ -101,6 +101,7 @@ export default async function handler(
     if (scheduleBody.success) {
       const schedule = {
         ...scheduleBody.data.schedule,
+        categoryId: scheduleBody.data.schedule.categoryId ?? null,
         title:
           scheduleBody.data.schedule.title.trim() ||
           scheduleBody.data.schedule.type
@@ -117,6 +118,22 @@ export default async function handler(
           error: '企業情報を確認してください。'
         });
         return;
+      }
+
+      if (schedule.categoryId) {
+        const { data: ownedCategory, error: categoryError } = await supabase
+          .from('schedule_categories')
+          .select('id')
+          .eq('id', schedule.categoryId)
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        if (categoryError || !ownedCategory) {
+          sendJson(res, 400, {
+            error: '色カテゴリを確認してください。'
+          });
+          return;
+        }
       }
 
       const { data, error } = await supabase

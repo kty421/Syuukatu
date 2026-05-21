@@ -48,12 +48,49 @@ create policy "companies_delete_own"
 create index if not exists companies_user_updated_at_idx
   on public.companies (user_id, updated_at desc);
 
+create table if not exists public.schedule_categories (
+  id text primary key,
+  user_id uuid not null references auth.users (id) on delete cascade,
+  name text not null default '',
+  color_code text not null default '#6B7280' check (color_code ~ '^#[0-9A-Fa-f]{6}$'),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.schedule_categories enable row level security;
+
+drop policy if exists "schedule_categories_select_own" on public.schedule_categories;
+create policy "schedule_categories_select_own"
+  on public.schedule_categories
+  for select
+  using (auth.uid() = user_id);
+
+drop policy if exists "schedule_categories_insert_own" on public.schedule_categories;
+create policy "schedule_categories_insert_own"
+  on public.schedule_categories
+  for insert
+  with check (auth.uid() = user_id);
+
+drop policy if exists "schedule_categories_update_own" on public.schedule_categories;
+create policy "schedule_categories_update_own"
+  on public.schedule_categories
+  for update
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+drop policy if exists "schedule_categories_delete_own" on public.schedule_categories;
+create policy "schedule_categories_delete_own"
+  on public.schedule_categories
+  for delete
+  using (auth.uid() = user_id);
+
 create table if not exists public.company_schedules (
   id text primary key,
   user_id uuid not null references auth.users (id) on delete cascade,
   company_id text not null references public.companies (id) on delete cascade,
   title text not null default '',
   type text not null default 'その他' check (type in ('面接', 'GD', '説明会', 'ES締切', 'Webテスト', 'インターン', 'OB訪問', '面談', 'その他')),
+  category_id text references public.schedule_categories (id) on delete set null,
   start_date date not null,
   end_date date,
   start_time time,
@@ -122,6 +159,12 @@ create index if not exists company_schedules_user_start_date_idx
 
 create index if not exists company_schedules_user_company_idx
   on public.company_schedules (user_id, company_id);
+
+create index if not exists schedule_categories_user_created_at_idx
+  on public.schedule_categories (user_id, created_at asc);
+
+create index if not exists company_schedules_user_category_idx
+  on public.company_schedules (user_id, category_id);
 
 create table if not exists public.question_memos (
   id text primary key,
@@ -288,11 +331,13 @@ create index if not exists question_memo_labels_label_idx
 grant usage on schema public to anon, authenticated;
 grant select, insert, update, delete on public.companies to authenticated;
 grant select, insert, update, delete on public.company_schedules to authenticated;
+grant select, insert, update, delete on public.schedule_categories to authenticated;
 grant select, insert, update, delete on public.question_memos to authenticated;
 grant select, insert, update, delete on public.question_labels to authenticated;
 grant select, insert, delete on public.question_memo_labels to authenticated;
 grant all on public.companies to service_role;
 grant all on public.company_schedules to service_role;
+grant all on public.schedule_categories to service_role;
 grant all on public.question_memos to service_role;
 grant all on public.question_labels to service_role;
 grant all on public.question_memo_labels to service_role;

@@ -14,7 +14,8 @@ import {
 
 import { AppTheme } from "../../../constants/theme";
 import { IconButton } from "../../../ui/IconButton";
-import { Company, CompanySchedule } from "../types";
+import { Company, CompanySchedule, ScheduleCategory } from "../types";
+import { getScheduleCategoryPresentation } from "../utils/scheduleCategoryUtils";
 import {
   addMonths,
   buildMonthGrid,
@@ -32,6 +33,7 @@ import {
 type CalendarViewProps = {
   companies: Company[];
   schedules: CompanySchedule[];
+  scheduleCategories: ScheduleCategory[];
   isLoading: boolean;
   theme: AppTheme;
   contentPadding: number;
@@ -200,6 +202,7 @@ export const mockCalendarSchedules: CompanySchedule[] = [
 export const CalendarView = ({
   companies,
   schedules,
+  scheduleCategories,
   isLoading,
   theme,
   contentPadding,
@@ -250,11 +253,15 @@ export const CalendarView = ({
 
   const getScheduleColor = (schedule: CompanySchedule) => {
     const company = getCompany(schedule);
-    const aspiration = theme.aspirations[company?.aspiration ?? "unset"];
+    const category = getScheduleCategoryPresentation(
+      schedule,
+      scheduleCategories,
+      theme,
+    );
 
     return {
       company,
-      color: aspiration.foreground,
+      color: category.color,
     };
   };
 
@@ -605,8 +612,11 @@ export const CalendarView = ({
             <View style={styles.panelList}>
               {selectedSchedules.map((schedule) => {
                 const company = getCompany(schedule);
-                const aspiration =
-                  theme.aspirations[company?.aspiration ?? "unset"];
+                const category = getScheduleCategoryPresentation(
+                  schedule,
+                  scheduleCategories,
+                  theme,
+                );
 
                 return (
                   <Pressable
@@ -628,7 +638,7 @@ export const CalendarView = ({
                     <View
                       style={[
                         styles.panelDot,
-                        { backgroundColor: aspiration.foreground },
+                        { backgroundColor: category.color },
                       ]}
                     />
                     <View style={styles.panelBody}>

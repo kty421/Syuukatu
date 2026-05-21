@@ -355,6 +355,7 @@ export const HomeScreen = ({
   const {
     companies,
     companySchedules,
+    scheduleCategories,
     questionMemos,
     questionLabels,
     isLoading,
@@ -374,6 +375,8 @@ export const HomeScreen = ({
     clearLocalAccountData,
     upsertCompanySchedule,
     deleteCompanySchedule,
+    upsertScheduleCategory,
+    deleteScheduleCategory,
   } = useCompanies({ userId: user.id, getAccessToken });
 
   const colorScheme = useColorScheme();
@@ -1737,6 +1740,7 @@ export const HomeScreen = ({
           <CalendarView
             companies={companies}
             schedules={companySchedules}
+            scheduleCategories={scheduleCategories}
             isLoading={isLoading}
             theme={theme}
             contentPadding={metrics.contentPadding}
@@ -1802,12 +1806,15 @@ export const HomeScreen = ({
         schedules={editorCompanySchedules}
         allSchedules={companySchedules}
         companies={companies}
+        scheduleCategories={scheduleCategories}
         questionLabels={questionLabels}
         theme={theme}
         allowPasswordStorage={showPasswordControls}
         onClose={() => setEditorVisible(false)}
         onSave={handleSave}
         onCreateQuestionLabel={createQuestionLabel}
+        onSaveScheduleCategory={upsertScheduleCategory}
+        onDeleteScheduleCategory={deleteScheduleCategory}
       />
 
       <QuestionMemoDialog
@@ -1834,6 +1841,7 @@ export const HomeScreen = ({
           }}
           allSchedules={companySchedules}
           companies={companies}
+          scheduleCategories={scheduleCategories}
           theme={theme}
           initialDate={scheduleCreateInitialDate}
           onClose={() => {
@@ -1852,6 +1860,8 @@ export const HomeScreen = ({
               .then(() => showToast("日程を削除しました"))
               .catch(() => showToast("日程の削除に失敗しました", "error"));
           }}
+          onSaveScheduleCategory={upsertScheduleCategory}
+          onDeleteScheduleCategory={deleteScheduleCategory}
         />
       ) : null}
 

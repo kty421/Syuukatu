@@ -14,12 +14,26 @@ export const scheduleTypes = [
 
 const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const timeSchema = z.string().regex(/^\d{2}:\d{2}$/);
+const colorCodeSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/);
+
+export const scheduleCategorySchema = z.object({
+  id: z.string().min(1),
+  name: z.string(),
+  colorCode: colorCodeSchema,
+  createdAt: z.string().min(1),
+  updatedAt: z.string().min(1)
+});
+
+export const upsertScheduleCategoryBodySchema = z.object({
+  category: scheduleCategorySchema
+});
 
 export const companyScheduleSchema = z.object({
   id: z.string().min(1),
   companyId: z.string().min(1),
   title: z.string().default(''),
   type: z.enum(scheduleTypes).default('その他'),
+  categoryId: z.string().min(1).nullable().optional(),
   startDate: dateSchema,
   endDate: dateSchema.optional(),
   startTime: timeSchema.optional(),
@@ -35,6 +49,16 @@ export const upsertCompanyScheduleBodySchema = z.object({
 });
 
 export type CompanySchedulePayload = z.infer<typeof companyScheduleSchema>;
+export type ScheduleCategoryPayload = z.infer<typeof scheduleCategorySchema>;
+
+export type ScheduleCategoryRow = {
+  id: string;
+  user_id: string;
+  name: string;
+  color_code: string;
+  created_at: string;
+  updated_at: string;
+};
 
 export type CompanyScheduleRow = {
   id: string;
@@ -42,6 +66,7 @@ export type CompanyScheduleRow = {
   company_id: string;
   title: string;
   type: string | null;
+  category_id: string | null;
   start_date: string;
   end_date: string | null;
   start_time: string | null;
@@ -58,6 +83,28 @@ const optionalToNull = (value: string | undefined) =>
 const normalizeTime = (value: string | null | undefined) =>
   value ? value.slice(0, 5) : undefined;
 
+export const toScheduleCategoryRow = (
+  category: ScheduleCategoryPayload,
+  userId: string
+): ScheduleCategoryRow => ({
+  id: category.id,
+  user_id: userId,
+  name: category.name.trim(),
+  color_code: category.colorCode,
+  created_at: category.createdAt,
+  updated_at: category.updatedAt
+});
+
+export const fromScheduleCategoryRow = (
+  row: ScheduleCategoryRow
+): ScheduleCategoryPayload => ({
+  id: row.id,
+  name: row.name,
+  colorCode: row.color_code,
+  createdAt: row.created_at,
+  updatedAt: row.updated_at
+});
+
 export const toCompanyScheduleRow = (
   schedule: CompanySchedulePayload,
   userId: string
@@ -67,6 +114,7 @@ export const toCompanyScheduleRow = (
   company_id: schedule.companyId,
   title: schedule.title.trim(),
   type: schedule.type,
+  category_id: schedule.categoryId ?? null,
   start_date: schedule.startDate,
   end_date: schedule.endDate ?? schedule.startDate,
   start_time: schedule.isAllDay ? null : optionalToNull(schedule.startTime),
@@ -86,6 +134,7 @@ export const fromCompanyScheduleRow = (
   type: scheduleTypes.includes(row.type as CompanySchedulePayload['type'])
     ? (row.type as CompanySchedulePayload['type'])
     : 'その他',
+  categoryId: row.category_id ?? null,
   startDate: row.start_date,
   endDate: row.end_date ?? row.start_date,
   startTime: normalizeTime(row.start_time),

@@ -19,7 +19,14 @@ import { AppButton } from "../../../ui/AppButton";
 import { FullScreenModalShell } from "../../../ui/FullScreenModalShell";
 import { IconButton } from "../../../ui/IconButton";
 import { InputField } from "../../../ui/InputField";
-import { AspirationLevel, Company, CompanySchedule } from "../types";
+import {
+  AspirationLevel,
+  Company,
+  CompanySchedule,
+  ScheduleCategory,
+  ScheduleCategoryDraft,
+} from "../types";
+import { getScheduleCategoryPresentation } from "../utils/scheduleCategoryUtils";
 import {
   addMonths,
   buildMonthGrid,
@@ -31,6 +38,7 @@ import {
   todayDateString,
   validateSchedule,
 } from "../utils/scheduleUtils";
+import { ScheduleCategoryPicker } from "./ScheduleCategoryPicker";
 
 export type ScheduleCompanyInfo = {
   id: string;
@@ -44,11 +52,16 @@ type ScheduleEditorDialogProps = {
   company: ScheduleCompanyInfo;
   allSchedules: CompanySchedule[];
   companies: Company[];
+  scheduleCategories: ScheduleCategory[];
   theme: AppTheme;
   initialDate?: string | null;
   onClose: () => void;
   onSave: (schedule: CompanySchedule) => void;
   onDelete?: (scheduleId: string) => void;
+  onSaveScheduleCategory: (
+    category: ScheduleCategoryDraft | ScheduleCategory,
+  ) => Promise<ScheduleCategory>;
+  onDeleteScheduleCategory: (categoryId: string) => Promise<void>;
 };
 
 type DatePickerTarget = "start" | "end" | "single";
@@ -170,6 +183,7 @@ const createEmptySchedule = (
     companyId,
     title: defaultTitle,
     type: "その他",
+    categoryId: null,
     startDate: date,
     endDate: date,
     startTime,
@@ -202,11 +216,14 @@ export const ScheduleEditorDialog = ({
   company,
   allSchedules,
   companies,
+  scheduleCategories,
   theme,
   initialDate,
   onClose,
   onSave,
   onDelete,
+  onSaveScheduleCategory,
+  onDeleteScheduleCategory,
 }: ScheduleEditorDialogProps) => {
   const [draft, setDraft] = useState<CompanySchedule>(() =>
     createEmptySchedule(company.id, initialDate, company.companyName),
@@ -217,6 +234,7 @@ export const ScheduleEditorDialog = ({
     useState<DatePickerTarget | null>(null);
   const [timePickerTarget, setTimePickerTarget] =
     useState<TimePickerTarget | null>(null);
+  const [categoryPickerVisible, setCategoryPickerVisible] = useState(false);
 
   useEffect(() => {
     if (!visible) {
@@ -228,6 +246,7 @@ export const ScheduleEditorDialog = ({
         ? {
             ...schedule,
             type: schedule.type || "その他",
+            categoryId: schedule.categoryId ?? null,
             endDate: schedule.endDate || schedule.startDate,
             startTime: schedule.startTime || getDefaultTimeRange().startTime,
             endTime: schedule.endTime || getDefaultTimeRange().endTime,
@@ -239,6 +258,7 @@ export const ScheduleEditorDialog = ({
     setOverlaps([]);
     setDatePickerTarget(null);
     setTimePickerTarget(null);
+    setCategoryPickerVisible(false);
   }, [company.companyName, company.id, initialDate, schedule, visible]);
 
   const normalizedDraft = useMemo<CompanySchedule>(
@@ -247,12 +267,18 @@ export const ScheduleEditorDialog = ({
       companyId: company.id,
       title: draft.title.trim() || company.companyName.trim() || "予定",
       type: "その他",
+      categoryId: draft.categoryId ?? null,
       memo: draft.memo?.trim(),
       endDate: draft.isAllDay ? draft.endDate || draft.startDate : draft.startDate,
       startTime: draft.isAllDay ? undefined : draft.startTime,
       endTime: draft.isAllDay ? undefined : draft.endTime,
     }),
     [company.companyName, company.id, draft],
+  );
+  const selectedCategory = getScheduleCategoryPresentation(
+    draft,
+    scheduleCategories,
+    theme,
   );
 
   const update = <K extends keyof CompanySchedule>(
@@ -426,6 +452,48 @@ export const ScheduleEditorDialog = ({
                 onChangeText={(value) => update("title", value)}
               />
 
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="予定の色を選択"
+                onPress={() => setCategoryPickerVisible(true)}
+                style={({ pressed }) => [
+                  styles.categorySelectRow,
+                  {
+                    backgroundColor: theme.colors.surfaceElevated,
+                    borderColor: theme.colors.border,
+                  },
+                  pressed && styles.pressed,
+                ]}>
+                <View
+                  style={[
+                    styles.categorySelectDot,
+                    { backgroundColor: selectedCategory.color },
+                  ]}
+                />
+                <View style={styles.categorySelectBody}>
+                  <Text
+                    style={[
+                      styles.categorySelectLabel,
+                      { color: theme.colors.textMuted },
+                    ]}>
+                    色
+                  </Text>
+                  <Text
+                    numberOfLines={1}
+                    style={[
+                      styles.categorySelectName,
+                      { color: theme.colors.textPrimary },
+                    ]}>
+                    {selectedCategory.name}
+                  </Text>
+                </View>
+                <Ionicons
+                  name="chevron-forward"
+                  size={18}
+                  color={theme.colors.textMuted}
+                />
+              </Pressable>
+
               <View
                 style={[
                   styles.schedulePanel,
@@ -554,6 +622,18 @@ export const ScheduleEditorDialog = ({
             theme={theme}
             onClose={() => setTimePickerTarget(null)}
             onSelect={confirmTimeRange}
+          />
+          <ScheduleCategoryPicker
+            visible={categoryPickerVisible}
+            categories={scheduleCategories}
+            selectedCategoryId={draft.categoryId ?? null}
+            theme={theme}
+            onClose={() => setCategoryPickerVisible(false)}
+            onSelectCategoryId={(categoryId) =>
+              update("categoryId", categoryId)
+            }
+            onSaveCategory={onSaveScheduleCategory}
+            onDeleteCategory={onDeleteScheduleCategory}
           />
         </View>
       </FullScreenModalShell>
@@ -1640,6 +1720,35 @@ const styles = StyleSheet.create({
   content: {
     gap: 16,
     padding: 16,
+  },
+  categorySelectRow: {
+    alignItems: "center",
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    flexDirection: "row",
+    gap: 12,
+    minHeight: 60,
+    paddingHorizontal: 14,
+  },
+  categorySelectDot: {
+    borderRadius: 999,
+    height: 18,
+    width: 18,
+  },
+  categorySelectBody: {
+    flex: 1,
+    minWidth: 0,
+  },
+  categorySelectLabel: {
+    fontSize: 11,
+    fontWeight: "800",
+    lineHeight: 15,
+  },
+  categorySelectName: {
+    fontSize: 14,
+    fontWeight: "800",
+    lineHeight: 19,
+    marginTop: 2,
   },
   schedulePanel: {
     borderRadius: 18,

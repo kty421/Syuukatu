@@ -16,11 +16,29 @@ export const scheduleTypes = [
 
 export type ScheduleType = (typeof scheduleTypes)[number];
 
+export type ScheduleCategory = {
+  id: string;
+  name: string;
+  colorCode: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ScheduleCategoryDraft = Omit<
+  ScheduleCategory,
+  "id" | "createdAt" | "updatedAt"
+> & {
+  id?: string;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
 export type CompanySchedule = {
   id: string;
   companyId: string;
   title: string;
   type: ScheduleType;
+  categoryId?: string | null;
   startDate: string;
   endDate?: string;
   startTime?: string;

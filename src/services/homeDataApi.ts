@@ -2,13 +2,15 @@ import {
   Company,
   CompanySchedule,
   QuestionLabel,
-  QuestionMemo
+  QuestionMemo,
+  ScheduleCategory
 } from '../features/home/types';
 import { apiRequest } from './apiClient';
 
 type HomeDataResponse = {
   companies: Company[];
   companySchedules?: CompanySchedule[];
+  scheduleCategories?: ScheduleCategory[];
   questionMemos: QuestionMemo[];
   questionLabels: QuestionLabel[];
 };
@@ -29,6 +31,7 @@ export const fetchRemoteHomeData = async (accessToken: string | null) => {
   return {
     companies: response.companies.map(stripPassword),
     companySchedules: response.companySchedules ?? [],
+    scheduleCategories: response.scheduleCategories ?? [],
     questionMemos: response.questionMemos.map((memo) => ({
       ...memo,
       companyId: memo.companyId ?? null,
