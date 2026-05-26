@@ -5,7 +5,6 @@ import {
   Platform,
   Pressable,
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   View,
@@ -173,7 +172,6 @@ const createEmptySchedule = (
 ): CompanySchedule => {
   const now = new Date().toISOString();
   const date = initialDate || todayDateString();
-  const { startTime, endTime } = getDefaultTimeRange();
 
   return {
     id: createScheduleId(),
@@ -183,9 +181,9 @@ const createEmptySchedule = (
     categoryId: null,
     startDate: date,
     endDate: date,
-    startTime,
-    endTime,
-    isAllDay: false,
+    startTime: undefined,
+    endTime: undefined,
+    isAllDay: true,
     memo: "",
     createdAt: now,
     updatedAt: now,
@@ -343,6 +341,10 @@ export const ScheduleEditorDialog = ({
   const confirmDate = (date: string) => {
     if (datePickerTarget === "start") {
       updateStartDate(date);
+      if (draft.isAllDay) {
+        setDatePickerTarget("end");
+        return;
+      }
     } else if (datePickerTarget === "end") {
       updateEndDate(date);
     } else {
@@ -480,17 +482,9 @@ export const ScheduleEditorDialog = ({
                       ]}>
                       終日
                     </Text>
-                    <Switch
+                    <AllDayToggle
                       value={draft.isAllDay}
-                      trackColor={{
-                        false: theme.colors.border,
-                        true: theme.colors.primaryBorder,
-                      }}
-                      thumbColor={
-                        draft.isAllDay
-                          ? theme.colors.primary
-                          : theme.colors.surface
-                      }
+                      theme={theme}
                       onValueChange={toggleAllDay}
                     />
                   </View>
@@ -572,6 +566,10 @@ export const ScheduleEditorDialog = ({
                 ? draft.endDate || draft.startDate
                 : draft.startDate
             }
+            target={datePickerTarget}
+            startDate={draft.startDate}
+            endDate={draft.endDate || draft.startDate}
+            isAllDay={draft.isAllDay}
             theme={theme}
             onClose={() => setDatePickerTarget(null)}
             onSelect={confirmDate}
@@ -686,9 +684,6 @@ const TimedValueCard = ({
       onPress={onPressTime}
       style={({ pressed }) => [
         styles.timeButton,
-        {
-          borderBottomColor: theme.colors.textMuted,
-        },
         pressed && styles.pressed,
       ]}>
       <Text style={[styles.timeButtonText, { color: theme.colors.textPrimary }]}>
@@ -698,15 +693,62 @@ const TimedValueCard = ({
   </View>
 );
 
+const AllDayToggle = ({
+  value,
+  theme,
+  onValueChange,
+}: {
+  value: boolean;
+  theme: AppTheme;
+  onValueChange: (value: boolean) => void;
+}) => (
+  <Pressable
+    accessibilityRole="switch"
+    accessibilityState={{ checked: value }}
+    accessibilityLabel="終日の切り替え"
+    onPress={() => onValueChange(!value)}
+    style={({ pressed }) => [
+      styles.allDayToggle,
+      {
+        backgroundColor: value
+          ? theme.colors.primary
+          : theme.colors.surfaceSubtle,
+        borderColor: value ? theme.colors.primary : theme.colors.border,
+      },
+      pressed && styles.pressed,
+    ]}>
+    <View
+      style={[
+        styles.allDayToggleThumb,
+        {
+          backgroundColor: value
+            ? theme.colors.textOnPrimary
+            : theme.colors.surface,
+          borderColor: value ? theme.colors.textOnPrimary : theme.colors.border,
+          transform: [{ translateX: value ? 20 : 0 }],
+        },
+      ]}
+    />
+  </Pressable>
+);
+
 const DatePickerSheet = ({
   visible,
   value,
+  target,
+  startDate,
+  endDate,
+  isAllDay,
   theme,
   onClose,
   onSelect,
 }: {
   visible: boolean;
   value: string;
+  target: DatePickerTarget | null;
+  startDate: string;
+  endDate: string;
+  isAllDay: boolean;
   theme: AppTheme;
   onClose: () => void;
   onSelect: (value: string) => void;
@@ -732,6 +774,7 @@ const DatePickerSheet = ({
   const monthTitle = `${Number(monthDate.slice(0, 4))}年${Number(
     monthDate.slice(5, 7),
   )}月`;
+  const showRangeStatus = isAllDay && target !== "single";
 
   return (
     <View style={styles.pickerRoot}>
@@ -772,18 +815,48 @@ const DatePickerSheet = ({
             theme={theme}
             variant="plain"
           />
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => onSelect(selectedDate)}
-            style={({ pressed }) => [
-              styles.doneButton,
-              pressed && styles.pressed,
-            ]}>
-            <Text style={[styles.doneText, { color: theme.colors.primary }]}>
-              完了
-            </Text>
-          </Pressable>
         </View>
+        {showRangeStatus ? (
+          <View style={styles.pickerStatusBlock}>
+            <View style={styles.dateRangeStatusRow}>
+              {[
+                { key: "start", date: startDate },
+                { key: "end", date: endDate },
+              ].map((item) => {
+                const active = target === item.key;
+
+                return (
+                  <View
+                    key={item.key}
+                    style={[
+                      styles.dateRangeStatusChip,
+                      {
+                        backgroundColor: active
+                          ? theme.colors.primarySubtle
+                          : theme.colors.surfaceElevated,
+                        borderColor: active
+                          ? theme.colors.primaryBorder
+                          : theme.colors.border,
+                      },
+                    ]}>
+                    <Text
+                      numberOfLines={1}
+                      style={[
+                        styles.dateRangeStatusValue,
+                        {
+                          color: active
+                            ? theme.colors.primary
+                            : theme.colors.textSecondary,
+                        },
+                      ]}>
+                      {formatJapaneseDate(item.date)}
+                    </Text>
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+        ) : null}
         <View style={styles.pickerMonthControls}>
           <View style={styles.weekRow}>
             {weekdays.map((weekday, index) => (
@@ -819,7 +892,10 @@ const DatePickerSheet = ({
                   key={date}
                   accessibilityRole="button"
                   accessibilityState={{ selected }}
-                  onPress={() => setSelectedDate(date)}
+                  onPress={() => {
+                    setSelectedDate(date);
+                    onSelect(date);
+                  }}
                   style={({ pressed }) => [
                     styles.datePickerCell,
                     pressed && styles.pressed,
@@ -1685,6 +1761,20 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     lineHeight: 18,
   },
+  allDayToggle: {
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    height: 26,
+    justifyContent: "center",
+    padding: 2,
+    width: 46,
+  },
+  allDayToggleThumb: {
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    height: 20,
+    width: 20,
+  },
   dateCardRow: {
     alignItems: "stretch",
     flexDirection: "row",
@@ -1740,7 +1830,6 @@ const styles = StyleSheet.create({
   },
   timeButton: {
     alignItems: "center",
-    borderBottomWidth: StyleSheet.hairlineWidth,
     justifyContent: "center",
     minHeight: 26,
   },
@@ -1886,6 +1975,28 @@ const styles = StyleSheet.create({
   },
   pickerHeaderSpacer: {
     width: 44,
+  },
+  pickerStatusBlock: {
+    paddingTop: 4,
+  },
+  dateRangeStatusRow: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  dateRangeStatusChip: {
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    flex: 1,
+    minHeight: 44,
+    minWidth: 0,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  dateRangeStatusValue: {
+    fontSize: 12,
+    fontWeight: "800",
+    lineHeight: 16,
+    marginTop: 1,
   },
   doneButton: {
     alignItems: "center",
