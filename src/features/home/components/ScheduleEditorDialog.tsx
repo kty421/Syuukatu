@@ -777,7 +777,11 @@ const DatePickerSheet = ({
   const showRangeStatus = isAllDay && target !== "single";
 
   return (
-    <View style={styles.pickerRoot}>
+    <View
+      style={[
+        styles.pickerRoot,
+        Platform.OS === "web" && styles.desktopPickerRoot,
+      ]}>
       <Pressable
         accessibilityLabel="日付ピッカーを閉じる"
         style={[
@@ -789,6 +793,7 @@ const DatePickerSheet = ({
       <View
         style={[
           styles.pickerSheet,
+          Platform.OS === "web" && styles.desktopDatePickerSheet,
           theme.shadows.floating,
           {
             backgroundColor: theme.colors.surface,
@@ -1865,6 +1870,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 12,
     width: "100%",
+  },
+  desktopDatePickerSheet: {
+    borderBottomLeftRadius: 18,
+    borderBottomRightRadius: 18,
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
+    maxWidth: 420,
   },
   timeKeypadSheet: {
     borderTopWidth: StyleSheet.hairlineWidth,
