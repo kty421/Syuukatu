@@ -383,7 +383,7 @@ export const HomeMenuModal = ({
                 />
                 <MenuActionRow
                   icon="calendar-outline"
-                  label="カレンダー"
+                  label="日程"
                   selected={activeView === "calendar"}
                   theme={theme}
                   onPress={() => runMenuAction(() => onViewChange("calendar"))}
@@ -398,7 +398,7 @@ export const HomeMenuModal = ({
                   onPress={onCreateCompany}
                 />
                 <MenuActionRow
-                  icon="create-outline"
+                  icon="add-outline"
                   label="質問を追加"
                   theme={theme}
                   onPress={onCreateQuestion}

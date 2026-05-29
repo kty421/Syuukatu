@@ -51,9 +51,10 @@ const dayCellVerticalPadding = 4;
 const dayHeaderHeight = 15;
 const cellScheduleHeight = 13;
 const cellScheduleGap = 0;
-const multiDayBannerHeight = 12;
+const multiDayBannerHeight = 13;
 const multiDayBannerGap = 2;
 const multiDayBannerTop = 22;
+const timedScheduleAfterAllDayGap = Platform.OS === "web" ? 2 : 4;
 const calendarScheduleFontSize = Platform.OS === "web" ? 9 : 10;
 const calendarScheduleFontWeight =
   Platform.OS === "web" ? ("700" as const) : ("800" as const);
@@ -91,7 +92,8 @@ const getVisibleTimedScheduleCount = (
 ) => {
   const allDayOffset =
     visibleAllDayLaneCount > 0
-      ? getAllDayBannerSpaceHeight(visibleAllDayLaneCount) + 8
+      ? getAllDayBannerSpaceHeight(visibleAllDayLaneCount) +
+        timedScheduleAfterAllDayGap
       : 0;
   const availableHeight =
     dayCellHeight - dayCellVerticalPadding * 2 - dayHeaderHeight - allDayOffset;
@@ -299,10 +301,14 @@ export const CalendarView = ({
   const calendarHorizontalPadding = compactCalendar
     ? Math.max(contentPadding - 8, 12)
     : contentPadding;
-  const overflowBadgeWidth = compactCalendar ? 26 : 38;
-  const overflowBadgeHeight = compactCalendar ? 23 : 34;
-  const overflowBadgeTextInset = compactCalendar ? 1 : 3;
-  const overflowBadgeFontSize = compactCalendar ? 8 : 9;
+  const overflowBadgeWidth =
+    Platform.OS === "web" ? (compactCalendar ? 20 : 25) : compactCalendar ? 26 : 38;
+  const overflowBadgeHeight =
+    Platform.OS === "web" ? (compactCalendar ? 18 : 22) : compactCalendar ? 23 : 34;
+  const overflowBadgeTextInset =
+    Platform.OS === "web" ? 1 : compactCalendar ? 1 : 3;
+  const overflowBadgeFontSize =
+    Platform.OS === "web" ? (compactCalendar ? 7 : 8) : compactCalendar ? 8 : 9;
 
   const selectDate = (date: string) => {
     setSelectedDate(date);
@@ -522,7 +528,8 @@ export const CalendarView = ({
                               {
                                 marginTop:
                                   dateLaneCount > 0
-                                    ? dateBannerSpaceHeight + 8
+                                    ? dateBannerSpaceHeight +
+                                      timedScheduleAfterAllDayGap
                                     : 0,
                               },
                             ]}>
@@ -652,12 +659,6 @@ export const CalendarView = ({
               borderColor: theme.colors.border,
             },
           ]}>
-          <View
-            style={[
-              styles.panelHandle,
-              { backgroundColor: theme.colors.border },
-            ]}
-          />
           <View style={styles.panelHeader}>
             <View style={styles.panelTitleBlock}>
               <Text
@@ -945,13 +946,6 @@ const styles = StyleSheet.create({
     marginTop: 10,
     overflow: "hidden",
     padding: 14,
-  },
-  panelHandle: {
-    alignSelf: "center",
-    borderRadius: 999,
-    height: 4,
-    marginBottom: 12,
-    width: 42,
   },
   panelHeader: {
     alignItems: "center",
