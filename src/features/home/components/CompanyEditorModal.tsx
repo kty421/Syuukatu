@@ -704,6 +704,7 @@ export const CompanyEditorModal = ({
                   />
                   <Text
                     style={[
+                      theme.typography.title3,
                       styles.headerTitle,
                       { color: theme.colors.textPrimary },
                     ]}>
@@ -1077,9 +1078,17 @@ const FormSection = ({
       {
         backgroundColor: theme.colors.surface,
         borderColor: theme.colors.border,
+        borderRadius: theme.radii.lg,
+        padding: theme.spacing.md,
       },
     ]}>
-    <Text style={[styles.sectionTitle, { color: theme.colors.textPrimary }]}>
+    <Text
+      style={[
+        theme.typography.label,
+        styles.sectionTitle,
+        { color: theme.colors.textPrimary }
+      ]}
+    >
       {title}
     </Text>
     <View style={styles.sectionBody}>{children}</View>
@@ -1087,7 +1096,13 @@ const FormSection = ({
 );
 
 const FieldLabel = ({ label, theme }: { label: string; theme: AppTheme }) => (
-  <Text style={[styles.fieldLabel, { color: theme.colors.textSecondary }]}>
+  <Text
+    style={[
+      theme.typography.footnote,
+      styles.fieldLabel,
+      { color: theme.colors.textSecondary }
+    ]}
+  >
     {label}
   </Text>
 );
@@ -1380,44 +1395,34 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     flex: 1,
-    fontSize: 19,
-    fontWeight: "500",
-    lineHeight: 24,
     textAlign: "center",
   },
   headerSpacer: {
     width: 36,
   },
   content: {
-    paddingBottom: 12,
-    paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingBottom: 10,
+    paddingHorizontal: 14,
+    paddingTop: 14,
   },
   formShell: {
     alignSelf: "center",
-    gap: 16,
+    gap: 14,
     maxWidth: 760,
     width: "100%",
   },
   section: {
-    borderRadius: 24,
     borderWidth: StyleSheet.hairlineWidth,
     overflow: "hidden",
-    padding: 16,
   },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    lineHeight: 21,
+    fontWeight: "800",
   },
   sectionBody: {
-    gap: 16,
-    marginTop: 16,
+    gap: 14,
+    marginTop: 14,
   },
   fieldLabel: {
-    fontSize: 12,
-    fontWeight: "600",
-    lineHeight: 16,
     marginBottom: 8,
   },
   selectTrigger: {
@@ -1452,7 +1457,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     maxHeight: "78%",
     paddingHorizontal: 16,
-    paddingTop: 14,
+    paddingTop: 12,
   },
   pickerHeader: {
     alignItems: "center",
@@ -1473,7 +1478,7 @@ const styles = StyleSheet.create({
   },
   pickerList: {
     gap: 8,
-    paddingTop: 12,
+    paddingTop: 10,
   },
   pickerOption: {
     alignItems: "center",
@@ -1592,7 +1597,7 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   longTextInput: {
-    minHeight: 148,
+    minHeight: 132,
   },
   webPasswordNotice: {
     borderRadius: 16,

@@ -504,9 +504,9 @@ const styles = StyleSheet.create({
   body: {
     alignSelf: "center",
     maxWidth: 760,
-    paddingBottom: 28,
-    paddingHorizontal: 18,
-    paddingTop: 18,
+    paddingBottom: 22,
+    paddingHorizontal: 16,
+    paddingTop: 14,
     width: "100%",
   },
   headerAddButton: {
@@ -580,7 +580,7 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     gap: 6,
     paddingHorizontal: 18,
-    paddingVertical: 24,
+    paddingVertical: 18,
   },
   emptyTitle: {
     fontSize: 15,

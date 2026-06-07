@@ -233,7 +233,13 @@ export const ResetPasswordScreen = ({
   const renderBody = () => {
     if (resetPasswordStatus === 'loading') {
       return (
-        <Text style={[styles.body, { color: theme.colors.textMuted }]}>
+        <Text
+          style={[
+            theme.typography.body,
+            styles.body,
+            { color: theme.colors.textMuted }
+          ]}
+        >
           読み込み中
         </Text>
       );
@@ -242,7 +248,13 @@ export const ResetPasswordScreen = ({
     if (resetPasswordStatus === 'error' && !isUpdated) {
       return (
         <>
-          <Text style={[styles.errorText, { color: theme.colors.danger }]}>
+          <Text
+            style={[
+              theme.typography.footnote,
+              styles.errorText,
+              { color: theme.colors.danger }
+            ]}
+          >
             {linkError ?? INVALID_LINK_MESSAGE}
           </Text>
           <AppButton
@@ -258,7 +270,13 @@ export const ResetPasswordScreen = ({
     if (isUpdated) {
       return (
         <>
-          <Text style={[styles.messageText, { color: theme.colors.success }]}>
+          <Text
+            style={[
+              theme.typography.footnote,
+              styles.messageText,
+              { color: theme.colors.success }
+            ]}
+          >
             {message ?? 'パスワードを更新しました'}
           </Text>
           <AppButton
@@ -297,7 +315,13 @@ export const ResetPasswordScreen = ({
             />
           }
         />
-        <Text style={[styles.requirementText, { color: theme.colors.textMuted }]}>
+        <Text
+          style={[
+            theme.typography.footnote,
+            styles.requirementText,
+            { color: theme.colors.textMuted }
+          ]}
+        >
           {PASSWORD_REQUIREMENT_TEXT}
         </Text>
         <InputField
@@ -316,7 +340,13 @@ export const ResetPasswordScreen = ({
         />
 
         {error ? (
-          <Text style={[styles.errorText, { color: theme.colors.danger }]}>
+          <Text
+            style={[
+              theme.typography.footnote,
+              styles.errorText,
+              { color: theme.colors.danger }
+            ]}
+          >
             {error}
           </Text>
         ) : null}
@@ -350,11 +380,19 @@ export const ResetPasswordScreen = ({
               theme.shadows.surface,
               {
                 backgroundColor: theme.colors.surface,
-                borderColor: theme.colors.border
+                borderColor: theme.colors.border,
+                borderRadius: theme.radii.lg,
+                padding: theme.spacing.xl
               }
             ]}
           >
-            <Text style={[styles.title, { color: theme.colors.textPrimary }]}>
+            <Text
+              style={[
+                theme.typography.title2,
+                styles.title,
+                { color: theme.colors.textPrimary }
+              ]}
+            >
               新しいパスワードを設定
             </Text>
             <View style={styles.form}>{renderBody()}</View>
@@ -379,16 +417,11 @@ const styles = StyleSheet.create({
     padding: 20
   },
   panel: {
-    borderRadius: 24,
     borderWidth: StyleSheet.hairlineWidth,
     maxWidth: 420,
-    padding: 22,
     width: '100%'
   },
   title: {
-    fontSize: 22,
-    fontWeight: '800',
-    lineHeight: 29,
     marginBottom: 20,
     textAlign: 'center'
   },
@@ -396,27 +429,17 @@ const styles = StyleSheet.create({
     gap: 16
   },
   body: {
-    fontSize: 14,
-    fontWeight: '600',
-    lineHeight: 21,
     textAlign: 'center'
   },
   requirementText: {
-    fontSize: 12,
-    fontWeight: '600',
-    lineHeight: 17,
     marginTop: -8
   },
   errorText: {
-    fontSize: 13,
     fontWeight: '700',
-    lineHeight: 19,
     textAlign: 'center'
   },
   messageText: {
-    fontSize: 13,
     fontWeight: '700',
-    lineHeight: 19,
     textAlign: 'center'
   }
 });

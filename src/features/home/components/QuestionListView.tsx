@@ -3,6 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { memo, useCallback, useMemo, useRef, useState, type Ref } from 'react';
 import {
   LayoutChangeEvent,
+  ActivityIndicator,
   Keyboard,
   NativeScrollEvent,
   NativeSyntheticEvent,
@@ -317,6 +318,7 @@ export const QuestionListView = ({
     if (isLoading) {
       return (
         <View style={[containerStyle, styles.emptyState]}>
+          <ActivityIndicator color={theme.colors.primary} />
           <Text style={[styles.emptyTitle, { color: theme.colors.textMuted }]}>
             読み込み中
           </Text>
@@ -494,7 +496,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
     justifyContent: 'center',
-    minHeight: 260,
+    minHeight: 212,
     paddingHorizontal: 24
   },
   emptyTitle: {

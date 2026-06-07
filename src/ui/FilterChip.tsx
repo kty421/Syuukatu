@@ -53,7 +53,10 @@ export const FilterChip = ({
             ? theme.colors.focusRing
             : selected
               ? border
-              : theme.colors.border
+              : theme.colors.border,
+          borderRadius: theme.radii.md,
+          minHeight: theme.component.controlHeightCompact,
+          paddingHorizontal: theme.spacing.md
         },
         (hovered || pressed) && {
           backgroundColor: selected ? surface : theme.colors.surfaceSubtle
@@ -61,7 +64,9 @@ export const FilterChip = ({
       ]}
     >
       <Text
+        numberOfLines={1}
         style={[
+          theme.typography.label,
           styles.label,
           { color: selected ? tint : theme.colors.textSecondary }
         ]}
@@ -75,16 +80,12 @@ export const FilterChip = ({
 const styles = StyleSheet.create({
   chip: {
     alignItems: 'center',
-    borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
     justifyContent: 'center',
-    minHeight: 34,
+    maxWidth: 180,
     overflow: 'hidden',
-    paddingHorizontal: 14
   },
   label: {
-    fontSize: 13,
-    fontWeight: '700',
-    lineHeight: 17
+    flexShrink: 1
   }
 });

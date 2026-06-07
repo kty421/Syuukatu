@@ -46,7 +46,9 @@ export const FloatingActionButton = ({
         {
           backgroundColor:
             hovered && !pressed ? theme.colors.primaryHover : theme.colors.primary,
-          borderColor: focused ? theme.colors.focusRing : theme.colors.primaryBorder
+          borderColor: focused ? theme.colors.focusRing : theme.colors.primaryBorder,
+          height: 58,
+          width: 58
         },
         pressed && { backgroundColor: theme.colors.primaryPressed },
         pressed && styles.pressedScale,
@@ -63,10 +65,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderRadius: 999,
     borderWidth: StyleSheet.hairlineWidth,
-    height: 58,
     justifyContent: 'center',
     position: 'absolute',
-    width: 58
+    zIndex: 12
   },
   pressedScale: {
     transform: [{ scale: 0.96 }]

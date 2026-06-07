@@ -306,6 +306,7 @@ export const HomeMenuModal = ({
             style={[
               StyleSheet.absoluteFillObject,
               styles.backdrop,
+              { backgroundColor: theme.colors.overlay },
               backdropStyle,
             ]}
           />
@@ -328,8 +329,8 @@ export const HomeMenuModal = ({
                 {
                   backgroundColor: theme.colors.surface,
                   borderLeftColor: theme.colors.border,
-                  paddingBottom: Math.max(insets.bottom, 14),
-                  paddingTop: Math.max(insets.top, 10) + 12,
+                  paddingBottom: Math.max(insets.bottom, 12),
+                  paddingTop: Math.max(insets.top, 10) + 8,
                   width: drawerWidth,
                 },
               ]}>
@@ -657,7 +658,6 @@ const styles = StyleSheet.create({
     zIndex: 30,
   },
   backdrop: {
-    backgroundColor: "rgba(0, 0, 0, 0.52)",
   },
   edgeSwipeZone: {
     bottom: 0,
@@ -668,7 +668,7 @@ const styles = StyleSheet.create({
   drawer: {
     borderLeftWidth: StyleSheet.hairlineWidth,
     bottom: 0,
-    gap: 14,
+    gap: 10,
     maxWidth: 320,
     paddingHorizontal: 14,
     position: "absolute",
@@ -681,7 +681,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 10,
     justifyContent: "flex-end",
-    minHeight: 48,
+    minHeight: 44,
   },
   headerTitleBlock: {
     flexShrink: 1,
@@ -701,14 +701,14 @@ const styles = StyleSheet.create({
     width: 34,
   },
   menuSection: {
-    gap: 8,
+    gap: 6,
   },
   settingsSection: {
-    marginTop: 2,
+    marginTop: 0,
   },
   settingsDivider: {
     height: 1,
-    marginBottom: 4,
+    marginBottom: 2,
   },
   settingsItemDivider: {
     marginVertical: 1,
@@ -778,14 +778,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 10,
     justifyContent: "space-between",
-    minHeight: 42,
+    minHeight: 44,
   },
   settingsRow: {
     alignItems: "center",
     flexDirection: "row",
     gap: 10,
     justifyContent: "space-between",
-    minHeight: 42,
+    minHeight: 44,
   },
   segment: {
     borderRadius: 13,
@@ -822,7 +822,7 @@ const styles = StyleSheet.create({
     height: StyleSheet.hairlineWidth,
   },
   footer: {
-    gap: 14,
+    gap: 10,
     marginTop: "auto",
   },
   pressed: {

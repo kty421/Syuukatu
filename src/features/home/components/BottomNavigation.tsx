@@ -43,7 +43,8 @@ export const BottomNavigation = ({
         theme.shadows.floating,
         {
           backgroundColor: theme.colors.surface,
-          borderColor: theme.colors.border
+          borderColor: theme.colors.border,
+          borderRadius: theme.component.navRadius
         },
         style
       ]}
@@ -98,6 +99,7 @@ const NavigationItem = ({
       style={({ pressed }) => [
         styles.item,
         webCursor,
+        { borderRadius: theme.radii.md },
         selected && { backgroundColor: palette.selectedBackground },
         hovered && !selected && { backgroundColor: theme.colors.surfaceSubtle },
         focused && { borderColor: theme.colors.focusRing, borderWidth: 1 },
@@ -110,7 +112,9 @@ const NavigationItem = ({
         color={selected ? palette.selected : theme.colors.textDisabled}
       />
       <Text
+        numberOfLines={1}
         style={[
+          theme.typography.caption,
           styles.label,
           { color: selected ? palette.selected : theme.colors.textMuted }
         ]}
@@ -129,7 +133,6 @@ export const getNavigationPalette = (theme: AppTheme) => ({
 const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
-    borderRadius: 21,
     borderWidth: StyleSheet.hairlineWidth,
     flexDirection: 'row',
     gap: 6,
@@ -140,7 +143,6 @@ const styles = StyleSheet.create({
   },
   item: {
     alignItems: 'center',
-    borderRadius: 16,
     flex: 1,
     flexDirection: 'row',
     gap: 7,
@@ -149,9 +151,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10
   },
   label: {
-    fontSize: 11,
-    fontWeight: '700',
-    lineHeight: 15
+    flexShrink: 1
   },
   pressed: {
     opacity: 0.82

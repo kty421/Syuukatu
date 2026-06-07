@@ -203,9 +203,9 @@ const styles = StyleSheet.create({
   body: {
     alignSelf: "center",
     maxWidth: 760,
-    paddingBottom: 28,
-    paddingHorizontal: 18,
-    paddingTop: 18,
+    paddingBottom: 22,
+    paddingHorizontal: 16,
+    paddingTop: 14,
     width: "100%",
   },
   form: {

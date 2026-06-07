@@ -53,7 +53,9 @@ export const FullScreenModalShell = ({
               {
                 backgroundColor: theme.colors.background,
                 borderBottomColor: theme.colors.divider,
-                paddingTop: insets.top + 6
+                minHeight: insets.top + 56,
+                paddingHorizontal: theme.spacing.sm,
+                paddingTop: insets.top + theme.spacing.xs
               }
             ]}
           >
@@ -67,7 +69,11 @@ export const FullScreenModalShell = ({
             </View>
             <Text
               numberOfLines={1}
-              style={[styles.title, { color: theme.colors.textPrimary }]}
+              style={[
+                theme.typography.label,
+                styles.title,
+                { color: theme.colors.textPrimary }
+              ]}
             >
               {title}
             </Text>
@@ -89,21 +95,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderBottomWidth: StyleSheet.hairlineWidth,
     flexDirection: 'row',
-    minHeight: 58,
     paddingBottom: 8,
-    paddingHorizontal: 10
   },
   title: {
     flex: 1,
-    fontSize: 15,
     fontWeight: '800',
-    lineHeight: 20,
     textAlign: 'center'
   },
   headerSide: {
     alignItems: 'center',
     justifyContent: 'center',
-    width: 36
+    minWidth: 40,
+    width: 44
   },
   content: {
     flex: 1

@@ -51,6 +51,7 @@ export const AppButton = ({
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityState={{ disabled: inactive, busy: loading }}
       disabled={inactive}
       onBlur={() => setFocused(false)}
       onFocus={() => setFocused(true)}
@@ -68,7 +69,13 @@ export const AppButton = ({
         getWebCursor(inactive),
         {
           backgroundColor: palette.background,
-          borderColor: focused ? theme.colors.focusRing : palette.border
+          borderColor: focused ? theme.colors.focusRing : palette.border,
+          borderRadius: theme.radii.md,
+          minHeight: compact
+            ? theme.component.controlHeightCompact
+            : theme.component.controlHeight,
+          opacity: disabled ? theme.state.disabledOpacity : 1,
+          paddingHorizontal: compact ? theme.spacing.md : theme.spacing.lg
         },
         hovered &&
           !inactive && {
@@ -79,20 +86,29 @@ export const AppButton = ({
           backgroundColor: palette.pressedBackground,
           borderColor: palette.pressedBorder
         },
-        disabled && {
+        inactive && {
           backgroundColor: theme.colors.disabledBackground,
           borderColor: theme.colors.disabledBackground
         }
       ]}
     >
       {loading ? (
-        <ActivityIndicator color={foreground} />
+        <ActivityIndicator color={foreground} size="small" />
       ) : (
         <>
           {icon ? (
             <Ionicons name={icon} size={compact ? 16 : 18} color={foreground} />
           ) : null}
-          <Text style={[styles.label, { color: foreground }]}>{label}</Text>
+          <Text
+            numberOfLines={1}
+            style={[
+              compact ? theme.typography.footnote : theme.typography.label,
+              styles.label,
+              { color: foreground }
+            ]}
+          >
+            {label}
+          </Text>
         </>
       )}
     </Pressable>
@@ -151,24 +167,19 @@ const getPalette = (
 const styles = StyleSheet.create({
   base: {
     alignItems: 'center',
-    borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
     flexDirection: 'row',
     gap: 8,
     justifyContent: 'center',
+    minWidth: 0,
     overflow: 'hidden'
   },
   default: {
-    minHeight: 48,
-    paddingHorizontal: 18
   },
   compact: {
-    minHeight: 38,
-    paddingHorizontal: 14
   },
   label: {
-    fontSize: 14,
-    fontWeight: '700',
-    lineHeight: 18
+    flexShrink: 1,
+    textAlign: 'center'
   }
 });

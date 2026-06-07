@@ -401,7 +401,11 @@ export const ScheduleEditorDialog = ({
               pressed && styles.pressed,
             ]}>
             <Text
-              style={[styles.headerSaveText, { color: theme.colors.primary }]}>
+              style={[
+                theme.typography.label,
+                styles.headerSaveText,
+                { color: theme.colors.primary },
+              ]}>
               保存
             </Text>
           </Pressable>
@@ -432,6 +436,8 @@ export const ScheduleEditorDialog = ({
                   {
                     backgroundColor: theme.colors.surfaceElevated,
                     borderColor: theme.colors.border,
+                    borderRadius: theme.radii.md,
+                    minHeight: theme.component.controlHeight,
                   },
                   pressed && styles.pressed,
                 ]}>
@@ -445,6 +451,7 @@ export const ScheduleEditorDialog = ({
                   <Text
                     numberOfLines={1}
                     style={[
+                      theme.typography.label,
                       styles.categorySelectName,
                       { color: theme.colors.textPrimary },
                     ]}>
@@ -464,11 +471,14 @@ export const ScheduleEditorDialog = ({
                   {
                     backgroundColor: theme.colors.surfaceElevated,
                     borderColor: theme.colors.border,
+                    borderRadius: theme.radii.md,
+                    padding: theme.spacing.sm,
                   },
                 ]}>
                 <View style={styles.schedulePanelHeader}>
                   <Text
                     style={[
+                      theme.typography.label,
                       styles.schedulePanelTitle,
                       { color: theme.colors.textPrimary },
                     ]}>
@@ -477,6 +487,7 @@ export const ScheduleEditorDialog = ({
                   <View style={styles.allDayInline}>
                     <Text
                       style={[
+                        theme.typography.footnote,
                         styles.allDayTitle,
                         { color: theme.colors.textPrimary },
                       ]}>
@@ -552,7 +563,12 @@ export const ScheduleEditorDialog = ({
               />
 
               {error ? (
-                <Text style={[styles.errorText, { color: theme.colors.danger }]}>
+                <Text
+                  style={[
+                    theme.typography.footnote,
+                    styles.errorText,
+                    { color: theme.colors.danger },
+                  ]}>
                   {error}
                 </Text>
               ) : null}
@@ -621,17 +637,24 @@ const DateValueCard = ({
       {
         backgroundColor: theme.colors.surface,
         borderColor: theme.colors.border,
+        borderRadius: theme.radii.md,
       },
       pressed && styles.pressed,
     ]}>
     {label ? (
-      <Text style={[styles.dateValueLabel, { color: theme.colors.textMuted }]}>
+      <Text
+        style={[
+          theme.typography.caption,
+          styles.dateValueLabel,
+          { color: theme.colors.textMuted },
+        ]}>
         {label}
       </Text>
     ) : null}
     <Text
       numberOfLines={1}
       style={[
+        theme.typography.label,
         styles.dateValueText,
         !label && styles.dateValueTextWithoutLabel,
         { color: theme.colors.textPrimary },
@@ -662,10 +685,16 @@ const TimedValueCard = ({
       {
         backgroundColor: theme.colors.surface,
         borderColor: theme.colors.border,
+        borderRadius: theme.radii.md,
       },
     ]}>
     {label ? (
-      <Text style={[styles.dateValueLabel, { color: theme.colors.textMuted }]}>
+      <Text
+        style={[
+          theme.typography.caption,
+          styles.dateValueLabel,
+          { color: theme.colors.textMuted },
+        ]}>
         {label}
       </Text>
     ) : null}
@@ -675,7 +704,11 @@ const TimedValueCard = ({
       style={({ pressed }) => [styles.timedPressable, pressed && styles.pressed]}>
       <Text
         numberOfLines={1}
-        style={[styles.timedDateText, { color: theme.colors.textPrimary }]}>
+        style={[
+          theme.typography.caption,
+          styles.timedDateText,
+          { color: theme.colors.textPrimary },
+        ]}>
         {date}
       </Text>
     </Pressable>
@@ -686,7 +719,12 @@ const TimedValueCard = ({
         styles.timeButton,
         pressed && styles.pressed,
       ]}>
-      <Text style={[styles.timeButtonText, { color: theme.colors.textPrimary }]}>
+      <Text
+        style={[
+          theme.typography.title3,
+          styles.timeButtonText,
+          { color: theme.colors.textPrimary },
+        ]}>
         {time}
       </Text>
     </Pressable>
@@ -810,7 +848,11 @@ const DatePickerSheet = ({
             variant="plain"
           />
           <Text
-            style={[styles.pickerTitle, { color: theme.colors.textPrimary }]}>
+            style={[
+              theme.typography.label,
+              styles.pickerTitle,
+              { color: theme.colors.textPrimary },
+            ]}>
             {monthTitle}
           </Text>
           <IconButton
@@ -825,8 +867,8 @@ const DatePickerSheet = ({
           <View style={styles.pickerStatusBlock}>
             <View style={styles.dateRangeStatusRow}>
               {[
-                { key: "start", date: startDate },
-                { key: "end", date: endDate },
+                { key: "start", label: "開始", date: startDate },
+                { key: "end", label: "終了", date: endDate },
               ].map((item) => {
                 const active = target === item.key;
 
@@ -847,6 +889,20 @@ const DatePickerSheet = ({
                     <Text
                       numberOfLines={1}
                       style={[
+                        theme.typography.caption,
+                        styles.dateRangeStatusLabel,
+                        {
+                          color: active
+                            ? theme.colors.primary
+                            : theme.colors.textMuted,
+                        },
+                      ]}>
+                      {item.label}
+                    </Text>
+                    <Text
+                      numberOfLines={1}
+                      style={[
+                        theme.typography.caption,
                         styles.dateRangeStatusValue,
                         {
                           color: active
@@ -868,6 +924,7 @@ const DatePickerSheet = ({
               <Text
                 key={weekday}
                 style={[
+                  theme.typography.caption,
                   styles.pickerWeekday,
                   {
                     color:
@@ -914,6 +971,7 @@ const DatePickerSheet = ({
                     ]}>
                     <Text
                       style={[
+                        theme.typography.label,
                         styles.datePickerDayText,
                         {
                           color: selected
@@ -960,7 +1018,12 @@ const TimePreviewGroup = ({
   onPressMinute: () => void;
 }) => (
   <View style={styles.timePreviewPair}>
-    <Text style={[styles.timeKeypadLabel, { color: theme.colors.textMuted }]}>
+    <Text
+      style={[
+        theme.typography.caption,
+        styles.timeKeypadLabel,
+        { color: theme.colors.textMuted },
+      ]}>
       {label}
     </Text>
     <View style={styles.timePreviewParts}>
@@ -1015,6 +1078,7 @@ const TimePreviewPart = ({
     ]}>
     <Text
       style={[
+        theme.typography.title2,
         styles.timePreviewTime,
         {
           color: active ? theme.colors.textPrimary : theme.colors.textMuted,
@@ -1024,6 +1088,7 @@ const TimePreviewPart = ({
     </Text>
     <Text
       style={[
+        theme.typography.caption,
         styles.timePreviewUnit,
         {
           color: active ? theme.colors.textSecondary : theme.colors.textMuted,
@@ -1168,6 +1233,7 @@ const DesktopTimePickerDialog = ({
           ]}>
           <Text
             style={[
+              theme.typography.label,
               styles.desktopTimeTitle,
               { color: theme.colors.textPrimary },
             ]}>
@@ -1188,6 +1254,7 @@ const DesktopTimePickerDialog = ({
             <View style={styles.desktopTimeField}>
               <Text
                 style={[
+                  theme.typography.caption,
                   styles.desktopTimeLabel,
                   { color: theme.colors.textMuted },
                 ]}>
@@ -1217,6 +1284,7 @@ const DesktopTimePickerDialog = ({
                       focusedField === "start"
                         ? theme.colors.focusRing
                         : theme.colors.border,
+                    borderRadius: theme.radii.sm,
                     color: theme.colors.textPrimary,
                   },
                 ]}
@@ -1232,6 +1300,7 @@ const DesktopTimePickerDialog = ({
             <View style={styles.desktopTimeField}>
               <Text
                 style={[
+                  theme.typography.caption,
                   styles.desktopTimeLabel,
                   { color: theme.colors.textMuted },
                 ]}>
@@ -1261,6 +1330,7 @@ const DesktopTimePickerDialog = ({
                       focusedField === "end"
                         ? theme.colors.focusRing
                         : theme.colors.border,
+                    borderRadius: theme.radii.sm,
                     color: theme.colors.textPrimary,
                   },
                 ]}
@@ -1285,6 +1355,7 @@ const DesktopTimePickerDialog = ({
                   ]}>
                   <Text
                     style={[
+                      theme.typography.caption,
                       styles.desktopQuickChipText,
                       { color: theme.colors.textSecondary },
                     ]}>
@@ -1318,6 +1389,7 @@ const DesktopTimePickerDialog = ({
                   />
                   <Text
                     style={[
+                      theme.typography.caption,
                       styles.desktopShiftText,
                       { color: theme.colors.textSecondary },
                     ]}>
@@ -1608,7 +1680,12 @@ const MobileTimePickerSheet = ({
               styles.doneButton,
               pressed && styles.pressed,
             ]}>
-            <Text style={[styles.doneText, { color: theme.colors.primary }]}>
+            <Text
+              style={[
+                theme.typography.label,
+                styles.doneText,
+                { color: theme.colors.primary },
+              ]}>
               完了
             </Text>
           </Pressable>
@@ -1656,13 +1733,13 @@ const styles = StyleSheet.create({
   body: {
     alignSelf: "center",
     maxWidth: 760,
-    paddingBottom: 28,
-    paddingHorizontal: 18,
-    paddingTop: 18,
+    paddingBottom: 22,
+    paddingHorizontal: 16,
+    paddingTop: 14,
     width: "100%",
   },
   form: {
-    gap: 16,
+    gap: 14,
   },
   root: {
     flex: 1,
@@ -1703,9 +1780,7 @@ const styles = StyleSheet.create({
     minWidth: 44,
   },
   headerSaveText: {
-    fontSize: 14,
     fontWeight: "800",
-    lineHeight: 18,
   },
   content: {
     gap: 16,
@@ -1735,15 +1810,13 @@ const styles = StyleSheet.create({
     lineHeight: 15,
   },
   categorySelectName: {
-    fontSize: 14,
     fontWeight: "800",
-    lineHeight: 19,
     marginTop: 2,
   },
   schedulePanel: {
     borderRadius: 18,
     borderWidth: StyleSheet.hairlineWidth,
-    gap: 14,
+    gap: 12,
     padding: 12,
   },
   schedulePanelHeader: {
@@ -1752,9 +1825,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   schedulePanelTitle: {
-    fontSize: 14,
     fontWeight: "800",
-    lineHeight: 19,
   },
   allDayInline: {
     alignItems: "center",
@@ -1762,9 +1833,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   allDayTitle: {
-    fontSize: 13,
     fontWeight: "800",
-    lineHeight: 18,
   },
   allDayToggle: {
     borderRadius: 999,
@@ -1811,14 +1880,10 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   dateValueLabel: {
-    fontSize: 11,
     fontWeight: "800",
-    lineHeight: 15,
   },
   dateValueText: {
-    fontSize: 14,
     fontWeight: "800",
-    lineHeight: 19,
     marginTop: 6,
   },
   dateValueTextWithoutLabel: {
@@ -1829,9 +1894,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   timedDateText: {
-    fontSize: 12,
     fontWeight: "800",
-    lineHeight: 17,
   },
   timeButton: {
     alignItems: "center",
@@ -1839,17 +1902,13 @@ const styles = StyleSheet.create({
     minHeight: 26,
   },
   timeButtonText: {
-    fontSize: 18,
     fontWeight: "700",
-    lineHeight: 23,
   },
   memoInput: {
     minHeight: 96,
   },
   errorText: {
-    fontSize: 12,
     fontWeight: "700",
-    lineHeight: 17,
   },
   pickerRoot: {
     ...StyleSheet.absoluteFillObject,
@@ -1868,7 +1927,7 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     maxHeight: "82%",
     paddingHorizontal: 16,
-    paddingTop: 12,
+    paddingTop: 10,
     width: "100%",
   },
   desktopDatePickerSheet: {
@@ -1900,9 +1959,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   desktopTimeTitle: {
-    fontSize: 16,
     fontWeight: "800",
-    lineHeight: 22,
   },
   desktopTimeBody: {
     gap: 16,
@@ -1919,9 +1976,7 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   desktopTimeLabel: {
-    fontSize: 12,
     fontWeight: "800",
-    lineHeight: 16,
   },
   desktopTimeInput: {
     borderRadius: 12,
@@ -1948,9 +2003,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   desktopQuickChipText: {
-    fontSize: 12,
     fontWeight: "800",
-    lineHeight: 16,
   },
   desktopShiftButton: {
     alignItems: "center",
@@ -1962,9 +2015,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   desktopShiftText: {
-    fontSize: 12,
     fontWeight: "800",
-    lineHeight: 16,
   },
   desktopTimeActions: {
     borderTopWidth: StyleSheet.hairlineWidth,
@@ -1980,35 +2031,33 @@ const styles = StyleSheet.create({
   },
   pickerTitle: {
     flex: 1,
-    fontSize: 17,
     fontWeight: "800",
-    lineHeight: 22,
     textAlign: "center",
   },
   pickerHeaderSpacer: {
     width: 44,
   },
   pickerStatusBlock: {
-    paddingTop: 4,
+    paddingTop: 2,
   },
   dateRangeStatusRow: {
     flexDirection: "row",
-    gap: 8,
+    gap: 6,
   },
   dateRangeStatusChip: {
     borderRadius: 12,
     borderWidth: StyleSheet.hairlineWidth,
     flex: 1,
-    minHeight: 44,
+    minHeight: 38,
     minWidth: 0,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+  },
+  dateRangeStatusLabel: {
+    fontWeight: "800",
   },
   dateRangeStatusValue: {
-    fontSize: 12,
     fontWeight: "800",
-    lineHeight: 16,
-    marginTop: 1,
   },
   doneButton: {
     alignItems: "center",
@@ -2018,28 +2067,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   doneText: {
-    fontSize: 14,
     fontWeight: "800",
-    lineHeight: 18,
   },
   pickerMonthControls: {
-    paddingTop: 8,
+    paddingTop: 4,
   },
   weekRow: {
     flexDirection: "row",
-    paddingBottom: 6,
+    paddingBottom: 4,
   },
   pickerWeekday: {
     flex: 1,
-    fontSize: 12,
     fontWeight: "800",
-    lineHeight: 16,
     textAlign: "center",
   },
   datePickerGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    paddingBottom: 10,
+    paddingBottom: 6,
   },
   datePickerCell: {
     alignItems: "center",
@@ -2055,9 +2100,7 @@ const styles = StyleSheet.create({
     width: 32,
   },
   datePickerDayText: {
-    fontSize: 13,
     fontWeight: "800",
-    lineHeight: 17,
   },
   timeKeypadHeader: {
     alignItems: "center",
@@ -2069,9 +2112,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   timeKeypadLabel: {
-    fontSize: 11,
     fontWeight: "700",
-    lineHeight: 15,
   },
   timePreviewGroup: {
     alignItems: "center",
@@ -2101,9 +2142,7 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
   },
   timePreviewTime: {
-    fontSize: 20,
     fontWeight: "600",
-    lineHeight: 24,
     textAlign: "center",
   },
   timePreviewSeparator: {
@@ -2112,9 +2151,7 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
   timePreviewUnit: {
-    fontSize: 9,
     fontWeight: "700",
-    lineHeight: 11,
     marginTop: 1,
   },
   timeKeypadGrid: {

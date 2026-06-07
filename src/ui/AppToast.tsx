@@ -7,12 +7,14 @@ type AppToastProps = {
   message: string;
   theme: AppTheme;
   tone?: 'success' | 'error' | 'warning';
+  bottomOffset?: number;
 };
 
 export const AppToast = ({
   message,
   theme,
-  tone = 'success'
+  tone = 'success',
+  bottomOffset = 92
 }: AppToastProps) => {
   const isError = tone === 'error';
   const isWarning = tone === 'warning';
@@ -25,6 +27,8 @@ export const AppToast = ({
         theme.shadows.floating,
         {
           backgroundColor: theme.colors.surfaceOverlay,
+          borderRadius: theme.radii.md,
+          bottom: bottomOffset,
           borderColor: isError
             ? theme.colors.danger
             : isWarning
@@ -57,7 +61,16 @@ export const AppToast = ({
           }
         />
       </View>
-      <Text style={[styles.message, { color: theme.colors.textPrimary }]}>{message}</Text>
+      <Text
+        numberOfLines={2}
+        style={[
+          theme.typography.label,
+          styles.message,
+          { color: theme.colors.textPrimary }
+        ]}
+      >
+        {message}
+      </Text>
     </View>
   );
 };
@@ -66,9 +79,7 @@ const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
     alignSelf: 'center',
-    borderRadius: 18,
     borderWidth: StyleSheet.hairlineWidth,
-    bottom: 28,
     flexDirection: 'row',
     gap: 10,
     maxWidth: '88%',
@@ -85,8 +96,6 @@ const styles = StyleSheet.create({
   },
   message: {
     flexShrink: 1,
-    fontSize: 14,
-    fontWeight: '700',
-    lineHeight: 18
+    minWidth: 0
   }
 });

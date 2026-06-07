@@ -52,6 +52,10 @@ export const CompanyCard = memo(
         onPress={onPress}
         style={({ pressed }) => [
           styles.card,
+          {
+            paddingHorizontal: theme.spacing.md,
+            paddingVertical: theme.spacing.sm,
+          },
           pressed && { backgroundColor: theme.colors.surfaceSubtle },
         ]}>
         <View style={styles.headerRow}>
@@ -59,6 +63,7 @@ export const CompanyCard = memo(
             <View style={styles.nameRow}>
               <Text
                 style={[
+                  theme.typography.bodyStrong,
                   styles.companyName,
                   { color: theme.colors.textPrimary },
                 ]}
@@ -72,6 +77,7 @@ export const CompanyCard = memo(
                 ]}>
                 <Text
                   style={[
+                    theme.typography.caption,
                     styles.aspirationText,
                     { color: aspiration.foreground },
                   ]}>
@@ -112,6 +118,7 @@ export const CompanyCard = memo(
             {
               backgroundColor: theme.colors.surfaceElevated,
               borderColor: theme.colors.border,
+              borderRadius: theme.radii.md,
             },
           ]}>
           <CredentialRow
@@ -219,6 +226,7 @@ const CredentialRow = ({
     <Text
       style={[
         styles.credentialValue,
+        theme.typography.footnote,
         isPlaceholder
           ? styles.credentialValuePlaceholder
           : styles.credentialValueFilled,
@@ -237,8 +245,6 @@ const CredentialRow = ({
 
 const styles = StyleSheet.create({
   card: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
   },
   headerRow: {
     alignItems: "flex-start",
@@ -255,22 +261,19 @@ const styles = StyleSheet.create({
   },
   companyName: {
     flex: 1,
-    fontSize: 16,
-    fontWeight: "600",
-    lineHeight: 21,
+    minWidth: 0,
   },
   aspirationPill: {
     borderRadius: 999,
     flexShrink: 0,
     marginLeft: 8,
     marginTop: 3,
+    maxWidth: 112,
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
   aspirationText: {
-    fontSize: 10,
-    fontWeight: "600",
-    lineHeight: 14,
+    textAlign: "center",
   },
   actions: {
     alignItems: "center",
@@ -279,9 +282,8 @@ const styles = StyleSheet.create({
     marginRight: -2,
   },
   credentialBlock: {
-    borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
-    marginTop: 6,
+    marginTop: 8,
     overflow: "hidden",
   },
   credentialRow: {
@@ -300,16 +302,13 @@ const styles = StyleSheet.create({
   },
   credentialValue: {
     flex: 1,
-    fontSize: 13,
-    lineHeight: 17,
+    minWidth: 0,
   },
   credentialValueFilled: {
-    fontWeight: "600",
+    fontWeight: "700",
   },
   credentialValuePlaceholder: {
-    fontSize: 12,
-    fontWeight: "400",
-    lineHeight: 16,
+    fontWeight: "600",
   },
   credentialActionsSlot: {
     alignItems: "flex-end",
