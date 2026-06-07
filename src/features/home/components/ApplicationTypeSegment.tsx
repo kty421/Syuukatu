@@ -73,12 +73,14 @@ export const ApplicationTypeSegment = ({
             style={({ pressed }) => [
               styles.option,
               webCursor,
+              { minHeight: theme.component.controlHeight },
               pressed && { backgroundColor: theme.colors.surfaceSubtle }
             ]}
           >
             <Animated.Text
               style={[
                 styles.title,
+                theme.typography.label,
                 {
                   color,
                   fontWeight: selected ? '800' : '500'
@@ -122,15 +124,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
     justifyContent: 'center',
-    minHeight: 52,
     paddingBottom: 0,
     paddingHorizontal: 12,
     paddingTop: 0,
     position: 'relative'
   },
   title: {
-    fontSize: 13,
-    lineHeight: 18
   },
   indicator: {
     bottom: 0,

@@ -579,6 +579,7 @@ export const CalendarView = ({
                                   styles.overflowBadgeText,
                                   {
                                     bottom: overflowBadgeTextInset,
+                                    color: theme.colors.textOnColor,
                                     fontSize: overflowBadgeFontSize,
                                     lineHeight: overflowBadgeFontSize + 2,
                                     right: overflowBadgeTextInset,
@@ -634,7 +635,10 @@ export const CalendarView = ({
                           <Text
                             ellipsizeMode="clip"
                             numberOfLines={1}
-                            style={styles.multiDayBannerText}>
+                            style={[
+                              styles.multiDayBannerText,
+                              { color: theme.colors.textOnColor },
+                            ]}>
                             {schedule.title || schedule.type}
                           </Text>
                         </View>
@@ -914,7 +918,6 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
   multiDayBannerText: {
-    color: "#FFFFFF",
     fontSize: calendarScheduleFontSize,
     fontWeight: calendarScheduleFontWeight,
     lineHeight: calendarScheduleLineHeight,
@@ -936,7 +939,6 @@ const styles = StyleSheet.create({
     width: 0,
   },
   overflowBadgeText: {
-    color: "#FFFFFF",
     fontWeight: "900",
     position: "absolute",
   },
@@ -978,7 +980,7 @@ const styles = StyleSheet.create({
   emptyState: {
     alignItems: "center",
     justifyContent: "center",
-    minHeight: 86,
+    minHeight: 66,
   },
   emptyText: {
     fontSize: 13,

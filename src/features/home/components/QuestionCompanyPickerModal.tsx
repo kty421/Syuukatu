@@ -168,9 +168,9 @@ const styles = StyleSheet.create({
   body: {
     alignSelf: 'center',
     maxWidth: 760,
-    paddingBottom: 28,
-    paddingHorizontal: 18,
-    paddingTop: 18,
+    paddingBottom: 22,
+    paddingHorizontal: 16,
+    paddingTop: 14,
     width: '100%'
   },
   surface: {
@@ -208,8 +208,8 @@ const styles = StyleSheet.create({
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 160,
-    padding: 24
+    minHeight: 128,
+    padding: 20
   },
   emptyText: {
     fontSize: 14,

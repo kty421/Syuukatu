@@ -42,12 +42,6 @@ type EditorRoute = {
   category: ScheduleCategory | null;
 };
 
-const groupedBackground = "#F2F2F7";
-const dividerColor = "#E5E5EA";
-const dangerRed = "#FF3B30";
-const rowTextColor = "#111111";
-const chevronColor = "#8E8E93";
-const sheetBackdrop = "rgba(0,0,0,0.4)";
 const webInputOutlineReset =
   Platform.OS === "web"
     ? ({ outlineColor: "transparent", outlineStyle: "none", outlineWidth: 0 } as unknown as TextStyle)
@@ -55,6 +49,18 @@ const webInputOutlineReset =
 
 const normalizeColorCode = (colorCode: string) =>
   colorCode.trim().toUpperCase();
+
+const getPickerColors = (theme: AppTheme) => ({
+  groupedBackground: theme.colors.backgroundAlt,
+  divider: theme.colors.divider,
+  rowPressed: theme.colors.surfacePressed,
+  rowText: theme.colors.textPrimary,
+  chevron: theme.colors.textMuted,
+  clearIcon: theme.colors.textDisabled,
+  danger: theme.colors.danger,
+  link: theme.colors.primary,
+  backdrop: theme.colors.overlay,
+});
 
 const getColorLuminance = (colorCode: string) => {
   const hex = colorCode.replace("#", "");
@@ -77,6 +83,7 @@ export const ScheduleCategoryPicker = ({
 }: ScheduleCategoryPickerProps) => {
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const pickerColors = getPickerColors(theme);
   const routeX = useRef(new Animated.Value(width)).current;
   const editorX = useRef(new Animated.Value(width)).current;
   const [rendered, setRendered] = useState(visible);
@@ -152,7 +159,7 @@ export const ScheduleCategoryPicker = ({
           style={[
             styles.pushScreen,
             {
-              backgroundColor: groupedBackground,
+              backgroundColor: pickerColors.groupedBackground,
               transform: [{ translateX: routeX }],
             },
           ]}>
@@ -171,12 +178,17 @@ export const ScheduleCategoryPicker = ({
             ]}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}>
-            <View style={styles.listGroup}>
+            <View
+              style={[
+                styles.listGroup,
+                { backgroundColor: theme.colors.surface },
+              ]}>
               <CategoryListRow
                 name={uncategorizedCategoryName}
                 colorCode={getUncategorizedCategoryColor(theme)}
                 editable={false}
                 showChevron={false}
+                theme={theme}
                 onPress={() => {
                   if (!editingMode) {
                     selectCategory(null);
@@ -190,6 +202,7 @@ export const ScheduleCategoryPicker = ({
                   colorCode={category.colorCode}
                   editable
                   showChevron
+                  theme={theme}
                   onPress={() => {
                     if (editingMode) {
                       openEditor(category);
@@ -208,11 +221,19 @@ export const ScheduleCategoryPicker = ({
               onPress={() => openEditor(null)}
               style={({ pressed }) => [
                 styles.createRow,
-                pressed && styles.pressed,
+                {
+                  backgroundColor: theme.colors.surface,
+                  borderTopColor: pickerColors.divider,
+                },
+                pressed && { backgroundColor: pickerColors.rowPressed },
               ]}>
               <Ionicons name="add" size={20} color={theme.colors.primary} />
               <Text
-                style={[styles.createRowText, { color: theme.colors.primary }]}>
+                style={[
+                  theme.typography.body,
+                  styles.createRowText,
+                  { color: theme.colors.primary },
+                ]}>
                 色を追加
               </Text>
             </Pressable>
@@ -224,7 +245,7 @@ export const ScheduleCategoryPicker = ({
             style={[
               styles.pushScreen,
               {
-                backgroundColor: groupedBackground,
+                backgroundColor: pickerColors.groupedBackground,
                 transform: [{ translateX: editorX }],
               },
             ]}>
@@ -275,6 +296,8 @@ const ScreenHeader = ({
     style={[
       styles.header,
       {
+        backgroundColor: theme.colors.surface,
+        borderBottomColor: theme.colors.divider,
         paddingTop: topInset + 6,
       },
     ]}>
@@ -285,14 +308,26 @@ const ScreenHeader = ({
       style={({ pressed }) => [styles.headerSide, pressed && styles.pressed]}>
       <Ionicons name="chevron-back" size={24} color={theme.colors.primary} />
     </Pressable>
-    <Text numberOfLines={1} style={styles.headerTitle}>
+    <Text
+      numberOfLines={1}
+      style={[
+        theme.typography.label,
+        styles.headerTitle,
+        { color: theme.colors.textPrimary },
+      ]}
+    >
       {title}
     </Text>
     <Pressable
       accessibilityRole="button"
       onPress={onRightPress}
       style={({ pressed }) => [styles.headerSide, pressed && styles.pressed]}>
-      <Text style={[styles.headerActionText, { color: theme.colors.primary }]}>
+      <Text
+        style={[
+          theme.typography.label,
+          styles.headerActionText,
+          { color: theme.colors.primary },
+        ]}>
         {rightLabel}
       </Text>
     </Pressable>
@@ -304,29 +339,49 @@ const CategoryListRow = ({
   colorCode,
   editable,
   showChevron,
+  theme,
   onPress,
 }: {
   name: string;
   colorCode: string;
   editable: boolean;
   showChevron: boolean;
+  theme: AppTheme;
   onPress: () => void;
-}) => (
-  <Pressable
-    accessibilityRole="button"
-    onPress={onPress}
-    style={({ pressed }) => [styles.listRow, pressed && styles.rowPressed]}>
-    <View style={[styles.listColorDot, { backgroundColor: colorCode }]} />
-    <Text numberOfLines={1} style={styles.listRowName}>
-      {name}
-    </Text>
-    {showChevron && editable ? (
-      <Ionicons name="chevron-forward" size={18} color={chevronColor} />
-    ) : (
-      <View style={styles.chevronSpacer} />
-    )}
-  </Pressable>
-);
+}) => {
+  const pickerColors = getPickerColors(theme);
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.listRow,
+        { borderBottomColor: pickerColors.divider },
+        pressed && { backgroundColor: pickerColors.rowPressed },
+      ]}>
+      <View style={[styles.listColorDot, { backgroundColor: colorCode }]} />
+      <Text
+        numberOfLines={1}
+        style={[
+          theme.typography.body,
+          styles.listRowName,
+          { color: pickerColors.rowText },
+        ]}>
+        {name}
+      </Text>
+      {showChevron && editable ? (
+        <Ionicons
+          name="chevron-forward"
+          size={18}
+          color={pickerColors.chevron}
+        />
+      ) : (
+        <View style={styles.chevronSpacer} />
+      )}
+    </Pressable>
+  );
+};
 
 const CategoryEditorScreen = ({
   category,
@@ -347,6 +402,7 @@ const CategoryEditorScreen = ({
   onSave: (category: ScheduleCategoryDraft | ScheduleCategory) => Promise<void>;
   onDelete: (category: ScheduleCategory) => Promise<void>;
 }) => {
+  const pickerColors = getPickerColors(theme);
   const inputRef = useRef<TextInput>(null);
   const [name, setName] = useState(category?.name ?? "");
   const [colorCode, setColorCode] = useState<string>(
@@ -424,7 +480,11 @@ const CategoryEditorScreen = ({
   };
 
   return (
-    <View style={styles.editorScreen}>
+    <View
+      style={[
+        styles.editorScreen,
+        { backgroundColor: pickerColors.groupedBackground },
+      ]}>
       <ScreenHeader
         title={category ? "色を編集" : "色作成"}
         topInset={topInset}
@@ -446,17 +506,22 @@ const CategoryEditorScreen = ({
           style={[
             styles.formCard,
             {
+              backgroundColor: theme.colors.surface,
               borderColor: nameFocused
                 ? theme.colors.focusRing
                 : "transparent",
             },
           ]}>
-          <View style={styles.nameInputRow}>
+          <View
+            style={[
+              styles.nameInputRow,
+              { borderBottomColor: pickerColors.divider },
+            ]}>
             <TextInput
               ref={inputRef}
               value={name}
               placeholder="色名を入力"
-              placeholderTextColor="#8E8E93"
+              placeholderTextColor={theme.colors.placeholder}
               autoCorrect={false}
               onChangeText={(value) => {
                 setName(value);
@@ -469,7 +534,12 @@ const CategoryEditorScreen = ({
               }}
               onFocus={() => setNameFocused(true)}
               onBlur={() => setNameFocused(false)}
-              style={[styles.nameInput, webInputOutlineReset]}
+              style={[
+                theme.typography.body,
+                styles.nameInput,
+                webInputOutlineReset,
+                { color: pickerColors.rowText },
+              ]}
             />
             {name.length > 0 ? (
               <Pressable
@@ -480,7 +550,11 @@ const CategoryEditorScreen = ({
                   styles.clearButton,
                   pressed && styles.pressed,
                 ]}>
-                <Ionicons name="close-circle" size={20} color="#C7C7CC" />
+                <Ionicons
+                  name="close-circle"
+                  size={20}
+                  color={pickerColors.clearIcon}
+                />
               </Pressable>
             ) : null}
           </View>
@@ -493,9 +567,16 @@ const CategoryEditorScreen = ({
             }}
             style={({ pressed }) => [
               styles.colorRow,
-              pressed && styles.rowPressed,
+              pressed && { backgroundColor: pickerColors.rowPressed },
             ]}>
-            <Text style={styles.colorRowLabel}>色</Text>
+            <Text
+              style={[
+                theme.typography.body,
+                styles.colorRowLabel,
+                { color: pickerColors.rowText },
+              ]}>
+              色
+            </Text>
             <View
               style={[styles.colorIndicator, { backgroundColor: colorCode }]}
             />
@@ -503,7 +584,12 @@ const CategoryEditorScreen = ({
         </View>
 
         {error ? (
-          <Text style={[styles.errorText, { color: theme.colors.danger }]}>
+          <Text
+            style={[
+              theme.typography.caption,
+              styles.errorText,
+              { color: theme.colors.danger },
+            ]}>
             {error}
           </Text>
         ) : null}
@@ -514,9 +600,17 @@ const CategoryEditorScreen = ({
             onPress={() => setDeleteConfirmVisible(true)}
             style={({ pressed }) => [
               styles.deleteRow,
-              pressed && styles.rowPressed,
+              { backgroundColor: theme.colors.surface },
+              pressed && { backgroundColor: pickerColors.rowPressed },
             ]}>
-            <Text style={styles.deleteRowText}>色の削除</Text>
+            <Text
+              style={[
+                theme.typography.label,
+                styles.deleteRowText,
+                { color: theme.colors.danger },
+              ]}>
+              色の削除
+            </Text>
           </Pressable>
         ) : null}
       </ScrollView>
@@ -526,6 +620,7 @@ const CategoryEditorScreen = ({
         selectedColor={colorCode}
         usedColorCodes={categories.map((item) => item.colorCode)}
         bottomInset={bottomInset}
+        theme={theme}
         onClose={() => setPaletteVisible(false)}
         onSelect={(value) => {
           setColorCode(value);
@@ -536,6 +631,7 @@ const CategoryEditorScreen = ({
       <DeleteConfirmDialog
         visible={deleteConfirmVisible}
         deleting={deleting}
+        theme={theme}
         onCancel={() => setDeleteConfirmVisible(false)}
         onDelete={() => {
           void deleteCategory();
@@ -543,7 +639,12 @@ const CategoryEditorScreen = ({
       />
 
       {saving ? (
-        <View pointerEvents="none" style={styles.savingOverlay}>
+        <View
+          pointerEvents="none"
+          style={[
+            styles.savingOverlay,
+            { backgroundColor: theme.colors.surfaceOverlay },
+          ]}>
           <ActivityIndicator color={theme.colors.primary} />
         </View>
       ) : null}
@@ -556,6 +657,7 @@ const ColorPaletteSheet = ({
   selectedColor,
   usedColorCodes,
   bottomInset,
+  theme,
   onClose,
   onSelect,
 }: {
@@ -563,6 +665,7 @@ const ColorPaletteSheet = ({
   selectedColor: string;
   usedColorCodes: string[];
   bottomInset: number;
+  theme: AppTheme;
   onClose: () => void;
   onSelect: (colorCode: string) => void;
 }) => {
@@ -613,19 +716,31 @@ const ColorPaletteSheet = ({
       <Pressable
         accessibilityLabel="カラーパレットを閉じる"
         onPress={onClose}
-        style={[StyleSheet.absoluteFill, { backgroundColor: sheetBackdrop }]}
+        style={[
+          StyleSheet.absoluteFill,
+          { backgroundColor: theme.colors.overlay },
+        ]}
       />
       <Animated.View
         style={[
           styles.paletteSheet,
           {
+            backgroundColor: theme.colors.surface,
             paddingBottom: Math.max(bottomInset, 16) + 16,
             paddingHorizontal: sheetHorizontalPadding,
             transform: [{ translateY: sheetY }],
           },
         ]}>
         <View style={styles.sheetHeader}>
-          <Text style={styles.sheetTitle}>色を選択</Text>
+          <Text
+            style={[
+              theme.typography.label,
+              styles.sheetTitle,
+              { color: theme.colors.textPrimary },
+            ]}
+          >
+            色を選択
+          </Text>
           <Pressable
             accessibilityRole="button"
             onPress={onClose}
@@ -633,7 +748,15 @@ const ColorPaletteSheet = ({
               styles.sheetCloseButton,
               pressed && styles.pressed,
             ]}>
-            <Text style={styles.sheetCloseText}>閉じる</Text>
+            <Text
+              style={[
+                theme.typography.label,
+                styles.sheetCloseText,
+                { color: theme.colors.primary },
+              ]}
+            >
+              閉じる
+            </Text>
           </Pressable>
         </View>
         <View style={[styles.paletteGrid, { maxWidth: paletteMaxWidth }]}>
@@ -670,17 +793,19 @@ const ColorPaletteSheet = ({
                       height: ringSize,
                       width: ringSize,
                     },
-                    selected && styles.paletteSelectedRingActive,
+                    selected && { borderColor: theme.colors.textPrimary },
                   ]}>
                   <View
                     style={[
                       styles.paletteCircle,
                       {
-                        backgroundColor: usedAsOutline ? "#FFFFFF" : colorCode,
+                        backgroundColor: usedAsOutline
+                          ? theme.colors.surface
+                          : colorCode,
                         borderColor: used
                           ? markerColor
                           : luminance > 0.9
-                            ? "#D1D5DB"
+                            ? theme.colors.divider
                             : "transparent",
                         borderWidth: used ? 4 : luminance > 0.9 ? 1 : 0,
                         height: circleSize,
@@ -691,7 +816,9 @@ const ColorPaletteSheet = ({
                       <Ionicons
                         name="checkmark"
                         size={checkSize}
-                        color={usedAsOutline ? markerColor : "#FFFFFF"}
+                        color={
+                          usedAsOutline ? markerColor : theme.colors.surface
+                        }
                       />
                     ) : null}
                   </View>
@@ -708,11 +835,13 @@ const ColorPaletteSheet = ({
 const DeleteConfirmDialog = ({
   visible,
   deleting,
+  theme,
   onCancel,
   onDelete,
 }: {
   visible: boolean;
   deleting: boolean;
+  theme: AppTheme;
   onCancel: () => void;
   onDelete: () => void;
 }) => (
@@ -727,14 +856,38 @@ const DeleteConfirmDialog = ({
         accessibilityLabel="削除確認を閉じる"
         disabled={deleting}
         onPress={onCancel}
-        style={[StyleSheet.absoluteFill, { backgroundColor: sheetBackdrop }]}
+        style={[
+          StyleSheet.absoluteFill,
+          { backgroundColor: theme.colors.overlay },
+        ]}
       />
-      <View style={styles.alertCard}>
-        <Text style={styles.alertTitle}>色の削除</Text>
-        <Text style={styles.alertMessage}>
+      <View
+        style={[
+          styles.alertCard,
+          theme.shadows.floating,
+          { backgroundColor: theme.colors.surface },
+        ]}>
+        <Text
+          style={[
+            theme.typography.label,
+            styles.alertTitle,
+            { color: theme.colors.textPrimary },
+          ]}
+        >
+          色の削除
+        </Text>
+        <Text
+          style={[
+            theme.typography.footnote,
+            styles.alertMessage,
+            { color: theme.colors.textSecondary },
+          ]}
+        >
           この色が設定されている予定は全て”未分類”となります。
         </Text>
-        <View style={styles.alertDivider} />
+        <View
+          style={[styles.alertDivider, { backgroundColor: theme.colors.divider }]}
+        />
         <View style={styles.alertActions}>
           <Pressable
             accessibilityRole="button"
@@ -742,23 +895,45 @@ const DeleteConfirmDialog = ({
             onPress={onCancel}
             style={({ pressed }) => [
               styles.alertButton,
-              pressed && styles.rowPressed,
+              pressed && { backgroundColor: theme.colors.surfacePressed },
             ]}>
-            <Text style={styles.alertCancelText}>キャンセル</Text>
+            <Text
+              style={[
+                theme.typography.label,
+                styles.alertCancelText,
+                { color: theme.colors.primary },
+              ]}
+            >
+              キャンセル
+            </Text>
           </Pressable>
-          <View style={styles.alertVerticalDivider} />
+          <View
+            style={[
+              styles.alertVerticalDivider,
+              { backgroundColor: theme.colors.divider },
+            ]}
+          />
           <Pressable
             accessibilityRole="button"
             disabled={deleting}
             onPress={onDelete}
             style={({ pressed }) => [
               styles.alertButton,
-              pressed && !deleting && styles.rowPressed,
+              pressed &&
+                !deleting && { backgroundColor: theme.colors.surfacePressed },
             ]}>
             {deleting ? (
-              <ActivityIndicator color={dangerRed} />
+              <ActivityIndicator color={theme.colors.danger} />
             ) : (
-              <Text style={styles.alertDeleteText}>削除</Text>
+              <Text
+                style={[
+                  theme.typography.label,
+                  styles.alertDeleteText,
+                  { color: theme.colors.danger },
+                ]}
+              >
+                削除
+              </Text>
             )}
           </Pressable>
         </View>
@@ -777,8 +952,6 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: "center",
-    backgroundColor: "#FFFFFF",
-    borderBottomColor: dividerColor,
     borderBottomWidth: StyleSheet.hairlineWidth,
     flexDirection: "row",
     minHeight: 50,
@@ -791,35 +964,26 @@ const styles = StyleSheet.create({
     width: 74,
   },
   headerTitle: {
-    color: rowTextColor,
     flex: 1,
-    fontSize: 17,
     fontWeight: "700",
-    lineHeight: 22,
     textAlign: "center",
   },
   headerActionText: {
-    fontSize: 16,
     fontWeight: "600",
-    lineHeight: 20,
   },
   listBody: {
-    paddingTop: 18,
+    paddingTop: 14,
   },
   listGroup: {
-    backgroundColor: "#FFFFFF",
+    overflow: "hidden",
   },
   listRow: {
     alignItems: "center",
-    borderBottomColor: dividerColor,
     borderBottomWidth: StyleSheet.hairlineWidth,
     flexDirection: "row",
     gap: 12,
     height: 56,
     paddingHorizontal: 16,
-  },
-  rowPressed: {
-    backgroundColor: "#E5E5EA",
   },
   listColorDot: {
     borderRadius: 999,
@@ -827,11 +991,8 @@ const styles = StyleSheet.create({
     width: 16,
   },
   listRowName: {
-    color: rowTextColor,
     flex: 1,
-    fontSize: 16,
     fontWeight: "400",
-    lineHeight: 21,
     minWidth: 0,
   },
   chevronSpacer: {
@@ -839,29 +1000,23 @@ const styles = StyleSheet.create({
   },
   createRow: {
     alignItems: "center",
-    backgroundColor: "#FFFFFF",
-    borderTopColor: dividerColor,
     borderTopWidth: StyleSheet.hairlineWidth,
     flexDirection: "row",
     gap: 10,
     height: 56,
-    marginTop: 18,
+    marginTop: 14,
     paddingHorizontal: 16,
   },
   createRowText: {
-    fontSize: 16,
     fontWeight: "500",
-    lineHeight: 21,
   },
   editorScreen: {
     flex: 1,
-    backgroundColor: groupedBackground,
   },
   editorBody: {
-    paddingTop: 24,
+    paddingTop: 18,
   },
   formCard: {
-    backgroundColor: "#FFFFFF",
     borderRadius: 8,
     borderWidth: StyleSheet.hairlineWidth,
     marginHorizontal: 16,
@@ -869,7 +1024,6 @@ const styles = StyleSheet.create({
   },
   nameInputRow: {
     alignItems: "center",
-    borderBottomColor: dividerColor,
     borderBottomWidth: StyleSheet.hairlineWidth,
     flexDirection: "row",
     minHeight: 56,
@@ -877,9 +1031,7 @@ const styles = StyleSheet.create({
     paddingRight: 10,
   },
   nameInput: {
-    color: rowTextColor,
     flex: 1,
-    fontSize: 16,
     fontWeight: "400",
     minHeight: 54,
     paddingVertical: 14,
@@ -898,10 +1050,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   colorRowLabel: {
-    color: rowTextColor,
-    fontSize: 16,
     fontWeight: "400",
-    lineHeight: 21,
   },
   colorIndicator: {
     borderRadius: 999,
@@ -909,26 +1058,20 @@ const styles = StyleSheet.create({
     width: 24,
   },
   errorText: {
-    fontSize: 12,
     fontWeight: "600",
-    lineHeight: 17,
     marginHorizontal: 18,
     marginTop: 8,
   },
   deleteRow: {
     alignItems: "center",
-    backgroundColor: "#FFFFFF",
     borderRadius: 8,
     height: 50,
     justifyContent: "center",
     marginHorizontal: 16,
-    marginTop: 28,
+    marginTop: 22,
   },
   deleteRowText: {
-    color: dangerRed,
-    fontSize: 16,
     fontWeight: "700",
-    lineHeight: 21,
   },
   sheetLayer: {
     ...StyleSheet.absoluteFillObject,
@@ -936,7 +1079,6 @@ const styles = StyleSheet.create({
     zIndex: 20,
   },
   paletteSheet: {
-    backgroundColor: "#FFFFFF",
     borderTopLeftRadius: 18,
     borderTopRightRadius: 18,
     paddingTop: 16,
@@ -948,21 +1090,15 @@ const styles = StyleSheet.create({
     marginBottom: 18,
   },
   sheetTitle: {
-    color: rowTextColor,
     flex: 1,
-    fontSize: 17,
     fontWeight: "700",
-    lineHeight: 22,
   },
   sheetCloseButton: {
     minHeight: 34,
     justifyContent: "center",
   },
   sheetCloseText: {
-    color: "#007AFF",
-    fontSize: 16,
     fontWeight: "600",
-    lineHeight: 21,
   },
   paletteGrid: {
     alignSelf: "center",
@@ -982,9 +1118,6 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     justifyContent: "center",
   },
-  paletteSelectedRingActive: {
-    borderColor: "#111111",
-  },
   paletteCircle: {
     alignItems: "center",
     borderRadius: 999,
@@ -994,36 +1127,28 @@ const styles = StyleSheet.create({
     alignItems: "center",
     flex: 1,
     justifyContent: "center",
-    padding: 28,
+    padding: 24,
   },
   alertCard: {
-    backgroundColor: "#FFFFFF",
     borderRadius: 14,
     maxWidth: 320,
     overflow: "hidden",
     width: "100%",
   },
   alertTitle: {
-    color: rowTextColor,
-    fontSize: 17,
     fontWeight: "700",
-    lineHeight: 22,
     paddingHorizontal: 18,
-    paddingTop: 18,
+    paddingTop: 16,
     textAlign: "center",
   },
   alertMessage: {
-    color: rowTextColor,
-    fontSize: 13,
     fontWeight: "400",
-    lineHeight: 18,
-    paddingBottom: 18,
+    paddingBottom: 16,
     paddingHorizontal: 18,
     paddingTop: 6,
     textAlign: "center",
   },
   alertDivider: {
-    backgroundColor: dividerColor,
     height: StyleSheet.hairlineWidth,
   },
   alertActions: {
@@ -1031,7 +1156,6 @@ const styles = StyleSheet.create({
     minHeight: 46,
   },
   alertVerticalDivider: {
-    backgroundColor: dividerColor,
     width: StyleSheet.hairlineWidth,
   },
   alertButton: {
@@ -1040,21 +1164,14 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   alertCancelText: {
-    color: "#007AFF",
-    fontSize: 17,
     fontWeight: "400",
-    lineHeight: 22,
   },
   alertDeleteText: {
-    color: dangerRed,
-    fontSize: 17,
     fontWeight: "700",
-    lineHeight: 22,
   },
   savingOverlay: {
     ...StyleSheet.absoluteFillObject,
     alignItems: "center",
-    backgroundColor: "rgba(242,242,247,0.45)",
     justifyContent: "center",
   },
   pressed: {

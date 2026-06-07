@@ -30,12 +30,18 @@ const webShellOutlineReset =
     ? ({ outlineStyle: 'none', outlineWidth: 0 } as unknown as ViewStyle)
     : null;
 
+const getWebShellCursor = (disabled?: boolean) =>
+  Platform.OS === 'web'
+    ? ({ cursor: disabled ? 'not-allowed' : 'text' } as unknown as ViewStyle)
+    : null;
+
 type InputFieldProps = TextInputProps & {
   label: string;
   theme: AppTheme;
   required?: boolean;
   hideLabel?: boolean;
   errorMessage?: string | null;
+  helperText?: string | null;
   trailing?: ReactNode;
   fieldKey?: string;
   onContainerLayout?: (fieldKey: string, y: number) => void;
@@ -49,6 +55,7 @@ export const InputField = forwardRef<TextInput, InputFieldProps>(
       required,
       hideLabel,
       errorMessage,
+      helperText,
       trailing,
       fieldKey,
       onContainerLayout,
@@ -64,6 +71,7 @@ export const InputField = forwardRef<TextInput, InputFieldProps>(
   ) => {
     const inputRef = useRef<TextInput>(null);
     const hasValue = typeof value === 'string' && value.length > 0;
+    const disabled = props.editable === false;
     const [focused, setFocused] = useState(false);
 
     useImperativeHandle(ref, () => inputRef.current as TextInput);
@@ -79,7 +87,14 @@ export const InputField = forwardRef<TextInput, InputFieldProps>(
     return (
       <View onLayout={handleLayout}>
         {hideLabel ? null : (
-          <Text style={[styles.label, { color: theme.colors.textSecondary }]}>
+          <Text
+            numberOfLines={2}
+            style={[
+              theme.typography.footnote,
+              styles.label,
+              { color: theme.colors.textSecondary }
+            ]}
+          >
             {label}
             {required ? (
               <Text style={{ color: theme.colors.danger }}> *</Text>
@@ -87,21 +102,35 @@ export const InputField = forwardRef<TextInput, InputFieldProps>(
           </Text>
         )}
         <Pressable
+          accessibilityLabel={label}
           accessibilityRole="button"
+          accessibilityState={{ disabled }}
           onPress={(event) => {
             event.stopPropagation();
-            inputRef.current?.focus();
+            if (!disabled) {
+              inputRef.current?.focus();
+            }
           }}
-          style={[
+          style={({ pressed }) => [
             styles.fieldShell,
+            multiline && styles.fieldShellMultiline,
             webShellOutlineReset,
+            getWebShellCursor(disabled),
             {
-              backgroundColor: theme.colors.surfaceElevated,
+              backgroundColor:
+                pressed && !focused && !disabled
+                  ? theme.colors.surfaceSubtle
+                  : theme.colors.surfaceElevated,
               borderColor: errorMessage
                 ? theme.colors.danger
                 : focused
                   ? theme.colors.focusRing
-                  : theme.colors.border
+                  : theme.colors.border,
+              borderRadius: theme.radii.md,
+              minHeight: multiline ? 112 : theme.component.controlHeight,
+              opacity: disabled ? theme.state.disabledOpacity : 1,
+              paddingLeft: theme.spacing.md,
+              paddingRight: theme.spacing.sm
             }
           ]}
         >
@@ -124,16 +153,30 @@ export const InputField = forwardRef<TextInput, InputFieldProps>(
               styles.input,
               multiline && styles.textArea,
               webInputOutlineReset,
-              { color: theme.colors.textPrimary },
+              theme.typography.body,
+              {
+                color: theme.colors.textPrimary,
+                minHeight: multiline ? 112 : theme.component.controlHeight
+              },
               style
             ]}
             {...props}
           />
           {trailing ? <View style={styles.trailing}>{trailing}</View> : null}
         </Pressable>
-        {errorMessage ? (
-          <Text style={[styles.errorText, { color: theme.colors.danger }]}>
-            {errorMessage}
+        {errorMessage || helperText ? (
+          <Text
+            style={[
+              theme.typography.caption,
+              styles.helpText,
+              {
+                color: errorMessage
+                  ? theme.colors.danger
+                  : theme.colors.textMuted
+              }
+            ]}
+          >
+            {errorMessage ?? helperText}
           </Text>
         ) : null}
       </View>
@@ -143,39 +186,29 @@ export const InputField = forwardRef<TextInput, InputFieldProps>(
 
 const styles = StyleSheet.create({
   label: {
-    fontSize: 12,
-    fontWeight: '600',
-    lineHeight: 16,
     marginBottom: 8
   },
   fieldShell: {
     alignItems: 'center',
-    borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
     flexDirection: 'row',
-    minHeight: 52,
-    paddingLeft: 16,
-    paddingRight: 12
+    overflow: 'hidden'
+  },
+  fieldShellMultiline: {
+    alignItems: 'flex-start'
   },
   input: {
     flex: 1,
-    fontSize: 15,
-    fontWeight: '400',
-    minHeight: 52,
     paddingVertical: 14
   },
   textArea: {
-    minHeight: 112,
     paddingTop: 14,
     textAlignVertical: 'top'
   },
   trailing: {
     marginLeft: 8
   },
-  errorText: {
-    fontSize: 11,
-    fontWeight: '600',
-    lineHeight: 15,
+  helpText: {
     marginTop: 7
   }
 });

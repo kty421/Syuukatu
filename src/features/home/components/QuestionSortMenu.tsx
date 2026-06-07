@@ -189,7 +189,7 @@ export const QuestionSortMenu = ({
               style={[
                 StyleSheet.absoluteFill,
                 styles.backdrop,
-                { opacity: progress }
+                { backgroundColor: theme.colors.overlay, opacity: progress }
               ]}
             />
           </Pressable>
@@ -197,7 +197,10 @@ export const QuestionSortMenu = ({
           <Animated.View
             style={[
               styles.menuShadow,
+              theme.shadows.floating,
               {
+                backgroundColor: theme.colors.surface,
+                borderColor: theme.colors.border,
                 opacity: progress,
                 right: anchor.right,
                 top: anchor.top,
@@ -206,7 +209,12 @@ export const QuestionSortMenu = ({
               }
             ]}
           >
-            <View style={styles.menuSurface}>
+            <View
+              style={[
+                styles.menuSurface,
+                { backgroundColor: theme.colors.surface }
+              ]}
+            >
               {sortOptions.map((option) => {
                 const selected = option.value === value;
 
@@ -218,7 +226,9 @@ export const QuestionSortMenu = ({
                       onPress={() => selectOption(option.value)}
                       style={({ pressed }) => [
                         styles.menuItem,
-                        pressed && styles.menuItemPressed
+                        pressed && {
+                          backgroundColor: theme.colors.surfaceSubtle
+                        }
                       ]}
                     >
                       <View style={styles.iconSlot}>
@@ -233,7 +243,11 @@ export const QuestionSortMenu = ({
                       <Text
                         style={[
                           styles.menuItemText,
-                          { color: selected ? accentColor : '#111827' }
+                          {
+                            color: selected
+                              ? accentColor
+                              : theme.colors.textPrimary
+                          }
                         ]}
                       >
                         {option.label}
@@ -265,21 +279,14 @@ const styles = StyleSheet.create({
     flex: 1
   },
   backdrop: {
-    backgroundColor: 'rgba(0,0,0,0.1)'
   },
   menuShadow: {
-    backgroundColor: '#FFFFFF',
     borderRadius: 14,
-    elevation: 8,
+    borderWidth: StyleSheet.hairlineWidth,
     position: 'absolute',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.16,
-    shadowRadius: 18,
     width: MENU_WIDTH
   },
   menuSurface: {
-    backgroundColor: '#FFFFFF',
     borderRadius: 14,
     overflow: 'hidden',
     paddingVertical: 2
@@ -289,9 +296,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     minHeight: 48,
     paddingHorizontal: 14
-  },
-  menuItemPressed: {
-    backgroundColor: '#F3F4F6'
   },
   iconSlot: {
     alignItems: 'center',

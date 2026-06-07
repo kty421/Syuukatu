@@ -22,6 +22,11 @@ const webButtonOutlineReset =
     ? ({ outlineStyle: 'none', outlineWidth: 0 } as unknown as ViewStyle)
     : null;
 
+const webButtonCursor =
+  Platform.OS === 'web'
+    ? ({ cursor: 'pointer' } as unknown as ViewStyle)
+    : null;
+
 type SearchFieldProps = {
   value: string;
   placeholder: string;
@@ -45,12 +50,16 @@ export const SearchField = ({
         styles.container,
         {
           backgroundColor: theme.colors.surfaceElevated,
-          borderColor: focused ? theme.colors.focusRing : theme.colors.border
+          borderColor: focused ? theme.colors.focusRing : theme.colors.border,
+          borderRadius: theme.radii.md,
+          minHeight: theme.component.controlHeight,
+          paddingHorizontal: theme.spacing.md
         }
       ]}
     >
       <Ionicons name="search" size={18} color={theme.colors.textMuted} />
       <TextInput
+        accessibilityLabel={placeholder}
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
@@ -59,7 +68,16 @@ export const SearchField = ({
         autoCorrect={false}
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
-        style={[styles.input, webInputOutlineReset, { color: theme.colors.textPrimary }]}
+        returnKeyType="search"
+        style={[
+          styles.input,
+          webInputOutlineReset,
+          theme.typography.body,
+          {
+            color: theme.colors.textPrimary,
+            minHeight: theme.component.controlHeight
+          }
+        ]}
       />
       {value.length > 0 ? (
         <Pressable
@@ -75,6 +93,8 @@ export const SearchField = ({
           style={({ pressed }) => [
             styles.clearButton,
             webButtonOutlineReset,
+            webButtonCursor,
+            { borderRadius: theme.radii.sm },
             pressed && { backgroundColor: theme.colors.surfaceSubtle }
           ]}
         >
@@ -88,21 +108,16 @@ export const SearchField = ({
 const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
-    borderRadius: 18,
     borderWidth: StyleSheet.hairlineWidth,
     flexDirection: 'row',
-    minHeight: 52,
-    paddingHorizontal: 16
+    overflow: 'hidden'
   },
   input: {
     flex: 1,
-    fontSize: 16,
-    minHeight: 52,
     paddingHorizontal: 10
   },
   clearButton: {
     alignItems: 'center',
-    borderRadius: 14,
     height: 28,
     justifyContent: 'center',
     width: 28

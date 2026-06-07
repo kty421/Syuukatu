@@ -121,7 +121,8 @@ export const QuestionMemoDialog = <
               theme.shadows.floating,
               {
                 backgroundColor: theme.colors.surfaceOverlay,
-                borderColor: theme.colors.primaryBorder
+                borderColor: theme.colors.primaryBorder,
+                borderRadius: theme.radii.md
               }
             ]}
           >
@@ -130,7 +131,13 @@ export const QuestionMemoDialog = <
               size={17}
               color={theme.colors.primary}
             />
-            <Text style={[styles.saveNoticeText, { color: theme.colors.textPrimary }]}>
+            <Text
+              style={[
+                theme.typography.footnote,
+                styles.saveNoticeText,
+                { color: theme.colors.textPrimary }
+              ]}
+            >
               保存中です。続けて入力できます。
             </Text>
           </View>
@@ -149,7 +156,8 @@ export const QuestionMemoDialog = <
                   styles.companyContext,
                   {
                     backgroundColor: theme.colors.surfaceElevated,
-                    borderColor: theme.colors.border
+                    borderColor: theme.colors.border,
+                    borderRadius: theme.radii.md
                   }
                 ]}
               >
@@ -165,6 +173,7 @@ export const QuestionMemoDialog = <
                     numberOfLines={1}
                     style={[
                       styles.companyName,
+                      theme.typography.bodyStrong,
                       { color: theme.colors.textPrimary }
                     ]}
                   >
@@ -199,14 +208,26 @@ export const QuestionMemoDialog = <
                 style={styles.answerTextInput}
                 onChangeText={setAnswer}
               />
-              <Text style={[styles.answerCount, { color: theme.colors.textDisabled }]}>
+              <Text
+                style={[
+                  theme.typography.caption,
+                  styles.answerCount,
+                  { color: theme.colors.textDisabled }
+                ]}
+              >
                 {answer.length}文字
               </Text>
             </View>
 
             <View>
               <View style={styles.labelHeader}>
-                <Text style={[styles.fieldLabel, { color: theme.colors.textSecondary }]}>
+                <Text
+                  style={[
+                    theme.typography.footnote,
+                    styles.fieldLabel,
+                    { color: theme.colors.textSecondary }
+                  ]}
+                >
                   ラベル
                 </Text>
                 <Pressable
@@ -217,7 +238,8 @@ export const QuestionMemoDialog = <
                     styles.addLabelButton,
                     {
                       backgroundColor: theme.colors.surfaceElevated,
-                      borderColor: theme.colors.border
+                      borderColor: theme.colors.border,
+                      borderRadius: theme.radii.sm
                     },
                     pressed && styles.pressed
                   ]}
@@ -244,7 +266,8 @@ export const QuestionMemoDialog = <
                               : theme.colors.surfaceElevated,
                             borderColor: selected
                               ? theme.colors.primaryBorder
-                              : theme.colors.border
+                              : theme.colors.border,
+                            borderRadius: theme.radii.pill
                           },
                           pressed && styles.pressed
                         ]}
@@ -253,6 +276,7 @@ export const QuestionMemoDialog = <
                           numberOfLines={1}
                           style={[
                             styles.labelChipText,
+                            theme.typography.footnote,
                             {
                               color: selected
                                 ? theme.colors.primary
@@ -305,17 +329,16 @@ const styles = StyleSheet.create({
   body: {
     alignSelf: 'center',
     maxWidth: 760,
-    paddingBottom: 28,
-    paddingHorizontal: 18,
-    paddingTop: 18,
+    paddingBottom: 22,
+    paddingHorizontal: 16,
+    paddingTop: 14,
     width: '100%'
   },
   form: {
-    gap: 16
+    gap: 14
   },
   companyContext: {
     alignItems: 'center',
-    borderRadius: 18,
     borderWidth: StyleSheet.hairlineWidth,
     flexDirection: 'row',
     gap: 12,
@@ -334,14 +357,10 @@ const styles = StyleSheet.create({
     minWidth: 0
   },
   companyName: {
-    fontSize: 15,
-    fontWeight: '800',
-    lineHeight: 20
   },
   saveNotice: {
     alignItems: 'center',
     alignSelf: 'center',
-    borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
     flexDirection: 'row',
     gap: 8,
@@ -354,24 +373,16 @@ const styles = StyleSheet.create({
   },
   saveNoticeText: {
     flexShrink: 1,
-    fontSize: 13,
-    fontWeight: '800',
-    lineHeight: 18
+    fontWeight: '800'
   },
   answerTextInput: {
-    minHeight: 220
+    minHeight: 196
   },
   answerCount: {
-    fontSize: 11,
-    fontWeight: '600',
-    lineHeight: 15,
     marginTop: 7,
     textAlign: 'right'
   },
   fieldLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    lineHeight: 16,
   },
   labelHeader: {
     alignItems: 'center',
@@ -382,7 +393,6 @@ const styles = StyleSheet.create({
   },
   addLabelButton: {
     alignItems: 'center',
-    borderRadius: 14,
     borderWidth: StyleSheet.hairlineWidth,
     height: 30,
     justifyContent: 'center',
@@ -395,7 +405,6 @@ const styles = StyleSheet.create({
     marginBottom: 12
   },
   labelChip: {
-    borderRadius: 999,
     borderWidth: StyleSheet.hairlineWidth,
     maxWidth: 160,
     minHeight: 34,
@@ -403,9 +412,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8
   },
   labelChipText: {
-    fontSize: 12,
-    fontWeight: '700',
-    lineHeight: 16
+    fontWeight: '700'
   },
   pressed: {
     opacity: 0.72

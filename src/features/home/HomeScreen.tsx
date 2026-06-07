@@ -1594,6 +1594,7 @@ export const HomeScreen = ({
             <View style={styles.titleCenter}>
               <Text
                 style={[
+                  theme.typography.title3,
                   styles.compactTitle,
                   { color: theme.colors.textPrimary },
                 ]}>
@@ -1972,7 +1973,12 @@ export const HomeScreen = ({
       />
 
       {toast ? (
-        <AppToast message={toast.message} theme={theme} tone={toast.tone} />
+        <AppToast
+          message={toast.message}
+          theme={theme}
+          tone={toast.tone}
+          bottomOffset={navigationReservedHeight + 14}
+        />
       ) : null}
     </AnimatedSafeAreaView>
   );
@@ -1997,9 +2003,6 @@ const styles = StyleSheet.create({
     paddingTop: 4,
   },
   compactTitle: {
-    fontSize: 19,
-    fontWeight: "500",
-    lineHeight: 24,
     textAlign: "center",
   },
   titleRow: {
@@ -2082,13 +2085,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 10,
     justifyContent: "center",
-    minHeight: 240,
+    minHeight: 200,
   },
   plainEmptyState: {
     alignItems: "center",
-    gap: 12,
+    gap: 10,
     justifyContent: "center",
-    minHeight: 220,
+    minHeight: 176,
     paddingHorizontal: 20,
   },
   emptyTitle: {

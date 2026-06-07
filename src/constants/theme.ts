@@ -14,9 +14,12 @@ export const spacing = {
 } as const;
 
 export const radii = {
+  xs: 8,
   sm: 12,
   md: 16,
   lg: 24,
+  xl: 28,
+  pill: 999,
 } as const;
 
 export const typography = {
@@ -78,6 +81,23 @@ export const layout = {
   modalMaxWidth: 760,
 } as const;
 
+export const component = {
+  controlHeight: 52,
+  controlHeightCompact: 38,
+  touchTarget: 44,
+  iconButtonSize: 44,
+  iconButtonCompactSize: 36,
+  cardRadius: radii.lg,
+  sheetRadius: radii.xl,
+  navRadius: 21,
+} as const;
+
+export const state = {
+  pressedOpacity: 0.72,
+  disabledOpacity: 0.54,
+  hoverOpacity: 0.92,
+} as const;
+
 type Palette = {
   background: string;
   surface: string;
@@ -90,6 +110,7 @@ type Palette = {
   textMuted: string;
   textOnPrimary: string;
   textOnDanger: string;
+  textOnColor: string;
   textDisabled: string;
   primary: string;
   primaryHover: string;
@@ -142,6 +163,7 @@ const lightPalette: Palette = {
   textMuted: "#6B7280",
   textOnPrimary: "#FFFFFF",
   textOnDanger: "#FFFFFF",
+  textOnColor: "#FFFFFF",
   textDisabled: "#7A8594",
   primary: "#315F9B",
   primaryHover: "#274F83",
@@ -194,6 +216,7 @@ const darkPalette: Palette = {
   textMuted: "#A7B0BF",
   textOnPrimary: "#07121F",
   textOnDanger: "#2A0707",
+  textOnColor: "#FFFFFF",
   textDisabled: "#748094",
   primary: "#8CB8F2",
   primaryHover: "#A4C8F7",
@@ -331,6 +354,8 @@ export type AppTheme = {
   typography: typeof typography;
   motion: typeof motion;
   layout: typeof layout;
+  component: typeof component;
+  state: typeof state;
   shadows: ReturnType<typeof createShadows>;
   applicationTypes: ReturnType<typeof createApplicationTypeStyles>;
   aspirations: ReturnType<typeof createAspirationStyles>;
@@ -349,6 +374,8 @@ export const getTheme = (scheme: ColorSchemeName): AppTheme => {
     typography,
     motion,
     layout,
+    component,
+    state,
     shadows: createShadows(isDark),
     applicationTypes: createApplicationTypeStyles(colors),
     aspirations: createAspirationStyles(isDark),

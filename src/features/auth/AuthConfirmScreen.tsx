@@ -234,11 +234,19 @@ export const AuthConfirmScreen = ({
             theme.shadows.surface,
             {
               backgroundColor: theme.colors.surface,
-              borderColor: theme.colors.border
+              borderColor: theme.colors.border,
+              borderRadius: theme.radii.lg,
+              padding: theme.spacing.xl
             }
           ]}
         >
-          <Text style={[styles.title, { color: theme.colors.textPrimary }]}>
+          <Text
+            style={[
+              theme.typography.title2,
+              styles.title,
+              { color: theme.colors.textPrimary }
+            ]}
+          >
             {isLoading
               ? 'メール確認中'
               : isSuccess
@@ -247,6 +255,7 @@ export const AuthConfirmScreen = ({
           </Text>
           <Text
             style={[
+              theme.typography.body,
               styles.body,
               {
                 color:
@@ -287,23 +296,15 @@ const styles = StyleSheet.create({
     padding: 20
   },
   panel: {
-    borderRadius: 24,
     borderWidth: StyleSheet.hairlineWidth,
     gap: 18,
     maxWidth: 420,
-    padding: 22,
     width: '100%'
   },
   title: {
-    fontSize: 22,
-    fontWeight: '800',
-    lineHeight: 29,
     textAlign: 'center'
   },
   body: {
-    fontSize: 14,
-    fontWeight: '600',
-    lineHeight: 21,
     textAlign: 'center'
   }
 });

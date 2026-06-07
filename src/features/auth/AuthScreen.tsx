@@ -227,12 +227,18 @@ export const AuthScreen = ({
               {
                 backgroundColor: theme.colors.surface,
                 borderColor: theme.colors.border,
+                borderRadius: theme.radii.lg,
+                padding: theme.spacing.xl,
               },
             ]}>
             {!isConfirmationState ? (
               <View style={styles.header}>
                 <Text
-                  style={[styles.title, { color: theme.colors.textPrimary }]}>
+                  style={[
+                    theme.typography.title2,
+                    styles.title,
+                    { color: theme.colors.textPrimary },
+                  ]}>
                   {title}
                 </Text>
               </View>
@@ -242,6 +248,7 @@ export const AuthScreen = ({
               <View style={styles.confirmationState}>
                 <Text
                   style={[
+                    theme.typography.title3,
                     styles.confirmationTitle,
                     { color: theme.colors.textPrimary },
                   ]}>
@@ -249,6 +256,7 @@ export const AuthScreen = ({
                 </Text>
                 <Text
                   style={[
+                    theme.typography.footnote,
                     styles.confirmationText,
                     { color: theme.colors.textMuted },
                   ]}>
@@ -260,11 +268,13 @@ export const AuthScreen = ({
                     {
                       backgroundColor: theme.colors.surfaceElevated,
                       borderColor: theme.colors.border,
+                      borderRadius: theme.radii.md,
                     },
                   ]}>
                   <Text
                     style={[
                       styles.confirmationEmailLabel,
+                      theme.typography.caption,
                       { color: theme.colors.textMuted },
                     ]}>
                     登録したメールアドレス
@@ -273,6 +283,7 @@ export const AuthScreen = ({
                     selectable
                     style={[
                       styles.confirmationEmailValue,
+                      theme.typography.label,
                       { color: theme.colors.textPrimary },
                     ]}>
                     {confirmationEmail}
@@ -280,6 +291,7 @@ export const AuthScreen = ({
                 </View>
                 <Text
                   style={[
+                    theme.typography.footnote,
                     styles.confirmationText,
                     { color: theme.colors.textMuted },
                   ]}>
@@ -287,7 +299,11 @@ export const AuthScreen = ({
                 </Text>
                 {error ? (
                   <Text
-                    style={[styles.errorText, { color: theme.colors.danger }]}>
+                    style={[
+                      theme.typography.footnote,
+                      styles.errorText,
+                      { color: theme.colors.danger },
+                    ]}>
                     {error}
                   </Text>
                 ) : null}
@@ -303,6 +319,7 @@ export const AuthScreen = ({
                 {message ? (
                   <Text
                     style={[
+                      theme.typography.footnote,
                       styles.messageText,
                       { color: theme.colors.success },
                     ]}>
@@ -348,6 +365,7 @@ export const AuthScreen = ({
                   {error ? (
                     <Text
                       style={[
+                        theme.typography.footnote,
                         styles.errorText,
                         { color: theme.colors.danger },
                       ]}>
@@ -357,6 +375,7 @@ export const AuthScreen = ({
                   {message ? (
                     <Text
                       style={[
+                        theme.typography.footnote,
                         styles.messageText,
                         { color: theme.colors.success },
                       ]}>
@@ -447,6 +466,7 @@ export const AuthScreen = ({
                   {isSignUp ? (
                     <Text
                       style={[
+                        theme.typography.footnote,
                         styles.requirementText,
                         { color: theme.colors.textMuted },
                       ]}>
@@ -457,6 +477,7 @@ export const AuthScreen = ({
                   {error ? (
                     <Text
                       style={[
+                        theme.typography.footnote,
                         styles.errorText,
                         { color: theme.colors.danger },
                       ]}>
@@ -466,6 +487,7 @@ export const AuthScreen = ({
                   {message ? (
                     <Text
                       style={[
+                        theme.typography.footnote,
                         styles.messageText,
                         { color: theme.colors.primary },
                       ]}>
@@ -501,6 +523,7 @@ export const AuthScreen = ({
                       ]}>
                       <Text
                         style={[
+                          theme.typography.footnote,
                           styles.textButtonLabel,
                           { color: theme.colors.primary },
                         ]}>
@@ -528,6 +551,7 @@ export const AuthScreen = ({
                   <Text
                     style={[
                       styles.modeSwitchText,
+                      theme.typography.footnote,
                       { color: theme.colors.textSecondary },
                     ]}>
                     {isSignIn ? "新規登録はこちら" : "ログイン画面に戻る"}
@@ -556,10 +580,8 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   panel: {
-    borderRadius: 24,
     borderWidth: StyleSheet.hairlineWidth,
     maxWidth: 420,
-    padding: 22,
     width: "100%",
   },
   header: {
@@ -567,9 +589,6 @@ const styles = StyleSheet.create({
     marginBottom: 22,
   },
   title: {
-    fontSize: 24,
-    fontWeight: "800",
-    lineHeight: 30,
     textAlign: "center",
   },
   form: {
@@ -579,49 +598,29 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   confirmationTitle: {
-    fontSize: 18,
-    fontWeight: "800",
-    lineHeight: 24,
     textAlign: "center",
   },
   confirmationText: {
-    fontSize: 13,
-    fontWeight: "500",
-    lineHeight: 20,
     textAlign: "center",
   },
   confirmationEmailBox: {
-    borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
     gap: 4,
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
   confirmationEmailLabel: {
-    fontSize: 11,
-    fontWeight: "700",
-    lineHeight: 15,
   },
   confirmationEmailValue: {
-    fontSize: 14,
-    fontWeight: "700",
-    lineHeight: 19,
   },
   errorText: {
-    fontSize: 13,
     fontWeight: "700",
-    lineHeight: 19,
   },
   requirementText: {
-    fontSize: 12,
-    fontWeight: "600",
-    lineHeight: 17,
     marginTop: -8,
   },
   messageText: {
-    fontSize: 13,
     fontWeight: "700",
-    lineHeight: 19,
   },
   textButton: {
     alignItems: "center",
@@ -629,9 +628,7 @@ const styles = StyleSheet.create({
     minHeight: 40,
   },
   textButtonLabel: {
-    fontSize: 13,
     fontWeight: "700",
-    lineHeight: 18,
   },
   modeSwitch: {
     alignItems: "center",
@@ -640,9 +637,7 @@ const styles = StyleSheet.create({
     minHeight: 40,
   },
   modeSwitchText: {
-    fontSize: 13,
     fontWeight: "700",
-    lineHeight: 18,
     textAlign: "center",
   },
   pressed: {

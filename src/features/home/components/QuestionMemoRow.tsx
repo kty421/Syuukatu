@@ -55,6 +55,9 @@ export const QuestionMemoRow = memo(
           {
             backgroundColor: theme.colors.surface,
             borderColor: theme.colors.border,
+            borderRadius: theme.radii.md,
+            paddingHorizontal: theme.spacing.md,
+            paddingVertical: theme.spacing.sm,
           },
           pressed && { backgroundColor: theme.colors.surfaceSubtle },
         ]}>
@@ -63,6 +66,7 @@ export const QuestionMemoRow = memo(
             <Text
               numberOfLines={2}
               style={[
+                theme.typography.bodyStrong,
                 styles.questionTitle,
                 { color: theme.colors.textPrimary },
               ]}>
@@ -72,6 +76,7 @@ export const QuestionMemoRow = memo(
               <Text
                 numberOfLines={1}
                 style={[
+                  theme.typography.footnote,
                   styles.companyName,
                   { color: company ? accentColor : theme.colors.textMuted },
                 ]}>
@@ -87,11 +92,13 @@ export const QuestionMemoRow = memo(
                         {
                           backgroundColor: theme.colors.surface,
                           borderColor: theme.colors.primaryBorder,
+                          borderRadius: theme.radii.pill,
                         },
                       ]}>
                       <Text
                         numberOfLines={1}
                         style={[
+                          theme.typography.caption,
                           styles.labelText,
                           { color: theme.colors.primary },
                         ]}>
@@ -133,6 +140,7 @@ export const QuestionMemoRow = memo(
             {updatedAt ? (
               <Text
                 style={[
+                  theme.typography.caption,
                   styles.updatedAt,
                   { color: theme.colors.textDisabled },
                 ]}>
@@ -148,11 +156,9 @@ export const QuestionMemoRow = memo(
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 14,
     borderWidth: StyleSheet.hairlineWidth,
-    marginBottom: 7,
-    paddingHorizontal: 14,
-    paddingTop: 9,
+    marginBottom: 8,
+    overflow: "hidden",
   },
   headerRow: {
     alignItems: "flex-start",
@@ -164,9 +170,7 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   questionTitle: {
-    fontSize: 13,
-    fontWeight: "600",
-    lineHeight: 17,
+    flexShrink: 1,
   },
   metaRow: {
     alignItems: "center",
@@ -177,9 +181,6 @@ const styles = StyleSheet.create({
   },
   companyName: {
     flexShrink: 1,
-    fontSize: 10,
-    fontWeight: "700",
-    lineHeight: 15,
     minWidth: 0,
   },
   labelPills: {
@@ -191,16 +192,13 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   labelPill: {
-    borderRadius: 999,
     borderWidth: StyleSheet.hairlineWidth,
     maxWidth: 120,
     paddingHorizontal: 7,
     paddingVertical: 1,
   },
   labelText: {
-    fontSize: 10,
-    fontWeight: "700",
-    lineHeight: 14,
+    flexShrink: 1,
   },
   actions: {
     alignItems: "flex-end",
@@ -214,9 +212,6 @@ const styles = StyleSheet.create({
     marginTop: -3,
   },
   updatedAt: {
-    fontSize: 10,
-    fontWeight: "600",
-    lineHeight: 14,
     marginRight: 6,
     marginTop: -1,
   },

@@ -75,16 +75,30 @@ export const ConfirmActionDialog = ({
             theme.shadows.floating,
             {
               backgroundColor: theme.colors.surface,
-              borderColor: theme.colors.border
+              borderColor: theme.colors.border,
+              borderRadius: theme.radii.lg,
+              padding: theme.spacing.lg
             }
           ]}
         >
           <View style={styles.copy}>
-            <Text style={[styles.title, { color: theme.colors.textPrimary }]}>
+            <Text
+              style={[
+                theme.typography.title3,
+                styles.title,
+                { color: theme.colors.textPrimary }
+              ]}
+            >
               {request.title}
             </Text>
             {request.message ? (
-              <Text style={[styles.message, { color: theme.colors.textSecondary }]}>
+              <Text
+                style={[
+                  theme.typography.body,
+                  styles.message,
+                  { color: theme.colors.textSecondary }
+                ]}
+              >
                 {request.message}
               </Text>
             ) : null}
@@ -99,13 +113,22 @@ export const ConfirmActionDialog = ({
                 styles.actionButton,
                 {
                   backgroundColor: theme.colors.surface,
-                  borderColor: confirmColor
+                  borderColor: confirmColor,
+                  borderRadius: theme.radii.md,
+                  minHeight: theme.component.controlHeight
                 },
                 pressed && !isRunning && styles.pressed,
                 isRunning && styles.disabled
               ]}
             >
-              <Text style={[styles.cancelLabel, { color: confirmColor }]}>
+              <Text
+                numberOfLines={1}
+                style={[
+                  theme.typography.label,
+                  styles.cancelLabel,
+                  { color: confirmColor }
+                ]}
+              >
                 {request.cancelLabel ?? 'キャンセル'}
               </Text>
             </Pressable>
@@ -118,7 +141,9 @@ export const ConfirmActionDialog = ({
                 styles.actionButton,
                 {
                   backgroundColor: confirmColor,
-                  borderColor: confirmColor
+                  borderColor: confirmColor,
+                  borderRadius: theme.radii.md,
+                  minHeight: theme.component.controlHeight
                 },
                 pressed && !isRunning && styles.pressed
               ]}
@@ -128,6 +153,7 @@ export const ConfirmActionDialog = ({
               ) : (
                 <Text
                   style={[
+                    theme.typography.label,
                     styles.confirmLabel,
                     { color: confirmTextColor }
                   ]}
@@ -150,25 +176,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center'
   },
   card: {
-    borderRadius: 24,
     borderWidth: StyleSheet.hairlineWidth,
     gap: 18,
     maxWidth: 420,
-    padding: 20,
     width: '100%'
   },
   copy: {
     gap: 8
   },
   title: {
-    fontSize: 18,
-    fontWeight: '800',
-    lineHeight: 24
   },
   message: {
-    fontSize: 14,
-    fontWeight: '500',
-    lineHeight: 21
   },
   actions: {
     flexDirection: 'row',
@@ -176,22 +194,14 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     alignItems: 'center',
-    borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
     flex: 1,
     justifyContent: 'center',
-    minHeight: 48,
     paddingHorizontal: 14
   },
   cancelLabel: {
-    fontSize: 14,
-    fontWeight: '800',
-    lineHeight: 18
   },
   confirmLabel: {
-    fontSize: 14,
-    fontWeight: '800',
-    lineHeight: 18
   },
   pressed: {
     opacity: 0.78

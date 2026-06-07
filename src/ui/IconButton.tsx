@@ -56,8 +56,9 @@ export const IconButton = ({
     <Pressable
       accessibilityLabel={label}
       accessibilityRole="button"
+      accessibilityState={{ disabled }}
       disabled={disabled}
-      hitSlop={8}
+      hitSlop={compact ? 6 : 8}
       onBlur={() => setFocused(false)}
       onFocus={() => setFocused(true)}
       onHoverIn={() => setHovered(true)}
@@ -70,7 +71,6 @@ export const IconButton = ({
       }
       style={({ pressed }) => [
         styles.base,
-        compact ? styles.compact : styles.default,
         plain ? styles.plain : styles.filled,
         getWebCursor(disabled),
         {
@@ -79,9 +79,21 @@ export const IconButton = ({
             ? theme.colors.focusRing
             : plain
               ? 'transparent'
-              : palette.border
+              : palette.border,
+          borderRadius: plain ? theme.radii.sm : theme.radii.md,
+          height: compact
+            ? theme.component.iconButtonCompactSize
+            : theme.component.iconButtonSize,
+          opacity: disabled ? theme.state.disabledOpacity : 1,
+          width: compact
+            ? theme.component.iconButtonCompactSize
+            : theme.component.iconButtonSize
         },
-        hovered && !disabled && { backgroundColor: palette.pressedBackground },
+        hovered && !disabled && {
+          backgroundColor: plain
+            ? theme.colors.surfaceSubtle
+            : palette.pressedBackground
+        },
         pressed && !disabled && { backgroundColor: palette.pressedBackground },
         disabled &&
           !plain && {
@@ -138,19 +150,9 @@ const styles = StyleSheet.create({
     overflow: 'hidden'
   },
   filled: {
-    borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth
   },
   plain: {
-    borderRadius: 12,
     borderWidth: 0
-  },
-  default: {
-    height: 44,
-    width: 44
-  },
-  compact: {
-    height: 36,
-    width: 36
   }
 });
