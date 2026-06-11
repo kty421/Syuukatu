@@ -197,11 +197,14 @@ type CompanyListRowProps = {
   containerStyle: ViewStyle;
   showPasswordControls: boolean;
   isPasswordVisible: (id: string) => boolean;
+  statusOptions: SelectionStatus[];
+  isStatusSaving: (id: string) => boolean;
   onEdit: (company: Company) => void;
   onTogglePassword: (id: string) => void;
   onCopy: (value: string, label: string) => void;
   onOpenUrl: (company: Company) => void;
   onDelete: (company: Company) => void;
+  onStatusChange: (company: Company, status: SelectionStatus) => void;
 };
 
 type CompanyCardListRowProps = Omit<CompanyListRowProps, "item"> & {
@@ -214,11 +217,14 @@ const CompanyCardListRow = ({
   containerStyle,
   showPasswordControls,
   isPasswordVisible,
+  statusOptions,
+  isStatusSaving,
   onEdit,
   onTogglePassword,
   onCopy,
   onOpenUrl,
   onDelete,
+  onStatusChange,
 }: CompanyCardListRowProps) => {
   const { company } = item;
   const handleEdit = useCallback(() => onEdit(company), [company, onEdit]);
@@ -233,6 +239,10 @@ const CompanyCardListRow = ({
   const handleDelete = useCallback(
     () => onDelete(company),
     [company, onDelete],
+  );
+  const handleStatusChange = useCallback(
+    (status: SelectionStatus) => onStatusChange(company, status),
+    [company, onStatusChange],
   );
 
   return (
@@ -260,12 +270,15 @@ const CompanyCardListRow = ({
         company={company}
         isPasswordVisible={isPasswordVisible(company.id)}
         showPasswordControls={showPasswordControls}
+        statusOptions={statusOptions}
+        isStatusSaving={isStatusSaving(company.id)}
         theme={theme}
         onPress={handleEdit}
         onTogglePassword={handleTogglePassword}
         onCopy={onCopy}
         onOpenUrl={handleOpenUrl}
         onDelete={handleDelete}
+        onStatusChange={handleStatusChange}
       />
     </View>
   );
@@ -278,11 +291,14 @@ const CompanyListRow = memo(
     containerStyle,
     showPasswordControls,
     isPasswordVisible,
+    statusOptions,
+    isStatusSaving,
     onEdit,
     onTogglePassword,
     onCopy,
     onOpenUrl,
     onDelete,
+    onStatusChange,
   }: CompanyListRowProps) => {
     if (item.kind === "section") {
       return (
@@ -299,11 +315,14 @@ const CompanyListRow = memo(
         containerStyle={containerStyle}
         showPasswordControls={showPasswordControls}
         isPasswordVisible={isPasswordVisible}
+        statusOptions={statusOptions}
+        isStatusSaving={isStatusSaving}
         onEdit={onEdit}
         onTogglePassword={onTogglePassword}
         onCopy={onCopy}
         onOpenUrl={onOpenUrl}
         onDelete={onDelete}
+        onStatusChange={onStatusChange}
       />
     );
   },
@@ -312,11 +331,13 @@ const CompanyListRow = memo(
       previous.theme !== next.theme ||
       previous.containerStyle !== next.containerStyle ||
       previous.showPasswordControls !== next.showPasswordControls ||
+      previous.statusOptions !== next.statusOptions ||
       previous.onEdit !== next.onEdit ||
       previous.onTogglePassword !== next.onTogglePassword ||
       previous.onCopy !== next.onCopy ||
       previous.onOpenUrl !== next.onOpenUrl ||
-      previous.onDelete !== next.onDelete
+      previous.onDelete !== next.onDelete ||
+      previous.onStatusChange !== next.onStatusChange
     ) {
       return false;
     }
@@ -338,7 +359,9 @@ const CompanyListRow = memo(
         previous.item.isFirst === next.item.isFirst &&
         previous.item.isLast === next.item.isLast &&
         previous.isPasswordVisible(previous.item.company.id) ===
-          next.isPasswordVisible(next.item.company.id)
+          next.isPasswordVisible(next.item.company.id) &&
+        previous.isStatusSaving(previous.item.company.id) ===
+          next.isStatusSaving(next.item.company.id)
       );
     }
 
@@ -436,6 +459,9 @@ export const HomeScreen = ({
     useState(false);
   const [passwordVisibilityOverrides, setPasswordVisibilityOverrides] =
     useState<Set<string>>(new Set());
+  const [savingStatusCompanyIds, setSavingStatusCompanyIds] = useState<
+    Set<string>
+  >(new Set());
   const [questionCreateCompanyId, setQuestionCreateCompanyId] = useState<
     string | null
   >(null);
@@ -452,6 +478,7 @@ export const HomeScreen = ({
   const menuActionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
+  const savingStatusCompanyIdsRef = useRef<Set<string>>(new Set());
 
   const deferredCompanyQuery = useDeferredValue(companyQuery);
   const deferredQuestionQuery = useDeferredValue(questionQuery);
@@ -618,6 +645,10 @@ export const HomeScreen = ({
   );
   const activeTypeCount =
     activeType === "internship" ? internshipCount : fullTimeCount;
+  const activeStatusOptions = useMemo(
+    () => getStatusList(activeType),
+    [activeType],
+  );
   const searchPlaceholder =
     homeView === "questions"
       ? "質問文、企業名で検索"
@@ -912,10 +943,49 @@ export const HomeScreen = ({
     [passwordDefaultVisible, passwordVisibilityOverrides],
   );
 
+  const isCompanyStatusSaving = useCallback(
+    (id: string) => savingStatusCompanyIds.has(id),
+    [savingStatusCompanyIds],
+  );
+
   const changePasswordDefaultVisibility = useCallback((visible: boolean) => {
     setPasswordDefaultVisible(visible);
     setPasswordVisibilityOverrides(new Set());
   }, []);
+
+  const handleChangeCompanyStatus = useCallback(
+    async (company: Company, status: SelectionStatus) => {
+      if (
+        company.status === status ||
+        savingStatusCompanyIdsRef.current.has(company.id)
+      ) {
+        return;
+      }
+
+      savingStatusCompanyIdsRef.current = new Set([
+        ...savingStatusCompanyIdsRef.current,
+        company.id,
+      ]);
+      setSavingStatusCompanyIds(savingStatusCompanyIdsRef.current);
+
+      try {
+        await upsertCompany({
+          ...company,
+          status,
+        });
+        void runHapticsSafely(() =>
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success),
+        );
+      } catch {
+      } finally {
+        const nextSavingIds = new Set(savingStatusCompanyIdsRef.current);
+        nextSavingIds.delete(company.id);
+        savingStatusCompanyIdsRef.current = nextSavingIds;
+        setSavingStatusCompanyIds(nextSavingIds);
+      }
+    },
+    [upsertCompany],
+  );
 
   const copyToClipboard = useCallback(
     async (value: string, label: string) => {
@@ -1229,7 +1299,6 @@ export const HomeScreen = ({
         const savedCompany = await upsertCompany({
           type: activeType,
           companyName: trimmedName,
-          aspiration: "unset",
           status: getStatusList(activeType)[0],
           loginId: "",
           password: "",
@@ -1268,7 +1337,6 @@ export const HomeScreen = ({
         const savedCompany = await upsertCompany({
           type: activeType,
           companyName: trimmedName,
-          aspiration: "unset",
           status: getStatusList(activeType)[0],
           loginId: "",
           password: "",
@@ -1557,17 +1625,23 @@ export const HomeScreen = ({
         containerStyle={containerStyle}
         showPasswordControls={showPasswordControls}
         isPasswordVisible={isCompanyPasswordVisible}
+        statusOptions={activeStatusOptions}
+        isStatusSaving={isCompanyStatusSaving}
         onEdit={openEditModal}
         onTogglePassword={togglePassword}
         onCopy={copyToClipboard}
         onOpenUrl={openUrl}
         onDelete={handleDeleteCompany}
+        onStatusChange={handleChangeCompanyStatus}
       />
     ),
     [
+      activeStatusOptions,
       containerStyle,
       copyToClipboard,
+      handleChangeCompanyStatus,
       handleDeleteCompany,
+      isCompanyStatusSaving,
       isCompanyPasswordVisible,
       openEditModal,
       openUrl,
@@ -1859,7 +1933,6 @@ export const HomeScreen = ({
           company={{
             id: currentScheduleEditorCompany.id,
             companyName: currentScheduleEditorCompany.companyName,
-            aspiration: currentScheduleEditorCompany.aspiration,
           }}
           allSchedules={companySchedules}
           companies={companies}

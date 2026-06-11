@@ -18,7 +18,6 @@ import { FullScreenModalShell } from "../../../ui/FullScreenModalShell";
 import { IconButton } from "../../../ui/IconButton";
 import { InputField } from "../../../ui/InputField";
 import {
-  AspirationLevel,
   Company,
   CompanySchedule,
   ScheduleCategory,
@@ -39,7 +38,6 @@ import { ScheduleCategoryPicker } from "./ScheduleCategoryPicker";
 export type ScheduleCompanyInfo = {
   id: string;
   companyName: string;
-  aspiration: AspirationLevel;
 };
 
 type ScheduleEditorDialogProps = {

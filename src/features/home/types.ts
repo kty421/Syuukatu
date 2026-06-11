@@ -1,7 +1,5 @@
 export type ApplicationType = "internship" | "fullTime";
 
-export type AspirationLevel = "high" | "middle" | "low" | "unset";
-
 export const scheduleTypes = [
   "面接",
   "GD",
@@ -126,7 +124,6 @@ export type Company = {
   id: string;
   type: ApplicationType;
   companyName: string;
-  aspiration: AspirationLevel;
   status: SelectionStatus;
   loginId: string;
   password: string;

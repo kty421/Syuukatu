@@ -3,7 +3,6 @@ create table if not exists public.companies (
   user_id uuid not null references auth.users (id) on delete cascade,
   type text not null check (type in ('internship', 'fullTime')),
   company_name text not null,
-  aspiration text not null default 'unset' check (aspiration in ('high', 'middle', 'low', 'unset')),
   status text not null,
   login_id text not null default '',
   my_page_url text,
