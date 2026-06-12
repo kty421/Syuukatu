@@ -1,6 +1,9 @@
-import { memo, type ReactNode } from "react";
+import { Ionicons } from "@expo/vector-icons";
+import { memo, useState, type ReactNode } from "react";
 import {
+  ActivityIndicator,
   GestureResponderEvent,
+  Keyboard,
   Pressable,
   StyleSheet,
   Text,
@@ -9,18 +12,22 @@ import {
 
 import { AppTheme } from "../../../constants/theme";
 import { IconButton } from "../../../ui/IconButton";
-import { Company } from "../types";
+import { Company, SelectionStatus } from "../types";
+import { SelectionStatusPickerSheet } from "./SelectionStatusPickerSheet";
 
 type CompanyCardProps = {
   company: Company;
   theme: AppTheme;
   isPasswordVisible: boolean;
   showPasswordControls: boolean;
+  statusOptions: SelectionStatus[];
+  isStatusSaving: boolean;
   onPress: () => void;
   onTogglePassword: () => void;
   onCopy: (value: string, label: string) => void;
   onOpenUrl: () => void;
   onDelete: () => void;
+  onStatusChange: (status: SelectionStatus) => void;
 };
 
 const maskPassword = (password: string) => (password ? "••••••••" : "未登録");
@@ -31,19 +38,36 @@ export const CompanyCard = memo(
     theme,
     isPasswordVisible,
     showPasswordControls,
+    statusOptions,
+    isStatusSaving,
     onPress,
     onTogglePassword,
     onCopy,
     onOpenUrl,
     onDelete,
+    onStatusChange,
   }: CompanyCardProps) => {
-    const aspiration = theme.aspirations[company.aspiration];
+    const [statusPickerVisible, setStatusPickerVisible] = useState(false);
 
     const runChildAction =
       (handler: () => void) => (event: GestureResponderEvent) => {
         event.stopPropagation();
         handler();
       };
+
+    const openStatusPicker = (event: GestureResponderEvent) => {
+      event.stopPropagation();
+      if (isStatusSaving) {
+        return;
+      }
+
+      Keyboard.dismiss();
+      setStatusPickerVisible(true);
+    };
+
+    const closeStatusPicker = () => {
+      setStatusPickerVisible(false);
+    };
 
     return (
       <Pressable
@@ -54,7 +78,7 @@ export const CompanyCard = memo(
           styles.card,
           {
             paddingHorizontal: theme.spacing.md,
-            paddingVertical: theme.spacing.sm,
+            paddingVertical: theme.spacing.xs,
           },
           pressed && { backgroundColor: theme.colors.surfaceSubtle },
         ]}>
@@ -70,20 +94,43 @@ export const CompanyCard = memo(
                 numberOfLines={1}>
                 {company.companyName}
               </Text>
-              <View
-                style={[
-                  styles.aspirationPill,
-                  { backgroundColor: aspiration.background },
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`${company.companyName}の選考状況を変更`}
+                accessibilityHint={`現在の選考状況は${company.status}です`}
+                accessibilityState={{ disabled: isStatusSaving }}
+                disabled={isStatusSaving}
+                onPress={openStatusPicker}
+                style={({ pressed }) => [
+                  styles.statusChip,
+                  {
+                    backgroundColor: theme.colors.surface,
+                    borderColor: theme.colors.border,
+                    opacity: isStatusSaving ? theme.state.disabledOpacity : 1,
+                  },
+                  pressed && styles.statusChipPressed,
                 ]}>
                 <Text
+                  numberOfLines={1}
                   style={[
-                    theme.typography.caption,
-                    styles.aspirationText,
-                    { color: aspiration.foreground },
+                    styles.statusText,
+                    { color: theme.colors.textPrimary },
                   ]}>
-                  志望度 {aspiration.label}
+                  {company.status}
                 </Text>
-              </View>
+                {isStatusSaving ? (
+                  <ActivityIndicator
+                    color={theme.colors.textMuted}
+                    size="small"
+                  />
+                ) : (
+                  <Ionicons
+                    color={theme.colors.textMuted}
+                    name="chevron-down"
+                    size={15}
+                  />
+                )}
+              </Pressable>
             </View>
           </View>
 
@@ -200,6 +247,15 @@ export const CompanyCard = memo(
             </>
           ) : null}
         </View>
+
+        <SelectionStatusPickerSheet
+          visible={statusPickerVisible}
+          value={company.status}
+          options={statusOptions}
+          theme={theme}
+          onClose={closeStatusPicker}
+          onSelect={onStatusChange}
+        />
       </Pressable>
     );
   },
@@ -263,34 +319,46 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
   },
-  aspirationPill: {
-    borderRadius: 999,
-    flexShrink: 0,
-    marginLeft: 8,
-    marginTop: 3,
-    maxWidth: 112,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  aspirationText: {
-    textAlign: "center",
-  },
   actions: {
     alignItems: "center",
     flexDirection: "row",
     gap: 0,
     marginRight: -2,
   },
+  statusChip: {
+    alignItems: "center",
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    flexShrink: 0,
+    flexDirection: "row",
+    gap: 6,
+    marginLeft: 8,
+    marginTop: 2,
+    maxWidth: 148,
+    minHeight: 30,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  statusChipPressed: {
+    opacity: 0.76,
+  },
+  statusText: {
+    flexShrink: 1,
+    fontSize: 12,
+    fontWeight: "800",
+    lineHeight: 16,
+    minWidth: 0,
+  },
   credentialBlock: {
     borderWidth: StyleSheet.hairlineWidth,
-    marginTop: 8,
+    marginTop: 6,
     overflow: "hidden",
   },
   credentialRow: {
     alignItems: "center",
     flexDirection: "row",
     gap: 10,
-    minHeight: 40,
+    minHeight: 38,
     paddingHorizontal: 12,
   },
   credentialLabel: {

@@ -3,7 +3,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { AppTheme } from '../../../constants/theme';
 import { SectionHeader } from '../../../ui/SectionHeader';
-import { Company } from '../types';
+import { Company, SelectionStatus } from '../types';
 import { CompanyCard } from './CompanyCard';
 
 type CompanySectionProps = {
@@ -12,11 +12,14 @@ type CompanySectionProps = {
   theme: AppTheme;
   showPasswordControls: boolean;
   isPasswordVisible: (id: string) => boolean;
+  statusOptions: SelectionStatus[];
+  isStatusSaving: (id: string) => boolean;
   onEdit: (company: Company) => void;
   onTogglePassword: (id: string) => void;
   onCopy: (value: string, label: string) => void;
   onOpenUrl: (company: Company) => void;
   onDelete: (company: Company) => void;
+  onStatusChange: (company: Company, status: SelectionStatus) => void;
 };
 
 export const CompanySection = ({
@@ -25,11 +28,14 @@ export const CompanySection = ({
   theme,
   showPasswordControls,
   isPasswordVisible,
+  statusOptions,
+  isStatusSaving,
   onEdit,
   onTogglePassword,
   onCopy,
   onOpenUrl,
-  onDelete
+  onDelete,
+  onStatusChange
 }: CompanySectionProps) => (
   <Animated.View
     entering={FadeInDown.duration(theme.motion.standard)}
@@ -65,12 +71,15 @@ export const CompanySection = ({
             company={company}
             isPasswordVisible={isPasswordVisible(company.id)}
             showPasswordControls={showPasswordControls}
+            statusOptions={statusOptions}
+            isStatusSaving={isStatusSaving(company.id)}
             theme={theme}
             onPress={() => onEdit(company)}
             onTogglePassword={() => onTogglePassword(company.id)}
             onCopy={onCopy}
             onOpenUrl={() => onOpenUrl(company)}
             onDelete={() => onDelete(company)}
+            onStatusChange={(status) => onStatusChange(company, status)}
           />
         </View>
       ))}

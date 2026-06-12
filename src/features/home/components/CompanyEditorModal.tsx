@@ -5,7 +5,6 @@ import {
   useMemo,
   useRef,
   useState,
-  type ElementRef,
   type ReactNode,
 } from "react";
 import {
@@ -21,7 +20,6 @@ import {
 import {
   Gesture,
   GestureDetector,
-  ScrollView,
 } from "react-native-gesture-handler";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import Animated, {
@@ -65,6 +63,7 @@ import { getScheduleCategoryPresentation } from "../utils/scheduleCategoryUtils"
 import { formatScheduleTime, sortSchedules } from "../utils/scheduleUtils";
 import { QuestionMemoDialog } from "./QuestionMemoDialog";
 import { ScheduleEditorDialog } from "./ScheduleEditorDialog";
+import { SelectionStatusPickerSheet } from "./SelectionStatusPickerSheet";
 
 type CompanyEditorModalProps = {
   visible: boolean;
@@ -96,7 +95,6 @@ const createEmptyForm = (type: ApplicationType): FormState => ({
   id: createDraftId("company"),
   type,
   companyName: "",
-  aspiration: "unset",
   status: getStatusList(type)[0],
   loginId: "",
   password: "",
@@ -165,7 +163,6 @@ export const CompanyEditorModal = ({
   const isDismissing = useSharedValue(false);
 
   const typeTheme = theme.applicationTypes[form.type];
-  const aspirationTheme = theme.aspirations[form.aspiration];
   const statusOptions = useMemo(() => getStatusList(form.type), [form.type]);
 
   const resetMotionState = useCallback(() => {
@@ -741,22 +738,6 @@ export const CompanyEditorModal = ({
                     onChangeText={(value) => update("companyName", value)}
                   />
 
-                  <FieldLabel label="志望度" theme={theme} />
-                  <ChipGroup
-                    theme={theme}
-                    selectedColor={aspirationTheme.foreground}
-                    selectedSurface={aspirationTheme.background}
-                    selectedTextColor={aspirationTheme.foreground}
-                    value={form.aspiration}
-                    options={[
-                      { value: "high", label: "高" },
-                      { value: "middle", label: "中" },
-                      { value: "low", label: "低" },
-                      { value: "unset", label: "未設定" },
-                    ]}
-                    onChange={(value) => update("aspiration", value)}
-                  />
-
                   <StatusSelectField
                     theme={theme}
                     value={form.status}
@@ -1045,7 +1026,6 @@ export const CompanyEditorModal = ({
           company={{
             id: form.id ?? "",
             companyName: form.companyName,
-            aspiration: form.aspiration,
           }}
           allSchedules={scheduleConflictCandidates}
           companies={companies}
@@ -1124,26 +1104,6 @@ const StatusSelectField = ({
   onClose: () => void;
   onChange: (value: SelectionStatus) => void;
 }) => {
-  const insets = useSafeAreaInsets();
-  const listRef = useRef<ElementRef<typeof ScrollView>>(null);
-  const selectedIndex = Math.max(options.indexOf(value), 0);
-
-  useEffect(() => {
-    if (!visible) {
-      return;
-    }
-
-    const scrollOffset = Math.max(0, selectedIndex * 56 - 96);
-    requestAnimationFrame(() => {
-      listRef.current?.scrollTo({ y: scrollOffset, animated: false });
-    });
-  }, [selectedIndex, visible]);
-
-  const selectStatus = (nextValue: SelectionStatus) => {
-    onChange(nextValue);
-    onClose();
-  };
-
   return (
     <>
       <FieldLabel label="選考状況" theme={theme} />
@@ -1178,177 +1138,17 @@ const StatusSelectField = ({
         />
       </Pressable>
 
-      <Modal
-        animationType="fade"
-        onRequestClose={onClose}
-        statusBarTranslucent
-        transparent
-        visible={visible}>
-        <View style={styles.pickerRoot}>
-          <Pressable
-            accessibilityLabel="選考状況の選択を閉じる"
-            style={StyleSheet.absoluteFill}
-            onPress={onClose}>
-            <View
-              style={[
-                StyleSheet.absoluteFill,
-                { backgroundColor: theme.colors.overlay },
-              ]}
-            />
-          </Pressable>
-
-          <View
-            style={[
-              styles.pickerPanel,
-              theme.shadows.floating,
-              {
-                backgroundColor: theme.colors.surface,
-                paddingBottom: Math.max(insets.bottom, 12),
-              },
-            ]}>
-            <View style={styles.pickerHeader}>
-              <View>
-                <Text
-                  style={[
-                    styles.pickerEyebrow,
-                    { color: theme.colors.textSecondary },
-                  ]}>
-                  選考状況
-                </Text>
-                <Text
-                  style={[
-                    styles.pickerTitle,
-                    { color: theme.colors.textPrimary },
-                  ]}>
-                  現在: {value}
-                </Text>
-              </View>
-              <IconButton
-                icon="close"
-                label="選考状況の選択を閉じる"
-                onPress={onClose}
-                theme={theme}
-                size="compact"
-                variant="plain"
-              />
-            </View>
-
-            <ScrollView
-              ref={listRef}
-              contentContainerStyle={styles.pickerList}
-              nestedScrollEnabled
-              overScrollMode="never"
-              showsVerticalScrollIndicator={false}>
-              {options.map((option) => {
-                const selected = option === value;
-
-                return (
-                  <Pressable
-                    key={option}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected }}
-                    onPress={() => selectStatus(option)}
-                    style={({ pressed }) => [
-                      styles.pickerOption,
-                      {
-                        backgroundColor: selected
-                          ? theme.colors.surfaceSubtle
-                          : theme.colors.surfaceElevated,
-                        borderColor: selected
-                          ? theme.colors.border
-                          : theme.colors.border,
-                      },
-                      pressed && styles.pickerOptionPressed,
-                    ]}>
-                    <Text
-                      style={[
-                        styles.pickerOptionText,
-                        {
-                          color: selected
-                            ? theme.colors.textPrimary
-                            : theme.colors.textPrimary,
-                        },
-                      ]}>
-                      {option}
-                    </Text>
-                    {selected ? (
-                      <Ionicons
-                        color={theme.colors.textSecondary}
-                        name="checkmark-circle"
-                        size={20}
-                      />
-                    ) : null}
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
+      <SelectionStatusPickerSheet
+        visible={visible}
+        value={value}
+        options={options}
+        theme={theme}
+        onClose={onClose}
+        onSelect={onChange}
+      />
     </>
   );
 };
-
-const ChipGroup = <T extends string>({
-  theme,
-  value,
-  options,
-  selectedColor,
-  selectedSurface,
-  selectedTextColor,
-  selectedStrong,
-  onChange,
-}: {
-  theme: AppTheme;
-  value: T;
-  options: { value: T; label: string }[];
-  selectedColor: string;
-  selectedSurface: string;
-  selectedTextColor?: string;
-  selectedStrong?: boolean;
-  onChange: (value: T) => void;
-}) => (
-  <View style={styles.chipGroup}>
-    {options.map((option) => {
-      const selected = option.value === value;
-
-      return (
-        <Pressable
-          key={option.value}
-          accessibilityRole="button"
-          accessibilityState={{ selected }}
-          onPress={(event) => {
-            event.stopPropagation();
-            Keyboard.dismiss();
-            onChange(option.value);
-          }}
-          style={[
-            styles.chip,
-            selectedStrong && selected && styles.chipSelectedStrong,
-            {
-              backgroundColor: selected
-                ? selectedSurface
-                : theme.colors.surfaceElevated,
-              borderColor: selected ? selectedColor : theme.colors.border,
-            },
-          ]}>
-          <Text
-            style={[
-              styles.chipText,
-              selectedStrong && selected && styles.chipTextSelectedStrong,
-              {
-                color: selected
-                  ? (selectedTextColor ?? selectedColor)
-                  : theme.colors.textSecondary,
-              },
-            ]}>
-            {option.label}
-          </Text>
-        </Pressable>
-      );
-    })}
-  </View>
-);
 
 const styles = StyleSheet.create({
   flex: {
@@ -1447,80 +1247,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "800",
     lineHeight: 18,
-  },
-  pickerRoot: {
-    flex: 1,
-    justifyContent: "flex-end",
-  },
-  pickerPanel: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: "78%",
-    paddingHorizontal: 16,
-    paddingTop: 12,
-  },
-  pickerHeader: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    minHeight: 44,
-  },
-  pickerEyebrow: {
-    fontSize: 12,
-    fontWeight: "700",
-    lineHeight: 16,
-  },
-  pickerTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    lineHeight: 21,
-    marginTop: 2,
-  },
-  pickerList: {
-    gap: 8,
-    paddingTop: 10,
-  },
-  pickerOption: {
-    alignItems: "center",
-    borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    flexDirection: "row",
-    gap: 10,
-    minHeight: 48,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  pickerOptionPressed: {
-    opacity: 0.74,
-  },
-  pickerOptionText: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: "700",
-    lineHeight: 19,
-  },
-  chipGroup: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-  },
-  chip: {
-    borderRadius: 999,
-    borderWidth: StyleSheet.hairlineWidth,
-    justifyContent: "center",
-    minHeight: 36,
-    paddingHorizontal: 12,
-  },
-  chipSelectedStrong: {
-    borderWidth: 1.5,
-  },
-  chipText: {
-    fontSize: 12,
-    fontWeight: "600",
-    lineHeight: 16,
-  },
-  chipTextSelectedStrong: {
-    fontWeight: "800",
   },
   qaList: {
     gap: 8,

@@ -1,6 +1,6 @@
 import { ColorSchemeName, Platform } from "react-native";
 
-import { ApplicationType, AspirationLevel } from "../features/home/types";
+import { ApplicationType } from "../features/home/types";
 
 export const spacing = {
   xxs: 4,
@@ -308,43 +308,6 @@ const createApplicationTypeStyles = (colors: Palette) =>
     }
   >;
 
-const createAspirationStyles = (isDark: boolean) =>
-  ({
-    high: {
-      label: "高",
-      foreground: isDark ? "#FCA5A5" : "#DC2626",
-      background: isDark
-        ? "rgba(248, 113, 113, 0.18)"
-        : "rgba(239, 68, 68, 0.12)",
-    },
-    middle: {
-      label: "中",
-      foreground: isDark ? "#FCD34D" : "#B45309",
-      background: isDark
-        ? "rgba(251, 191, 36, 0.18)"
-        : "rgba(245, 158, 11, 0.14)",
-    },
-    low: {
-      label: "低",
-      foreground: isDark ? "#93C5FD" : "#2563EB",
-      background: isDark
-        ? "rgba(96, 165, 250, 0.18)"
-        : "rgba(59, 130, 246, 0.12)",
-    },
-    unset: {
-      label: "未設定",
-      foreground: isDark ? "#C4CBD6" : "#6B7280",
-      background: isDark ? "#222933" : "#F2F4F7",
-    },
-  }) satisfies Record<
-    AspirationLevel,
-    {
-      label: string;
-      foreground: string;
-      background: string;
-    }
-  >;
-
 export type AppTheme = {
   isDark: boolean;
   blurTint: "light" | "dark";
@@ -358,7 +321,6 @@ export type AppTheme = {
   state: typeof state;
   shadows: ReturnType<typeof createShadows>;
   applicationTypes: ReturnType<typeof createApplicationTypeStyles>;
-  aspirations: ReturnType<typeof createAspirationStyles>;
 };
 
 export const getTheme = (scheme: ColorSchemeName): AppTheme => {
@@ -378,7 +340,6 @@ export const getTheme = (scheme: ColorSchemeName): AppTheme => {
     state,
     shadows: createShadows(isDark),
     applicationTypes: createApplicationTypeStyles(colors),
-    aspirations: createAspirationStyles(isDark),
   };
 };
 

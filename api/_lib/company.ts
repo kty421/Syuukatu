@@ -4,7 +4,6 @@ export const companySchema = z.object({
   id: z.string().min(1),
   type: z.enum(['internship', 'fullTime']),
   companyName: z.string().min(1),
-  aspiration: z.enum(['high', 'middle', 'low', 'unset']),
   status: z.string().min(1),
   loginId: z.string().default(''),
   password: z.string().optional().default(''),
@@ -41,7 +40,6 @@ type CompanyRow = {
   user_id: string;
   type: string;
   company_name: string;
-  aspiration: string;
   status: string;
   login_id: string;
   my_page_url: string | null;
@@ -67,7 +65,6 @@ export const toCompanyRow = (
   user_id: userId,
   type: company.type,
   company_name: company.companyName,
-  aspiration: company.aspiration,
   status: company.status,
   login_id: company.loginId,
   my_page_url: optionalToNull(company.myPageUrl),
@@ -86,7 +83,6 @@ export const fromCompanyRow = (row: CompanyRow): CompanyPayload => ({
   id: row.id,
   type: row.type as CompanyPayload['type'],
   companyName: row.company_name,
-  aspiration: row.aspiration as CompanyPayload['aspiration'],
   status: row.status,
   loginId: row.login_id ?? '',
   password: '',

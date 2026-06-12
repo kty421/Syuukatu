@@ -5,13 +5,6 @@ import {
   SelectionStatus,
 } from "../types";
 
-const aspirationRank: Record<Company["aspiration"], number> = {
-  high: 0,
-  middle: 1,
-  low: 2,
-  unset: 3,
-};
-
 const legacyStatusMap: Record<string, SelectionStatus> = {
   検討中: "未エントリー",
   応募予定: "未エントリー",
@@ -97,15 +90,7 @@ export const filterAndSortCompanies = (
       return (searchIndex?.get(company.id) ?? getCompanySearchText(company))
         .includes(normalizedQuery);
     })
-    .sort((a, b) => {
-      const aspirationDiff =
-        aspirationRank[a.aspiration] - aspirationRank[b.aspiration];
-      if (aspirationDiff !== 0) {
-        return aspirationDiff;
-      }
-
-      return toTime(b.updatedAt) - toTime(a.updatedAt);
-    });
+    .sort((a, b) => toTime(b.updatedAt) - toTime(a.updatedAt));
 };
 
 export const groupCompaniesByStatus = (
