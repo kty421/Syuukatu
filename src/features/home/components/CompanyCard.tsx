@@ -7,6 +7,7 @@ import {
   Pressable,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from "react-native";
 
@@ -47,7 +48,11 @@ export const CompanyCard = memo(
     onDelete,
     onStatusChange,
   }: CompanyCardProps) => {
+    const { width } = useWindowDimensions();
     const [statusPickerVisible, setStatusPickerVisible] = useState(false);
+    const [detailsExpanded, setDetailsExpanded] = useState(false);
+    const isCompact = width < 768;
+    const showDetails = !isCompact || detailsExpanded;
 
     const runChildAction =
       (handler: () => void) => (event: GestureResponderEvent) => {
@@ -69,11 +74,24 @@ export const CompanyCard = memo(
       setStatusPickerVisible(false);
     };
 
+    const handlePress = () => {
+      if (isCompact) {
+        setDetailsExpanded((current) => !current);
+        return;
+      }
+
+      onPress();
+    };
+
     return (
       <Pressable
-        accessibilityLabel={`${company.companyName}を編集`}
+        accessibilityLabel={
+          isCompact
+            ? `${company.companyName}の詳細を${detailsExpanded ? "閉じる" : "開く"}`
+            : `${company.companyName}を編集`
+        }
         accessibilityRole="button"
-        onPress={onPress}
+        onPress={handlePress}
         style={({ pressed }) => [
           styles.card,
           {
@@ -135,118 +153,177 @@ export const CompanyCard = memo(
           </View>
 
           <View style={styles.actions}>
-            <IconButton
-              icon="open-outline"
-              label="企業ページを開く"
-              onPress={runChildAction(onOpenUrl)}
-              theme={theme}
-              tone="neutral"
-              variant="plain"
-              disabled={!company.myPageUrl}
-              size="compact"
-              iconSize={17}
-            />
-            <IconButton
-              icon="trash-outline"
-              label={`${company.companyName}を削除`}
-              onPress={runChildAction(onDelete)}
-              theme={theme}
-              tone="danger"
-              variant="plain"
-              size="compact"
-              iconSize={17}
-            />
+            {isCompact ? (
+              <IconButton
+                icon={detailsExpanded ? "chevron-up" : "chevron-down"}
+                label={detailsExpanded ? "詳細を閉じる" : "詳細を開く"}
+                onPress={runChildAction(() =>
+                  setDetailsExpanded((current) => !current),
+                )}
+                theme={theme}
+                tone="neutral"
+                variant="plain"
+                size="compact"
+                iconSize={18}
+              />
+            ) : (
+              <>
+                <IconButton
+                  icon="open-outline"
+                  label="企業ページを開く"
+                  onPress={runChildAction(onOpenUrl)}
+                  theme={theme}
+                  tone="neutral"
+                  variant="plain"
+                  disabled={!company.myPageUrl}
+                  size="compact"
+                  iconSize={17}
+                />
+                <IconButton
+                  icon="trash-outline"
+                  label={`${company.companyName}を削除`}
+                  onPress={runChildAction(onDelete)}
+                  theme={theme}
+                  tone="danger"
+                  variant="plain"
+                  size="compact"
+                  iconSize={17}
+                />
+              </>
+            )}
           </View>
         </View>
 
-        <View
-          style={[
-            styles.credentialBlock,
-            {
-              backgroundColor: theme.colors.surfaceElevated,
-              borderColor: theme.colors.border,
-              borderRadius: theme.radii.md,
-            },
-          ]}>
-          <CredentialRow
-            label="ID"
-            value={company.loginId || "未登録"}
-            isPlaceholder={!company.loginId}
-            theme={theme}
-            iconButtons={
-              <View style={styles.credentialActionsSlot}>
-                <View style={styles.singleActionWrap}>
-                  <IconButton
-                    icon="copy-outline"
-                    label="ログインIDをコピー"
-                    onPress={runChildAction(() =>
-                      onCopy(company.loginId, "ログインID"),
-                    )}
-                    theme={theme}
-                    tone="accent"
-                    size="compact"
-                    variant="plain"
-                    disabled={!company.loginId}
-                  />
-                </View>
-              </View>
-            }
-          />
-          {showPasswordControls ? (
-            <>
-              <View
-                style={[
-                  styles.credentialDivider,
-                  { backgroundColor: theme.colors.divider },
-                ]}
-              />
+        {showDetails ? (
+          <>
+            <View
+              style={[
+                styles.credentialBlock,
+                {
+                  backgroundColor: theme.colors.surfaceElevated,
+                  borderColor: theme.colors.border,
+                  borderRadius: theme.radii.md,
+                },
+              ]}>
               <CredentialRow
-                label="PW"
-                value={
-                  isPasswordVisible
-                    ? company.password || "未登録"
-                    : maskPassword(company.password)
-                }
-                isPlaceholder={!company.password}
+                label="ID"
+                value={company.loginId || "未登録"}
+                isPlaceholder={!company.loginId}
                 theme={theme}
                 iconButtons={
                   <View style={styles.credentialActionsSlot}>
-                    <View style={styles.passwordActions}>
-                      <IconButton
-                        icon={
-                          isPasswordVisible ? "eye-off-outline" : "eye-outline"
-                        }
-                        label={
-                          isPasswordVisible
-                            ? "パスワードを隠す"
-                            : "パスワードを表示"
-                        }
-                        onPress={runChildAction(onTogglePassword)}
-                        theme={theme}
-                        tone="accent"
-                        size="compact"
-                        variant="plain"
-                        disabled={!company.password}
-                      />
+                    <View style={styles.singleActionWrap}>
                       <IconButton
                         icon="copy-outline"
-                        label="パスワードをコピー"
+                        label="ログインIDをコピー"
                         onPress={runChildAction(() =>
-                          onCopy(company.password, "パスワード"),
+                          onCopy(company.loginId, "ログインID"),
                         )}
                         theme={theme}
                         tone="accent"
                         size="compact"
                         variant="plain"
-                        disabled={!company.password}
+                        disabled={!company.loginId}
                       />
                     </View>
                   </View>
                 }
               />
-            </>
-          ) : null}
-        </View>
+              {showPasswordControls ? (
+                <>
+                  <View
+                    style={[
+                      styles.credentialDivider,
+                      { backgroundColor: theme.colors.divider },
+                    ]}
+                  />
+                  <CredentialRow
+                    label="PW"
+                    value={
+                      isPasswordVisible
+                        ? company.password || "未登録"
+                        : maskPassword(company.password)
+                    }
+                    isPlaceholder={!company.password}
+                    theme={theme}
+                    iconButtons={
+                      <View style={styles.credentialActionsSlot}>
+                        <View style={styles.passwordActions}>
+                          <IconButton
+                            icon={
+                              isPasswordVisible
+                                ? "eye-off-outline"
+                                : "eye-outline"
+                            }
+                            label={
+                              isPasswordVisible
+                                ? "パスワードを隠す"
+                                : "パスワードを表示"
+                            }
+                            onPress={runChildAction(onTogglePassword)}
+                            theme={theme}
+                            tone="accent"
+                            size="compact"
+                            variant="plain"
+                            disabled={!company.password}
+                          />
+                          <IconButton
+                            icon="copy-outline"
+                            label="パスワードをコピー"
+                            onPress={runChildAction(() =>
+                              onCopy(company.password, "パスワード"),
+                            )}
+                            theme={theme}
+                            tone="accent"
+                            size="compact"
+                            variant="plain"
+                            disabled={!company.password}
+                          />
+                        </View>
+                      </View>
+                    }
+                  />
+                </>
+              ) : null}
+            </View>
+
+            {isCompact ? (
+              <View style={styles.detailActions}>
+                <IconButton
+                  icon="pencil-outline"
+                  label={`${company.companyName}を編集`}
+                  onPress={runChildAction(onPress)}
+                  theme={theme}
+                  tone="neutral"
+                  variant="plain"
+                  size="compact"
+                  iconSize={18}
+                />
+                <IconButton
+                  icon="open-outline"
+                  label="企業ページを開く"
+                  onPress={runChildAction(onOpenUrl)}
+                  theme={theme}
+                  tone="neutral"
+                  variant="plain"
+                  disabled={!company.myPageUrl}
+                  size="compact"
+                  iconSize={18}
+                />
+                <IconButton
+                  icon="trash-outline"
+                  label={`${company.companyName}を削除`}
+                  onPress={runChildAction(onDelete)}
+                  theme={theme}
+                  tone="danger"
+                  variant="plain"
+                  size="compact"
+                  iconSize={18}
+                />
+              </View>
+            ) : null}
+          </>
+        ) : null}
 
         <SelectionStatusPickerSheet
           visible={statusPickerVisible}
@@ -398,5 +475,12 @@ const styles = StyleSheet.create({
     gap: 0,
     justifyContent: "flex-end",
     width: 72,
+  },
+  detailActions: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 4,
+    justifyContent: "flex-end",
+    marginTop: 6,
   },
 });
