@@ -48,8 +48,11 @@ import { SectionHeader } from "../../ui/SectionHeader";
 import { ApplicationTypeSegment } from "./components/ApplicationTypeSegment";
 import { BottomNavigation, MainTab } from "./components/BottomNavigation";
 import { CalendarView } from "./components/CalendarView";
+import { CompanyAddMethodSheet } from "./components/CompanyAddMethodSheet";
+import { CompanyAddSpeedDial } from "./components/CompanyAddSpeedDial";
 import { CompanyCard } from "./components/CompanyCard";
 import { CompanyEditorModal } from "./components/CompanyEditorModal";
+import { CompanyInheritancePickerModal } from "./components/CompanyInheritancePickerModal";
 import { ConfirmActionDialog } from "./components/ConfirmActionDialog";
 import { HomeMenuModal } from "./components/HomeMenuModal";
 import { QuestionCompanyPickerModal } from "./components/QuestionCompanyPickerModal";
@@ -436,6 +439,14 @@ export const HomeScreen = ({
   const [editorVisible, setEditorVisible] = useState(false);
   const [editorType, setEditorType] = useState<ApplicationType>("internship");
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
+  const [copySourceCompany, setCopySourceCompany] = useState<Company | null>(
+    null,
+  );
+  const [addMethodVisible, setAddMethodVisible] = useState(false);
+  const [inheritancePickerVisible, setInheritancePickerVisible] =
+    useState(false);
+  const [addTargetType, setAddTargetType] =
+    useState<ApplicationType>("internship");
   const [editingCalendarSchedule, setEditingCalendarSchedule] =
     useState<CompanySchedule | null>(null);
   const [scheduleEditorCompany, setScheduleEditorCompany] =
@@ -784,11 +795,24 @@ export const HomeScreen = ({
     );
   }, [showToast, storageError]);
 
-  const openCreateModal = useCallback((type: ApplicationType) => {
+  const openCreateModal = useCallback(
+    (type: ApplicationType, sourceCompany: Company | null = null) => {
+      Keyboard.dismiss();
+      setEditorType(type);
+      setEditingCompany(null);
+      setCopySourceCompany(sourceCompany);
+      setEditorVisible(true);
+      void runHapticsSafely(() =>
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light),
+      );
+    },
+    [],
+  );
+
+  const openAddMethodSheet = useCallback((type: ApplicationType) => {
     Keyboard.dismiss();
-    setEditorType(type);
-    setEditingCompany(null);
-    setEditorVisible(true);
+    setAddTargetType(type);
+    setAddMethodVisible(true);
     void runHapticsSafely(() =>
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light),
     );
@@ -798,9 +822,29 @@ export const HomeScreen = ({
     Keyboard.dismiss();
     setEditorType(company.type);
     setEditingCompany(company);
+    setCopySourceCompany(null);
     setEditorVisible(true);
     void runHapticsSafely(() => Haptics.selectionAsync());
   }, []);
+
+  const startCreateNewCompany = useCallback(() => {
+    setAddMethodVisible(false);
+    openCreateModal(addTargetType);
+  }, [addTargetType, openCreateModal]);
+
+  const openInheritancePicker = useCallback(() => {
+    setAddMethodVisible(false);
+    setInheritancePickerVisible(true);
+    void runHapticsSafely(() => Haptics.selectionAsync());
+  }, []);
+
+  const startCreateFromCompany = useCallback(
+    (company: Company) => {
+      setInheritancePickerVisible(false);
+      openCreateModal(addTargetType, company);
+    },
+    [addTargetType, openCreateModal],
+  );
 
   const animateTypeTransition = useCallback(
     (type: ApplicationType) => {
@@ -1857,20 +1901,28 @@ export const HomeScreen = ({
         )}
       </Animated.View>
 
-      {homeView !== "calendar" ? (
+      {homeView === "companies" ? (
+        <CompanyAddSpeedDial
+          label={`${applicationTypeLabels[activeType]}を追加`}
+          canInherit={availableCompanies.length > 0}
+          onCreateNew={() => {
+            openCreateModal(activeType);
+          }}
+          onInherit={() => {
+            setAddTargetType(activeType);
+            openInheritancePicker();
+          }}
+          theme={theme}
+          style={{
+            bottom: fabBottom,
+            right: metrics.contentPadding,
+          }}
+        />
+      ) : homeView === "questions" ? (
         <FloatingActionButton
-          label={
-            homeView === "questions"
-              ? "質問を追加"
-              : `${applicationTypeLabels[activeType]}を追加`
-          }
+          label="質問を追加"
           onPress={() => {
-            if (homeView === "questions") {
-              void openQuestionCompanyPicker();
-              return;
-            }
-
-            void openCreateModal(activeType);
+            void openQuestionCompanyPicker();
           }}
           theme={theme}
           style={{
@@ -1894,10 +1946,29 @@ export const HomeScreen = ({
         }}
       />
 
+      <CompanyAddMethodSheet
+        visible={addMethodVisible}
+        typeLabel={applicationTypeLabels[addTargetType]}
+        canInherit={availableCompanies.length > 0}
+        theme={theme}
+        onClose={() => setAddMethodVisible(false)}
+        onCreateNew={startCreateNewCompany}
+        onInherit={openInheritancePicker}
+      />
+
+      <CompanyInheritancePickerModal
+        visible={inheritancePickerVisible}
+        companies={availableCompanies}
+        theme={theme}
+        onClose={() => setInheritancePickerVisible(false)}
+        onSelect={startCreateFromCompany}
+      />
+
       <CompanyEditorModal
         visible={editorVisible}
         type={editorType}
         company={editingCompany}
+        copySourceCompany={copySourceCompany}
         questionMemos={editorQuestionMemos}
         schedules={editorCompanySchedules}
         allSchedules={companySchedules}
@@ -1906,7 +1977,10 @@ export const HomeScreen = ({
         questionLabels={questionLabels}
         theme={theme}
         allowPasswordStorage={showPasswordControls}
-        onClose={() => setEditorVisible(false)}
+        onClose={() => {
+          setEditorVisible(false);
+          setCopySourceCompany(null);
+        }}
         onSave={handleSave}
         onCreateQuestionLabel={createQuestionLabel}
         onSaveScheduleCategory={upsertScheduleCategory}
@@ -2012,7 +2086,7 @@ export const HomeScreen = ({
         }}
         onCreateCompany={() => {
           runAfterMenuClose(() => {
-            void openCreateModal(activeType);
+            void openAddMethodSheet(activeType);
           });
         }}
         onCreateQuestion={() => {

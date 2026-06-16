@@ -69,6 +69,7 @@ type CompanyEditorModalProps = {
   visible: boolean;
   type: ApplicationType;
   company?: Company | null;
+  copySourceCompany?: Company | null;
   questionMemos: QuestionMemo[];
   schedules: CompanySchedule[];
   allSchedules: CompanySchedule[];
@@ -108,10 +109,32 @@ const createEmptyForm = (type: ApplicationType): FormState => ({
   archived: false,
 });
 
+const createCopiedForm = (
+  source: Company,
+  type: ApplicationType,
+  allowPasswordStorage: boolean,
+): FormState => ({
+  id: createDraftId("company"),
+  type,
+  companyName: source.companyName,
+  status: getStatusList(type)[0],
+  loginId: source.loginId,
+  password: allowPasswordStorage ? source.password : "",
+  myPageUrl: source.myPageUrl ?? "",
+  industry: source.industry ?? "",
+  role: source.role ?? "",
+  tags: source.tags,
+  questionAnswers: [],
+  memo: source.memo ?? "",
+  favorite: false,
+  archived: false,
+});
+
 export const CompanyEditorModal = ({
   visible,
   type,
   company,
+  copySourceCompany,
   questionMemos,
   schedules: companySchedules,
   allSchedules,
@@ -454,6 +477,8 @@ export const CompanyEditorModal = ({
             status: normalizeSelectionStatus(company.status),
             questionAnswers: questionMemos,
           }
+        : copySourceCompany
+          ? createCopiedForm(copySourceCompany, type, allowPasswordStorage)
         : createEmptyForm(type);
 
       setForm(nextForm);
@@ -475,8 +500,10 @@ export const CompanyEditorModal = ({
       resetTransientState();
     }
   }, [
+    allowPasswordStorage,
     company,
     companySchedules,
+    copySourceCompany,
     openSheet,
     questionMemos,
     resetTransientState,
@@ -907,7 +934,7 @@ export const CompanyEditorModal = ({
                   />
                 </FormSection>
 
-                <FormSection theme={theme} title="質問メモ">
+                <FormSection theme={theme} title="メモ">
                   {(form.questionAnswers ?? []).length > 0 ? (
                     <View style={styles.qaList}>
                       {(form.questionAnswers ?? []).map((item, index) => (
@@ -964,32 +991,9 @@ export const CompanyEditorModal = ({
                     theme={theme}
                     variant="secondary"
                   />
-                </FormSection>
 
-                <FormSection theme={theme} title="整理メモ">
                   <InputField
-                    label="業界"
-                    theme={theme}
-                    value={form.industry ?? ""}
-                    placeholder="IT、金融、メーカーなど"
-                    onChangeText={(value) => update("industry", value)}
-                  />
-                  <InputField
-                    label="職種"
-                    theme={theme}
-                    value={form.role ?? ""}
-                    placeholder="総合職、エンジニア、企画など"
-                    onChangeText={(value) => update("role", value)}
-                  />
-                  <InputField
-                    label="タグ"
-                    theme={theme}
-                    value={tagText}
-                    placeholder="OB訪問済み、第一志望群"
-                    onChangeText={setTagText}
-                  />
-                  <InputField
-                    label="メモ"
+                    label="自由メモ"
                     theme={theme}
                     value={form.memo ?? ""}
                     placeholder="面接で話すこと、気づいたこと"
