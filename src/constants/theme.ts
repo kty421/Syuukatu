@@ -287,10 +287,10 @@ const createShadows = (isDark: boolean) => ({
 const createApplicationTypeStyles = (colors: Palette) =>
   ({
     internship: {
-      accent: colors.secondary,
-      muted: colors.secondarySubtle,
+      accent: colors.primary,
+      muted: colors.primarySubtle,
       soft: colors.background,
-      border: colors.secondarySubtle,
+      border: colors.primaryBorder,
     },
     fullTime: {
       accent: colors.primary,

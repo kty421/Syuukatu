@@ -15,6 +15,7 @@ import { AppButton } from "../../ui/AppButton";
 import { DismissKeyboardView } from "../../ui/DismissKeyboardView";
 import { IconButton } from "../../ui/IconButton";
 import { InputField } from "../../ui/InputField";
+import { useResponsiveLayout } from "../../ui/useResponsiveLayout";
 import {
   MIN_PASSWORD_LENGTH,
   PASSWORD_REQUIREMENT_TEXT,
@@ -46,6 +47,8 @@ export const AuthScreen = ({
 }: AuthScreenProps) => {
   const colorScheme = useColorScheme();
   const theme = useMemo(() => getTheme(colorScheme), [colorScheme]);
+  const responsive = useResponsiveLayout();
+  const isDesktopLayout = responsive.isExpanded;
   const auth = useOptionalAuth();
   const setAuthenticatedUser = auth?.setAuthenticatedUser;
   const [mode, setMode] = useState<AuthMode>(initialMode);
@@ -219,10 +222,52 @@ export const AuthScreen = ({
     <SafeAreaView
       style={[styles.root, { backgroundColor: theme.colors.background }]}>
       <DismissKeyboardView style={styles.flex}>
-        <View style={styles.center}>
+        <View style={[styles.center, isDesktopLayout && styles.centerDesktop]}>
+          {isDesktopLayout ? (
+            <View style={styles.desktopHero}>
+              <Text
+                style={[
+                  styles.desktopHeroTitle,
+                  { color: theme.colors.textPrimary },
+                ]}>
+                就活の情報管理を一箇所に。
+              </Text>
+              <Text
+                style={[
+                  styles.desktopHeroText,
+                  { color: theme.colors.textMuted },
+                ]}>
+                企業、質問内容、日程などを横断して管理できます。PCでは広い画面で一覧を見ながら、スマホでは必要な情報だけをすばやく確認できます。
+              </Text>
+              <View style={styles.desktopHeroBullets}>
+                {[
+                  "企業ごとの選考状況を整理",
+                  "質問内容と日程を横断検索",
+                  "ログイン情報を安全に扱う",
+                ].map((item) => (
+                  <View key={item} style={styles.desktopHeroBullet}>
+                    <View
+                      style={[
+                        styles.desktopHeroDot,
+                        { backgroundColor: theme.colors.primary },
+                      ]}
+                    />
+                    <Text
+                      style={[
+                        styles.desktopHeroBulletText,
+                        { color: theme.colors.textSecondary },
+                      ]}>
+                      {item}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          ) : null}
           <View
             style={[
               styles.panel,
+              isDesktopLayout && styles.panelDesktop,
               theme.shadows.surface,
               {
                 backgroundColor: theme.colors.surface,
@@ -579,10 +624,52 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     padding: 20,
   },
+  centerDesktop: {
+    flexDirection: "row",
+    gap: 48,
+    paddingHorizontal: 56,
+  },
+  desktopHero: {
+    flex: 1,
+    maxWidth: 520,
+  },
+  desktopHeroTitle: {
+    fontSize: 34,
+    fontWeight: "800",
+    lineHeight: 42,
+  },
+  desktopHeroText: {
+    fontSize: 15,
+    fontWeight: "500",
+    lineHeight: 24,
+    marginTop: 18,
+  },
+  desktopHeroBullets: {
+    gap: 12,
+    marginTop: 28,
+  },
+  desktopHeroBullet: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 10,
+  },
+  desktopHeroDot: {
+    borderRadius: 999,
+    height: 7,
+    width: 7,
+  },
+  desktopHeroBulletText: {
+    fontSize: 13,
+    fontWeight: "700",
+    lineHeight: 18,
+  },
   panel: {
     borderWidth: StyleSheet.hairlineWidth,
     maxWidth: 420,
     width: "100%",
+  },
+  panelDesktop: {
+    flexShrink: 0,
   },
   header: {
     gap: 8,
@@ -609,10 +696,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
-  confirmationEmailLabel: {
-  },
-  confirmationEmailValue: {
-  },
+  confirmationEmailLabel: {},
+  confirmationEmailValue: {},
   errorText: {
     fontWeight: "700",
   },
