@@ -201,7 +201,6 @@ type CompanyListRowProps = {
   showPasswordControls: boolean;
   isPasswordVisible: (id: string) => boolean;
   statusOptions: SelectionStatus[];
-  isStatusSaving: (id: string) => boolean;
   onEdit: (company: Company) => void;
   onTogglePassword: (id: string) => void;
   onCopy: (value: string, label: string) => void;
@@ -221,7 +220,6 @@ const CompanyCardListRow = ({
   showPasswordControls,
   isPasswordVisible,
   statusOptions,
-  isStatusSaving,
   onEdit,
   onTogglePassword,
   onCopy,
@@ -274,7 +272,6 @@ const CompanyCardListRow = ({
         isPasswordVisible={isPasswordVisible(company.id)}
         showPasswordControls={showPasswordControls}
         statusOptions={statusOptions}
-        isStatusSaving={isStatusSaving(company.id)}
         theme={theme}
         onPress={handleEdit}
         onTogglePassword={handleTogglePassword}
@@ -295,7 +292,6 @@ const CompanyListRow = memo(
     showPasswordControls,
     isPasswordVisible,
     statusOptions,
-    isStatusSaving,
     onEdit,
     onTogglePassword,
     onCopy,
@@ -319,7 +315,6 @@ const CompanyListRow = memo(
         showPasswordControls={showPasswordControls}
         isPasswordVisible={isPasswordVisible}
         statusOptions={statusOptions}
-        isStatusSaving={isStatusSaving}
         onEdit={onEdit}
         onTogglePassword={onTogglePassword}
         onCopy={onCopy}
@@ -362,9 +357,7 @@ const CompanyListRow = memo(
         previous.item.isFirst === next.item.isFirst &&
         previous.item.isLast === next.item.isLast &&
         previous.isPasswordVisible(previous.item.company.id) ===
-          next.isPasswordVisible(next.item.company.id) &&
-        previous.isStatusSaving(previous.item.company.id) ===
-          next.isStatusSaving(next.item.company.id)
+          next.isPasswordVisible(next.item.company.id)
       );
     }
 
@@ -470,9 +463,6 @@ export const HomeScreen = ({
     useState(false);
   const [passwordVisibilityOverrides, setPasswordVisibilityOverrides] =
     useState<Set<string>>(new Set());
-  const [savingStatusCompanyIds, setSavingStatusCompanyIds] = useState<
-    Set<string>
-  >(new Set());
   const [questionCreateCompanyId, setQuestionCreateCompanyId] = useState<
     string | null
   >(null);
@@ -987,11 +977,6 @@ export const HomeScreen = ({
     [passwordDefaultVisible, passwordVisibilityOverrides],
   );
 
-  const isCompanyStatusSaving = useCallback(
-    (id: string) => savingStatusCompanyIds.has(id),
-    [savingStatusCompanyIds],
-  );
-
   const changePasswordDefaultVisibility = useCallback((visible: boolean) => {
     setPasswordDefaultVisible(visible);
     setPasswordVisibilityOverrides(new Set());
@@ -1010,7 +995,6 @@ export const HomeScreen = ({
         ...savingStatusCompanyIdsRef.current,
         company.id,
       ]);
-      setSavingStatusCompanyIds(savingStatusCompanyIdsRef.current);
 
       try {
         await upsertCompany({
@@ -1025,7 +1009,6 @@ export const HomeScreen = ({
         const nextSavingIds = new Set(savingStatusCompanyIdsRef.current);
         nextSavingIds.delete(company.id);
         savingStatusCompanyIdsRef.current = nextSavingIds;
-        setSavingStatusCompanyIds(nextSavingIds);
       }
     },
     [upsertCompany],
@@ -1430,40 +1413,6 @@ export const HomeScreen = ({
     [showToast, updateQuestionLabel],
   );
 
-  const handleDeleteQuestionLabel = useCallback(
-    (labelId: string) => {
-      const label = questionLabels.find((item) => item.id === labelId);
-
-      if (!label) {
-        return;
-      }
-
-      confirmDestructiveAction({
-        title: "ラベルを削除しますか？",
-        message: `「${label.name}」を削除します。質問メモ自体は削除されません。`,
-        confirmLabel: "OK",
-        onConfirm: async () => {
-          try {
-            await deleteQuestionLabel(labelId);
-            if (selectedQuestionLabelId === labelId) {
-              setSelectedQuestionLabelId(null);
-            }
-            showToast("ラベルを削除しました");
-          } catch {
-            showToast("ラベルの削除に失敗しました", "error");
-          }
-        },
-      });
-    },
-    [
-      confirmDestructiveAction,
-      deleteQuestionLabel,
-      questionLabels,
-      selectedQuestionLabelId,
-      showToast,
-    ],
-  );
-
   const deleteQuestionLabelFromSettings = useCallback(
     async (labelId: string) => {
       await deleteQuestionLabel(labelId);
@@ -1670,7 +1619,6 @@ export const HomeScreen = ({
         showPasswordControls={showPasswordControls}
         isPasswordVisible={isCompanyPasswordVisible}
         statusOptions={activeStatusOptions}
-        isStatusSaving={isCompanyStatusSaving}
         onEdit={openEditModal}
         onTogglePassword={togglePassword}
         onCopy={copyToClipboard}
@@ -1685,7 +1633,6 @@ export const HomeScreen = ({
       copyToClipboard,
       handleChangeCompanyStatus,
       handleDeleteCompany,
-      isCompanyStatusSaving,
       isCompanyPasswordVisible,
       openEditModal,
       openUrl,
@@ -2023,11 +1970,6 @@ export const HomeScreen = ({
             void upsertCompanySchedule(schedule)
               .then(() => showToast("日程を保存しました"))
               .catch(() => showToast("日程の保存に失敗しました", "error"));
-          }}
-          onDelete={(scheduleId) => {
-            void deleteCompanySchedule(scheduleId)
-              .then(() => showToast("日程を削除しました"))
-              .catch(() => showToast("日程の削除に失敗しました", "error"));
           }}
           onSaveScheduleCategory={upsertScheduleCategory}
           onDeleteScheduleCategory={deleteScheduleCategory}

@@ -9,10 +9,27 @@ import { apiRequest } from './apiClient';
 
 type HomeDataResponse = {
   companies: Company[];
-  companySchedules?: CompanySchedule[];
-  scheduleCategories?: ScheduleCategory[];
+  companySchedules: CompanySchedule[];
+  scheduleCategories: ScheduleCategory[];
   questionMemos: QuestionMemo[];
   questionLabels: QuestionLabel[];
+};
+
+type CompaniesResponse = {
+  companies: Company[];
+};
+
+type SchedulesResponse = {
+  schedules: CompanySchedule[];
+};
+
+type ScheduleCategoriesResponse = {
+  categories: ScheduleCategory[];
+};
+
+type QuestionDataResponse = {
+  questionLabels: QuestionLabel[];
+  questionMemos: QuestionMemo[];
 };
 
 const stripPassword = (company: Company): Company => ({
@@ -21,25 +38,36 @@ const stripPassword = (company: Company): Company => ({
 });
 
 export const fetchRemoteHomeData = async (accessToken: string | null) => {
-  const response = await apiRequest<HomeDataResponse>(
-    '/api/questions?includeCompanies=1',
-    {
+  const [companyResponse, scheduleResponse, categoryResponse, questionResponse] =
+    await Promise.all([
+      apiRequest<CompaniesResponse>('/api/companies', {
+        accessToken
+      }),
+      apiRequest<SchedulesResponse>('/api/schedules', {
+        accessToken
+      }),
+      apiRequest<ScheduleCategoriesResponse>('/api/schedule-categories', {
+        accessToken
+      }),
+      apiRequest<QuestionDataResponse>('/api/questions', {
       accessToken
-    }
-  );
+      })
+    ]);
 
-  return {
-    companies: response.companies.map(stripPassword),
-    companySchedules: response.companySchedules ?? [],
-    scheduleCategories: response.scheduleCategories ?? [],
-    questionMemos: response.questionMemos.map((memo) => ({
+  const homeData: HomeDataResponse = {
+    companies: companyResponse.companies.map(stripPassword),
+    companySchedules: scheduleResponse.schedules,
+    scheduleCategories: categoryResponse.categories,
+    questionMemos: questionResponse.questionMemos.map((memo) => ({
       ...memo,
       companyId: memo.companyId ?? null,
       labelIds: memo.labelIds ?? []
     })),
-    questionLabels: response.questionLabels.map((label) => ({
+    questionLabels: questionResponse.questionLabels.map((label) => ({
       ...label,
       sortOrder: label.sortOrder ?? 0
     }))
   };
+
+  return homeData;
 };

@@ -1,25 +1,16 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 
 import {
-  deleteRemoteCompany,
-  deleteRemoteCompanySchedule,
-  upsertRemoteCompanySchedule,
-  upsertRemoteCompany
-} from '../../../services/companyApi';
+  deleteCompanyFromList,
+  upsertCompanyInList
+} from '../../companies/application/mutations/companyOptimisticUpdates';
+import { companyQueryKeys } from '../../companies/application/queries/companyQueryKeys';
+import { httpCompanyRepository } from '../../companies/infrastructure/repositories/HttpCompanyRepository';
 import { fetchRemoteHomeData } from '../../../services/homeDataApi';
-import {
-  createRemoteQuestionLabel,
-  deleteRemoteQuestionLabel,
-  deleteRemoteQuestionMemo,
-  reorderRemoteQuestionLabels,
-  updateRemoteQuestionLabel,
-  upsertRemoteQuestionMemo
-} from '../../../services/questionApi';
-import {
-  deleteRemoteScheduleCategory,
-  upsertRemoteScheduleCategory
-} from '../../../services/scheduleCategoryApi';
+import { httpQuestionRepository } from '../../questions/infrastructure/repositories/HttpQuestionRepository';
+import { httpScheduleRepository } from '../../schedules/infrastructure/repositories/HttpScheduleRepository';
 import {
   clearAccountLocalData,
   deleteCompanyCredential,
@@ -169,6 +160,8 @@ export const useCompanies = ({
   userId,
   getAccessToken
 }: UseCompaniesParams) => {
+  const queryClient = useQueryClient();
+  const companiesQueryKey = useMemo(() => companyQueryKeys.list(userId), [userId]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [companySchedules, setCompanySchedules] = useState<CompanySchedule[]>(
     []
@@ -197,16 +190,18 @@ export const useCompanies = ({
       if (typeof nextCompanies !== 'function') {
         companiesRef.current = nextCompanies;
         setCompanies(nextCompanies);
+        queryClient.setQueryData(companiesQueryKey, nextCompanies);
         return;
       }
 
       setCompanies((currentCompanies) => {
         const resolvedCompanies = nextCompanies(currentCompanies);
         companiesRef.current = resolvedCompanies;
+        queryClient.setQueryData(companiesQueryKey, resolvedCompanies);
         return resolvedCompanies;
       });
     },
-    []
+    [companiesQueryKey, queryClient]
   );
 
   const setCompanySchedulesState = useCallback(
@@ -404,8 +399,11 @@ export const useCompanies = ({
         const accessToken = await getAccessToken();
         await Promise.all([
           saveNativeCompanyPassword(nextCompany.id, nextCompany.password),
-          upsertRemoteCompany(nextCompany, accessToken)
+          httpCompanyRepository.upsertCompany(nextCompany, accessToken)
         ]);
+        queryClient.setQueryData<Company[]>(companiesQueryKey, (current) =>
+          upsertCompanyInList(current, nextCompany)
+        );
         setStorageError(null);
       } catch (error) {
         setCompaniesState((latestCompanies) => {
@@ -436,7 +434,7 @@ export const useCompanies = ({
 
       return nextCompany;
     },
-    [getAccessToken, setCompaniesState]
+    [companiesQueryKey, getAccessToken, queryClient, setCompaniesState]
   );
 
   const upsertCompanySchedule = useCallback(
@@ -468,7 +466,7 @@ export const useCompanies = ({
 
       try {
         const accessToken = await getAccessToken();
-        const savedSchedule = await upsertRemoteCompanySchedule(
+        const savedSchedule = await httpScheduleRepository.upsertSchedule(
           nextSchedule,
           accessToken
         );
@@ -530,7 +528,7 @@ export const useCompanies = ({
 
       try {
         const accessToken = await getAccessToken();
-        await deleteRemoteCompanySchedule(id, accessToken);
+        await httpScheduleRepository.deleteSchedule(id, accessToken);
         setStorageError(null);
       } catch (error) {
         setCompanySchedulesState((latestSchedules) => {
@@ -578,7 +576,7 @@ export const useCompanies = ({
 
       try {
         const accessToken = await getAccessToken();
-        const savedCategory = await upsertRemoteScheduleCategory(
+        const savedCategory = await httpScheduleRepository.upsertCategory(
           nextCategory,
           accessToken
         );
@@ -649,7 +647,7 @@ export const useCompanies = ({
 
       try {
         const accessToken = await getAccessToken();
-        await deleteRemoteScheduleCategory(id, accessToken);
+        await httpScheduleRepository.deleteCategory(id, accessToken);
         setStorageError(null);
       } catch (error) {
         setScheduleCategoriesState(currentCategories);
@@ -718,7 +716,7 @@ export const useCompanies = ({
           );
         }
 
-        await upsertRemoteQuestionMemo(remoteQuestionMemo, accessToken);
+        await httpQuestionRepository.upsertMemo(remoteQuestionMemo, accessToken);
         setStorageError(null);
       } catch (error) {
         setQuestionMemosState((latestQuestionMemos) => {
@@ -770,7 +768,7 @@ export const useCompanies = ({
 
       try {
         const accessToken = await getAccessToken();
-        await deleteRemoteQuestionMemo(id, accessToken);
+        await httpQuestionRepository.deleteMemo(id, accessToken);
         setStorageError(null);
       } catch (error) {
         setQuestionMemosState((latestQuestionMemos) => {
@@ -825,7 +823,7 @@ export const useCompanies = ({
       const savePromise = (async () => {
         try {
           const accessToken = await getAccessToken();
-          const savedLabel = await createRemoteQuestionLabel(
+          const savedLabel = await httpQuestionRepository.createLabel(
             optimisticLabel,
             accessToken
           );
@@ -915,7 +913,7 @@ export const useCompanies = ({
 
       try {
         const accessToken = await getAccessToken();
-        const savedLabels = await reorderRemoteQuestionLabels(
+        const savedLabels = await httpQuestionRepository.reorderLabels(
           normalizedLabels,
           accessToken
         );
@@ -980,7 +978,7 @@ export const useCompanies = ({
 
       try {
         const accessToken = await getAccessToken();
-        const savedLabel = await updateRemoteQuestionLabel(
+        const savedLabel = await httpQuestionRepository.updateLabel(
           optimisticLabel,
           accessToken
         );
@@ -1024,7 +1022,7 @@ export const useCompanies = ({
 
       try {
         const accessToken = await getAccessToken();
-        await deleteRemoteQuestionLabel(id, accessToken);
+        await httpQuestionRepository.deleteLabel(id, accessToken);
         setStorageError(null);
       } catch (error) {
         if (shouldKeepLocalQuestionLabelPreview) {
@@ -1072,7 +1070,10 @@ export const useCompanies = ({
       void (async () => {
         try {
           const accessToken = await getAccessToken();
-          await deleteRemoteCompany(id, accessToken);
+          await httpCompanyRepository.deleteCompany(id, accessToken);
+          queryClient.setQueryData<Company[]>(companiesQueryKey, (current) =>
+            deleteCompanyFromList(current, id)
+          );
 
           let credentialDeleteFailed = false;
           try {
@@ -1101,7 +1102,9 @@ export const useCompanies = ({
       })();
     },
     [
+      companiesQueryKey,
       getAccessToken,
+      queryClient,
       setCompaniesState,
       setCompanySchedulesState,
       setQuestionMemosState
@@ -1135,7 +1138,7 @@ export const useCompanies = ({
         nextCompanies.map((company) =>
           Promise.all([
             saveNativeCompanyPassword(company.id, company.password),
-            upsertRemoteCompany(
+            httpCompanyRepository.upsertCompany(
               {
                 ...company,
                 questionAnswers: []
@@ -1149,7 +1152,7 @@ export const useCompanies = ({
         localQuestionMemos
           .filter((questionMemo) => questionMemo.question.trim())
           .map((questionMemo) =>
-            upsertRemoteQuestionMemo(questionMemo, accessToken)
+            httpQuestionRepository.upsertMemo(questionMemo, accessToken)
           )
       );
       await Promise.all([

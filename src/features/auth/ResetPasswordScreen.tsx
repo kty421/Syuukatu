@@ -1,8 +1,6 @@
-import type { EmailOtpType } from '@supabase/supabase-js';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Keyboard,
-  Platform,
   StyleSheet,
   Text,
   View,
@@ -11,7 +9,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { getTheme } from '../../constants/theme';
-import { requireWebSupabase } from '../../services/webSupabase';
 import { AppButton } from '../../ui/AppButton';
 import { DismissKeyboardView } from '../../ui/DismissKeyboardView';
 import { IconButton } from '../../ui/IconButton';
@@ -21,54 +18,16 @@ import {
   PASSWORD_REQUIREMENT_TEXT,
   PASSWORD_TOO_SHORT_MESSAGE
 } from '../../shared/authPolicy';
-import { normalizeAuthErrorMessage } from './authErrors';
-
-const INVALID_LINK_MESSAGE =
-  'リンクが無効、または有効期限が切れています。再度パスワード再設定メールを送信してください。';
+import {
+  INVALID_PASSWORD_RESET_LINK_MESSAGE,
+  prepareWebPasswordReset,
+  updateWebPassword
+} from './application/usecases/webAuthFlowUsecases';
 
 type ResetPasswordStatus = 'loading' | 'ready' | 'error';
 
 type ResetPasswordScreenProps = {
   onBackToSignIn: () => void;
-};
-
-const getResetPasswordUrlParams = () => {
-  if (Platform.OS !== 'web' || typeof window === 'undefined') {
-    return {
-      code: null,
-      tokenHash: null,
-      type: null,
-      accessToken: null,
-      refreshToken: null,
-      error: null,
-      errorCode: null,
-      errorDescription: null
-    };
-  }
-
-  const searchParams = new URLSearchParams(window.location.search);
-  const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
-  const getParam = (key: string) =>
-    searchParams.get(key) ?? hashParams.get(key);
-
-  return {
-    code: getParam('code'),
-    tokenHash: getParam('token_hash'),
-    type: getParam('type'),
-    accessToken: getParam('access_token'),
-    refreshToken: getParam('refresh_token'),
-    error: getParam('error'),
-    errorCode: getParam('error_code'),
-    errorDescription: getParam('error_description')
-  };
-};
-
-const getRecoveryOtpType = (type: string | null): EmailOtpType | null => {
-  if (!type || type === 'recovery') {
-    return 'recovery';
-  }
-
-  return null;
 };
 
 export const ResetPasswordScreen = ({
@@ -96,81 +55,22 @@ export const ResetPasswordScreen = ({
     hasExchangedCodeRef.current = true;
 
     const preparePasswordReset = async () => {
-      const {
-        code,
-        tokenHash,
-        type,
-        accessToken,
-        refreshToken,
-        error,
-        errorCode,
-        errorDescription
-      } =
-        getResetPasswordUrlParams();
+      const result = await prepareWebPasswordReset();
 
-      if (error || errorCode || errorDescription) {
-        setResetPasswordStatus('error');
-        setLinkError(INVALID_LINK_MESSAGE);
+      if (result.status === 'ready') {
+        setResetPasswordStatus('ready');
+        setLinkError(null);
         return;
       }
 
-      try {
-        const supabase = requireWebSupabase();
-
-        if (tokenHash) {
-          const otpType = getRecoveryOtpType(type);
-
-          if (!otpType) {
-            setResetPasswordStatus('error');
-            setLinkError(INVALID_LINK_MESSAGE);
-            return;
-          }
-
-          const { data, error: verifyError } = await supabase.auth.verifyOtp({
-            token_hash: tokenHash,
-            type: otpType
-          });
-
-          if (verifyError || !data.session) {
-            setResetPasswordStatus('error');
-            setLinkError(INVALID_LINK_MESSAGE);
-            return;
-          }
-        } else if (accessToken && refreshToken) {
-          const { error: sessionError } = await supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken
-          });
-
-          if (sessionError) {
-            setResetPasswordStatus('error');
-            setLinkError(INVALID_LINK_MESSAGE);
-            return;
-          }
-        } else if (code) {
-          const { error: exchangeError } =
-            await supabase.auth.exchangeCodeForSession(code);
-
-          if (exchangeError) {
-            setResetPasswordStatus('error');
-            setLinkError(INVALID_LINK_MESSAGE);
-            return;
-          }
-        } else {
-          setResetPasswordStatus('error');
-          setLinkError(INVALID_LINK_MESSAGE);
-          return;
-        }
-
-        setResetPasswordStatus('ready');
-        setLinkError(null);
-      } catch {
-        setResetPasswordStatus('error');
-        setLinkError(INVALID_LINK_MESSAGE);
-      }
+      setResetPasswordStatus('error');
+      setLinkError(result.message ?? INVALID_PASSWORD_RESET_LINK_MESSAGE);
     };
 
-    void preparePasswordReset();
+    preparePasswordReset().catch(() => {
+      setResetPasswordStatus('error');
+      setLinkError(INVALID_PASSWORD_RESET_LINK_MESSAGE);
+    });
   }, []);
 
   const updatePassword = useCallback(async () => {
@@ -179,7 +79,7 @@ export const ResetPasswordScreen = ({
     }
 
     if (resetPasswordStatus !== 'ready') {
-      setError(INVALID_LINK_MESSAGE);
+      setError(INVALID_PASSWORD_RESET_LINK_MESSAGE);
       return;
     }
 
@@ -199,24 +99,16 @@ export const ResetPasswordScreen = ({
     setMessage(null);
 
     try {
-      const supabase = requireWebSupabase();
-      const { error: updateError } = await supabase.auth.updateUser({
-        password: newPassword
-      });
-
-      if (updateError) {
-        throw updateError;
-      }
+      const successMessage = await updateWebPassword(newPassword);
 
       setNewPassword('');
       setConfirmPassword('');
       setIsUpdated(true);
-      setMessage('パスワードを更新しました');
-      await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
+      setMessage(successMessage);
     } catch (caughtError) {
       setError(
         caughtError instanceof Error
-          ? normalizeAuthErrorMessage(caughtError.message)
+          ? caughtError.message
           : 'パスワードの更新に失敗しました。'
       );
     } finally {
@@ -255,7 +147,7 @@ export const ResetPasswordScreen = ({
               { color: theme.colors.danger }
             ]}
           >
-            {linkError ?? INVALID_LINK_MESSAGE}
+            {linkError ?? INVALID_PASSWORD_RESET_LINK_MESSAGE}
           </Text>
           <AppButton
             label="ログイン画面へ"

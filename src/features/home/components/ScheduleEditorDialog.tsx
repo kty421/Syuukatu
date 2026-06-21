@@ -51,7 +51,6 @@ type ScheduleEditorDialogProps = {
   initialDate?: string | null;
   onClose: () => void;
   onSave: (schedule: CompanySchedule) => void;
-  onDelete?: (scheduleId: string) => void;
   onSaveScheduleCategory: (
     category: ScheduleCategoryDraft | ScheduleCategory,
   ) => Promise<ScheduleCategory>;
@@ -197,7 +196,6 @@ export const ScheduleEditorDialog = ({
   initialDate,
   onClose,
   onSave,
-  onDelete,
   onSaveScheduleCategory,
   onDeleteScheduleCategory,
 }: ScheduleEditorDialogProps) => {

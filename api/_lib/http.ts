@@ -1,5 +1,6 @@
 import { ZodError } from 'zod';
 
+import { createApiFailure } from './errors';
 import type { VercelRequest, VercelResponse } from './vercel';
 
 export class HttpError extends Error {
@@ -102,18 +103,31 @@ export const sendJson = (
 
 export const handleApiError = (res: VercelResponse, error: unknown) => {
   if (error instanceof HttpError) {
-    sendJson(res, error.status, { error: error.message });
+    sendJson(
+      res,
+      error.status,
+      createApiFailure(String(error.status), error.message)
+    );
     return;
   }
 
   if (error instanceof ZodError) {
-    sendJson(res, 400, { error: '入力内容を確認してください。' });
+    sendJson(
+      res,
+      422,
+      createApiFailure('VALIDATION_ERROR', '入力内容を確認してください。')
+    );
     return;
   }
 
-  sendJson(res, 500, {
-    error: 'サーバーで問題が発生しました。しばらくしてからもう一度お試しください。'
-  });
+  sendJson(
+    res,
+    500,
+    createApiFailure(
+      'INTERNAL_SERVER_ERROR',
+      'サーバーで問題が発生しました。しばらくしてからもう一度お試しください。'
+    )
+  );
 };
 
 export const requireMethod = (actual: string | undefined, methods: string[]) => {

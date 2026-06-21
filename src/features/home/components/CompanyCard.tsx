@@ -1,7 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { memo, useState, type ReactNode } from "react";
 import {
-  ActivityIndicator,
   GestureResponderEvent,
   Keyboard,
   Pressable,
@@ -22,7 +21,6 @@ type CompanyCardProps = {
   isPasswordVisible: boolean;
   showPasswordControls: boolean;
   statusOptions: SelectionStatus[];
-  isStatusSaving: boolean;
   onPress: () => void;
   onTogglePassword: () => void;
   onCopy: (value: string, label: string) => void;
@@ -40,7 +38,6 @@ export const CompanyCard = memo(
     isPasswordVisible,
     showPasswordControls,
     statusOptions,
-    isStatusSaving,
     onPress,
     onTogglePassword,
     onCopy,
@@ -62,9 +59,6 @@ export const CompanyCard = memo(
 
     const openStatusPicker = (event: GestureResponderEvent) => {
       event.stopPropagation();
-      if (isStatusSaving) {
-        return;
-      }
 
       Keyboard.dismiss();
       setStatusPickerVisible(true);
@@ -116,15 +110,12 @@ export const CompanyCard = memo(
                 accessibilityRole="button"
                 accessibilityLabel={`${company.companyName}の選考状況を変更`}
                 accessibilityHint={`現在の選考状況は${company.status}です`}
-                accessibilityState={{ disabled: isStatusSaving }}
-                disabled={isStatusSaving}
                 onPress={openStatusPicker}
                 style={({ pressed }) => [
                   styles.statusChip,
                   {
                     backgroundColor: theme.colors.surface,
                     borderColor: theme.colors.border,
-                    opacity: isStatusSaving ? theme.state.disabledOpacity : 1,
                   },
                   pressed && styles.statusChipPressed,
                 ]}>
@@ -136,18 +127,11 @@ export const CompanyCard = memo(
                   ]}>
                   {company.status}
                 </Text>
-                {isStatusSaving ? (
-                  <ActivityIndicator
-                    color={theme.colors.textMuted}
-                    size="small"
-                  />
-                ) : (
-                  <Ionicons
-                    color={theme.colors.textMuted}
-                    name="chevron-down"
-                    size={15}
-                  />
-                )}
+                <Ionicons
+                  color={theme.colors.textMuted}
+                  name="chevron-down"
+                  size={15}
+                />
               </Pressable>
             </View>
           </View>
@@ -330,6 +314,7 @@ export const CompanyCard = memo(
           value={company.status}
           options={statusOptions}
           theme={theme}
+          deferSelect
           onClose={closeStatusPicker}
           onSelect={onStatusChange}
         />

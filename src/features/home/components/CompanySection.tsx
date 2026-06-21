@@ -13,7 +13,6 @@ type CompanySectionProps = {
   showPasswordControls: boolean;
   isPasswordVisible: (id: string) => boolean;
   statusOptions: SelectionStatus[];
-  isStatusSaving: (id: string) => boolean;
   onEdit: (company: Company) => void;
   onTogglePassword: (id: string) => void;
   onCopy: (value: string, label: string) => void;
@@ -29,7 +28,6 @@ export const CompanySection = ({
   showPasswordControls,
   isPasswordVisible,
   statusOptions,
-  isStatusSaving,
   onEdit,
   onTogglePassword,
   onCopy,
@@ -72,7 +70,6 @@ export const CompanySection = ({
             isPasswordVisible={isPasswordVisible(company.id)}
             showPasswordControls={showPasswordControls}
             statusOptions={statusOptions}
-            isStatusSaving={isStatusSaving(company.id)}
             theme={theme}
             onPress={() => onEdit(company)}
             onTogglePassword={() => onTogglePassword(company.id)}

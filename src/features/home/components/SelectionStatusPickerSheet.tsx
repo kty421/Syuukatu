@@ -19,6 +19,7 @@ type SelectionStatusPickerSheetProps = {
   value: SelectionStatus;
   options: SelectionStatus[];
   theme: AppTheme;
+  deferSelect?: boolean;
   onClose: () => void;
   onSelect: (value: SelectionStatus) => void;
 };
@@ -28,6 +29,7 @@ export const SelectionStatusPickerSheet = ({
   value,
   options,
   theme,
+  deferSelect = false,
   onClose,
   onSelect,
 }: SelectionStatusPickerSheetProps) => {
@@ -47,8 +49,18 @@ export const SelectionStatusPickerSheet = ({
   }, [selectedIndex, visible]);
 
   const selectStatus = (nextValue: SelectionStatus) => {
-    onSelect(nextValue);
     onClose();
+
+    if (!deferSelect) {
+      onSelect(nextValue);
+      return;
+    }
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        onSelect(nextValue);
+      });
+    });
   };
 
   return (
