@@ -14,9 +14,10 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { QueryProvider } from './src/app/providers/QueryProvider';
+import { AuthProvider, useAuth } from './src/app/providers/AuthProvider';
 import { getTheme } from './src/constants/theme';
 import { AuthConfirmScreen } from './src/features/auth/AuthConfirmScreen';
-import { AuthProvider, useAuth } from './src/features/auth/AuthProvider';
 import { AuthScreen } from './src/features/auth/AuthScreen';
 import { ResetPasswordScreen } from './src/features/auth/ResetPasswordScreen';
 import { HomeScreen } from './src/features/home/HomeScreen';
@@ -152,8 +153,10 @@ export default function App() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <KeyboardProvider>
         <SafeAreaProvider>
-          <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
-          <AppRoutes />
+          <QueryProvider>
+            <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+            <AppRoutes />
+          </QueryProvider>
         </SafeAreaProvider>
       </KeyboardProvider>
     </GestureHandlerRootView>

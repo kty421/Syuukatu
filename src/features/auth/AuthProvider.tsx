@@ -7,17 +7,19 @@ import {
   useState,
   type ReactNode
 } from 'react';
-import { Linking, Platform } from 'react-native';
 
-import { nativeSupabase } from '../../services/nativeSupabase';
 import {
-  completeNativeAuthCallback,
-  deleteAccount as requestDeleteAccount,
-  getCurrentUser,
-  getNativeAccessToken,
-  signOut as requestSignOut
-} from './authService';
-import { AuthUser } from './types';
+  deleteCurrentAccount,
+  getAuthAccessToken,
+  getCurrentAuthUser,
+  signOutAccount
+} from './application/usecases/accountUsecases';
+import {
+  subscribeToAuthCallbacks,
+  subscribeToAuthState
+} from './application/usecases/authSessionUsecases';
+import { AuthUser } from './domain/entities/authUser';
+import { authServiceRepository } from './infrastructure/repositories/AuthServiceRepository';
 
 type AuthContextValue = {
   user: AuthUser | null;
@@ -36,7 +38,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isAuthLoading, setIsAuthLoading] = useState(true);
 
   const refreshUser = useCallback(async () => {
-    const nextUser = await getCurrentUser();
+    const nextUser = await getCurrentAuthUser(authServiceRepository);
     setUser(nextUser);
   }, []);
 
@@ -49,7 +51,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     const hydrate = async () => {
       try {
-        const nextUser = await getCurrentUser();
+        const nextUser = await getCurrentAuthUser(authServiceRepository);
         if (mounted) {
           setUser(nextUser);
         }
@@ -68,72 +70,38 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   useEffect(() => {
-    if (Platform.OS === 'web' || !nativeSupabase) {
-      return undefined;
-    }
-
-    const {
-      data: { subscription }
-    } = nativeSupabase.auth.onAuthStateChange((_event, session) => {
-      setUser(
-        session?.user
-          ? {
-              id: session.user.id,
-              email: session.user.email ?? null
-            }
-          : null
-      );
-    });
-
-    return () => subscription.unsubscribe();
+    return subscribeToAuthState(setUser);
   }, []);
 
   useEffect(() => {
-    if (Platform.OS === 'web' || !nativeSupabase) {
-      return undefined;
-    }
-
     let mounted = true;
 
-    const handleUrl = async (url: string | null) => {
-      if (!url) {
-        return;
+    const unsubscribe = subscribeToAuthCallbacks(async () => {
+      if (mounted) {
+        await refreshUser();
       }
-
-      try {
-        const handled = await completeNativeAuthCallback(url);
-
-        if (handled && mounted) {
-          await refreshUser();
-        }
-      } catch {}
-    };
-
-    Linking.getInitialURL()
-      .then((url) => {
-        void handleUrl(url);
-      })
-      .catch(() => {});
-
-    const subscription = Linking.addEventListener('url', ({ url }) => {
-      void handleUrl(url);
     });
 
     return () => {
       mounted = false;
-      subscription.remove();
+      unsubscribe();
     };
   }, [refreshUser]);
 
   const signOut = useCallback(async () => {
-    await requestSignOut();
+    await signOutAccount(authServiceRepository);
     setUser(null);
   }, []);
 
   const deleteAccount = useCallback(async () => {
-    await requestDeleteAccount();
+    await deleteCurrentAccount(authServiceRepository);
     setUser(null);
   }, []);
+
+  const getAccessToken = useCallback(
+    () => getAuthAccessToken(authServiceRepository),
+    []
+  );
 
   const value = useMemo<AuthContextValue>(
     () => ({
@@ -143,10 +111,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setAuthenticatedUser,
       signOut,
       deleteAccount,
-      getAccessToken: getNativeAccessToken
+      getAccessToken
     }),
     [
       deleteAccount,
+      getAccessToken,
       isAuthLoading,
       refreshUser,
       setAuthenticatedUser,

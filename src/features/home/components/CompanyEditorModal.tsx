@@ -1037,7 +1037,6 @@ export const CompanyEditorModal = ({
           theme={theme}
           onClose={() => setScheduleEditorVisible(false)}
           onSave={saveSchedule}
-          onDelete={editingSchedule ? deleteSchedule : undefined}
           onSaveScheduleCategory={onSaveScheduleCategory}
           onDeleteScheduleCategory={onDeleteScheduleCategory}
         />

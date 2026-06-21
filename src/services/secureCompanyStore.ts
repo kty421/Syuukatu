@@ -1,9 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
 import { Company } from '../features/home/types';
 import { normalizeSelectionStatus } from '../features/home/utils/companyUtils';
+import { secureStorage } from '../shared/storage/secureStorage';
 
 type CompanyMetadata = Omit<Company, 'loginId' | 'password'>;
 type CompanyCredential = Pick<Company, 'loginId' | 'password'>;
@@ -17,24 +17,6 @@ const SECURE_STORE_KEY_PATTERN = /^[A-Za-z0-9._-]+$/;
 const EMPTY_CREDENTIAL: CompanyCredential = {
   loginId: '',
   password: ''
-};
-
-const secureOptions: SecureStore.SecureStoreOptions = {
-  keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK
-};
-
-let secureStoreAvailabilityPromise: Promise<boolean> | null = null;
-
-const isNativeSecureStoreAvailable = () => {
-  if (Platform.OS === 'web') {
-    return Promise.resolve(false);
-  }
-
-  secureStoreAvailabilityPromise ??= SecureStore.isAvailableAsync().catch(
-    () => false
-  );
-
-  return secureStoreAvailabilityPromise;
 };
 
 const sanitizeSecureStoreKeyPart = (value: string) => {
@@ -99,14 +81,8 @@ const readLegacyCredential = async (id: string) => {
     return raw ? parseCredential(id, raw) : EMPTY_CREDENTIAL;
   }
 
-  const isSecureStoreAvailable = await isNativeSecureStoreAvailable();
-
-  if (!isSecureStoreAvailable) {
-    return EMPTY_CREDENTIAL;
-  }
-
   try {
-    const raw = await SecureStore.getItemAsync(getSecureCredentialKey(id));
+    const raw = await secureStorage.getItem(getSecureCredentialKey(id));
     return raw ? parseCredential(id, raw) : EMPTY_CREDENTIAL;
   } catch (error) {
     reportCredentialStorageIssue('read', id, error);
@@ -119,21 +95,14 @@ const writeNativePassword = async (id: string, password: string) => {
     return;
   }
 
-  const isSecureStoreAvailable = await isNativeSecureStoreAvailable();
-
-  if (!isSecureStoreAvailable) {
-    return;
-  }
-
   if (!password.trim()) {
-    await SecureStore.deleteItemAsync(getSecureCredentialKey(id));
+    await secureStorage.deleteItem(getSecureCredentialKey(id));
     return;
   }
 
-  await SecureStore.setItemAsync(
+  await secureStorage.setItem(
     getSecureCredentialKey(id),
-    JSON.stringify({ loginId: '', password }),
-    secureOptions
+    JSON.stringify({ loginId: '', password })
   );
 };
 
@@ -196,13 +165,7 @@ export const deleteCompanyCredential = async (id: string) => {
       return;
     }
 
-    const isSecureStoreAvailable = await isNativeSecureStoreAvailable();
-
-    if (!isSecureStoreAvailable) {
-      return;
-    }
-
-    await SecureStore.deleteItemAsync(getSecureCredentialKey(id));
+    await secureStorage.deleteItem(getSecureCredentialKey(id));
   } catch (error) {
     reportCredentialStorageIssue('delete', id, error);
     throw error;

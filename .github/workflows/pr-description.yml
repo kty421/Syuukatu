@@ -22,6 +22,8 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OPENAI_MODEL: ${{ vars.OPENAI_PR_DESCRIPTION_MODEL || 'gpt-4.1-mini' }}
+          OPENAI_FALLBACK_ENABLED: ${{ vars.PR_DESCRIPTION_OPENAI_FALLBACK || 'false' }}
+          MAX_PROMPT_CHARS: ${{ vars.PR_DESCRIPTION_MAX_PROMPT_CHARS || '12000' }}
         with:
           script: |
             const pr = context.payload.pull_request;
@@ -32,6 +34,16 @@ jobs:
             const end = '<!-- pr-auto-summary:end -->';
             const escapeRegExp = (value) =>
               value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const parsePositiveInteger = (value, fallback) => {
+              const parsed = Number.parseInt(value ?? '', 10);
+              return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+            };
+            const maxPromptChars = parsePositiveInteger(
+              process.env.MAX_PROMPT_CHARS,
+              12000
+            );
+            const openAiFallbackEnabled =
+              (process.env.OPENAI_FALLBACK_ENABLED ?? '').toLowerCase() === 'true';
             const blockPattern = new RegExp(
               `${escapeRegExp(start)}[\\s\\S]*?${escapeRegExp(end)}`
             );
@@ -132,21 +144,22 @@ jobs:
                 '出力はMarkdown本文のみ。見出し、確認項目、変更ファイル一覧、差分規模、定型文は不要です。',
                 '箇条書きなら3〜5個、文章なら2〜4文にしてください。',
                 '差分にないことは書かないでください。',
+                '差分抜粋が省略されている場合は、コミット・ファイル一覧・含まれる差分だけから分かる範囲で要約してください。',
                 '',
                 `PRタイトル: ${pr.title}`,
                 `Base: ${pr.base.sha}`,
                 `Head: ${pr.head.sha}`,
                 '',
-                `PR全体のコミット:\n${truncate(commitSummary, 5000)}`,
+                `PR全体のコミット:\n${truncate(commitSummary, 2500)}`,
                 '',
-                `PR本文:\n${truncate(manualPrBody, 3000)}`,
+                `PR本文:\n${truncate(manualPrBody, 1500)}`,
                 '',
-                `PR全体の変更ファイル一覧:\n${truncate(fileInventory, 12000)}`,
+                `PR全体の変更ファイル一覧:\n${truncate(fileInventory, 5000)}`,
                 '',
-                `主要差分抜粋:\n${truncate(patchDetails, 26000)}`,
+                `主要差分抜粋:\n${truncate(patchDetails, 8000)}`,
               ].join('\n');
 
-              return prompt;
+              return truncate(prompt, maxPromptChars);
             };
 
             const generateWithGitHubModel = async (prompt, model) => {
@@ -269,7 +282,7 @@ jobs:
                 return await generateWithGitHubModels(prompt);
               } catch (githubError) {
                 core.warning(`GitHub Models summary generation failed: ${githubError.message}`);
-                if (!process.env.OPENAI_API_KEY) {
+                if (!openAiFallbackEnabled || !process.env.OPENAI_API_KEY) {
                   throw githubError;
                 }
 
@@ -278,7 +291,7 @@ jobs:
             };
 
             const result = await generateSummary().catch((error) => {
-              core.setFailed(error.message);
+              core.warning(`PR summary generation skipped: ${error.message}`);
               return null;
             });
             if (!result) {
