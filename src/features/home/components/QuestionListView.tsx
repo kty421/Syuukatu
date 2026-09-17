@@ -2,6 +2,7 @@ import { FlashList, type FlashListRef } from '@shopify/flash-list';
 import { LinearGradient } from 'expo-linear-gradient';
 import { memo, useCallback, useMemo, useRef, useState, type Ref } from 'react';
 import {
+  Animated,
   LayoutChangeEvent,
   ActivityIndicator,
   Keyboard,
@@ -24,6 +25,7 @@ import {
 } from '../utils/questionMemoUtils';
 import { QuestionMemoRow } from './QuestionMemoRow';
 import { QuestionSortMenu } from './QuestionSortMenu';
+import { BulkSelectableRow } from './BulkSelectableRow';
 
 type QuestionListViewProps = {
   entries: QuestionMemoEntry[];
@@ -41,12 +43,16 @@ type QuestionListViewProps = {
   bottomPadding: number;
   containerStyle: ViewStyle;
   listRef?: Ref<FlashListRef<QuestionListItem>>;
+  selectionActive: boolean;
+  selectionProgress: Animated.Value;
+  selectedQuestionIds: ReadonlySet<string>;
   onLabelFilterChange: (labelId: string | null) => void;
   onSortChange: (sort: QuestionMemoSort) => void;
   onClearQuery: () => void;
   onOpenQuestion: (entry: QuestionMemoEntry) => void;
   onOpenCompany: (entry: QuestionMemoEntry) => void;
   onDelete: (entry: QuestionMemoEntry) => void;
+  onToggleSelection: (id: string) => void;
 };
 
 export type QuestionListItem =
@@ -90,9 +96,13 @@ type QuestionMemoListItemProps = {
   theme: AppTheme;
   accentColor: string;
   containerStyle: ViewStyle;
+  selectionActive: boolean;
+  selectionProgress: Animated.Value;
+  selected: boolean;
   onOpenQuestion: (entry: QuestionMemoEntry) => void;
   onOpenCompany: (entry: QuestionMemoEntry) => void;
   onDelete: (entry: QuestionMemoEntry) => void;
+  onToggleSelection: (id: string) => void;
 };
 
 const QuestionMemoListItem = memo(
@@ -101,9 +111,13 @@ const QuestionMemoListItem = memo(
     theme,
     accentColor,
     containerStyle,
+    selectionActive,
+    selectionProgress,
+    selected,
     onOpenQuestion,
     onOpenCompany,
-    onDelete
+    onDelete,
+    onToggleSelection
   }: QuestionMemoListItemProps) => {
     const handlePress = useCallback(
       () => onOpenQuestion(entry),
@@ -114,18 +128,34 @@ const QuestionMemoListItem = memo(
       [entry, onOpenCompany]
     );
     const handleDelete = useCallback(() => onDelete(entry), [entry, onDelete]);
+    const handleToggleSelection = useCallback(
+      () => onToggleSelection(entry.questionMemo.id),
+      [entry.questionMemo.id, onToggleSelection]
+    );
 
     return (
-      <View style={containerStyle}>
+      <BulkSelectableRow
+        active={selectionActive}
+        label={`${entry.questionMemo.question || '題目未入力'}を${
+          selected ? '選択解除' : '選択'
+        }`}
+        progress={selectionProgress}
+        selected={selected}
+        style={containerStyle}
+        theme={theme}
+        onToggle={handleToggleSelection}
+      >
         <QuestionMemoRow
           entry={entry}
           theme={theme}
           accentColor={accentColor}
+          hideDeleteAction={selectionActive}
+          selected={selected}
           onPress={handlePress}
           onOpenCompany={handleOpenCompany}
           onDelete={handleDelete}
         />
-      </View>
+      </BulkSelectableRow>
     );
   }
 );
@@ -146,12 +176,16 @@ export const QuestionListView = ({
   bottomPadding,
   containerStyle,
   listRef,
+  selectionActive,
+  selectionProgress,
+  selectedQuestionIds,
   onLabelFilterChange,
   onSortChange,
   onClearQuery,
   onOpenQuestion,
   onOpenCompany,
-  onDelete
+  onDelete,
+  onToggleSelection
 }: QuestionListViewProps) => {
   const scrollMetricsRef = useRef({
     contentWidth: 0,
@@ -395,9 +429,13 @@ export const QuestionListView = ({
           theme={theme}
           accentColor={accentColor}
           containerStyle={containerStyle}
+          selectionActive={selectionActive}
+          selectionProgress={selectionProgress}
+          selected={selectedQuestionIds.has(item.entry.questionMemo.id)}
           onOpenQuestion={onOpenQuestion}
           onOpenCompany={onOpenCompany}
           onDelete={onDelete}
+          onToggleSelection={onToggleSelection}
         />
       );
     },
@@ -407,6 +445,10 @@ export const QuestionListView = ({
       onDelete,
       onOpenCompany,
       onOpenQuestion,
+      onToggleSelection,
+      selectedQuestionIds,
+      selectionActive,
+      selectionProgress,
       theme
     ]
   );

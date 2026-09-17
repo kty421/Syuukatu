@@ -3,7 +3,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 
 import {
-  deleteCompanyFromList,
   upsertCompanyInList
 } from '../../companies/application/mutations/companyOptimisticUpdates';
 import { companyQueryKeys } from '../../companies/application/queries/companyQueryKeys';
@@ -32,6 +31,14 @@ import {
   ScheduleCategoryDraft
 } from '../types';
 import { sortSchedules } from '../utils/scheduleUtils';
+import {
+  BulkDeleteResult,
+  createCompanyBulkDeletePreview,
+  createQuestionMemoBulkDeletePreview,
+  partitionSettledDeleteIds,
+  restoreFailedCompanyDeletes,
+  restoreFailedQuestionMemoDeletes
+} from '../utils/bulkDeleteUtils';
 
 const createId = () =>
   `company-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -750,44 +757,73 @@ export const useCompanies = ({
     [getAccessToken, resolveQuestionLabelIds, setQuestionMemosState]
   );
 
-  const deleteQuestionMemo = useCallback(
-    async (id: string) => {
-      const currentQuestionMemos = questionMemosRef.current;
-      const deletedQuestionMemo = currentQuestionMemos.find(
-        (questionMemo) => questionMemo.id === id
+  const deleteQuestionMemos = useCallback(
+    async (ids: Iterable<string>): Promise<BulkDeleteResult> => {
+      const preview = createQuestionMemoBulkDeletePreview(
+        questionMemosRef.current,
+        ids
       );
 
-      if (!deletedQuestionMemo) {
-        return;
+      if (preview.targetIds.length === 0) {
+        return {
+          succeededIds: [],
+          failedIds: [],
+          credentialCleanupFailedIds: []
+        };
       }
 
-      setQuestionMemosState(
-        currentQuestionMemos.filter((questionMemo) => questionMemo.id !== id)
-      );
+      setQuestionMemosState(preview.questionMemos);
       setStorageError(null);
+
+      let outcomes: PromiseSettledResult<void>[];
 
       try {
         const accessToken = await getAccessToken();
-        await httpQuestionRepository.deleteMemo(id, accessToken);
-        setStorageError(null);
-      } catch (error) {
-        setQuestionMemosState((latestQuestionMemos) => {
-          if (
-            latestQuestionMemos.some((questionMemo) => questionMemo.id === id)
-          ) {
-            return latestQuestionMemos;
-          }
-
-          return sortQuestionMemosByUpdate([
-            ...latestQuestionMemos,
-            deletedQuestionMemo
-          ]);
-        });
-        setStorageError('質問メモの削除に失敗しました。');
-        throw error;
+        outcomes = await Promise.allSettled(
+          preview.targetIds.map((id) =>
+            httpQuestionRepository.deleteMemo(id, accessToken)
+          )
+        );
+      } catch {
+        outcomes = preview.targetIds.map(() => ({
+          status: 'rejected' as const,
+          reason: new Error('Access token could not be loaded.')
+        }));
       }
+
+      const { succeededIds, failedIds } = partitionSettledDeleteIds(
+        preview.targetIds,
+        outcomes
+      );
+
+      if (failedIds.length > 0) {
+        setQuestionMemosState((latestQuestionMemos) =>
+          restoreFailedQuestionMemoDeletes(
+            latestQuestionMemos,
+            preview.deletedQuestionMemos,
+            failedIds
+          )
+        );
+      }
+
+      return {
+        succeededIds,
+        failedIds,
+        credentialCleanupFailedIds: []
+      };
     },
     [getAccessToken, setQuestionMemosState]
+  );
+
+  const deleteQuestionMemo = useCallback(
+    async (id: string) => {
+      const result = await deleteQuestionMemos([id]);
+
+      if (result.failedIds.includes(id)) {
+        throw new Error('質問メモの削除に失敗しました。');
+      }
+    },
+    [deleteQuestionMemos]
   );
 
   const createQuestionLabel = useCallback(
@@ -1039,76 +1075,95 @@ export const useCompanies = ({
     [getAccessToken, setQuestionLabelsState, setQuestionMemosState]
   );
 
-  const deleteCompany = useCallback(
-    async (id: string) => {
-      const currentCompanies = companiesRef.current;
-      const currentQuestionMemos = questionMemosRef.current;
-      const currentSchedules = companySchedulesRef.current;
-      const deletedCompany = currentCompanies.find(
-        (company) => company.id === id
+  const deleteCompanies = useCallback(
+    async (ids: Iterable<string>): Promise<BulkDeleteResult> => {
+      const preview = createCompanyBulkDeletePreview(
+        companiesRef.current,
+        companySchedulesRef.current,
+        questionMemosRef.current,
+        ids
       );
+      const { snapshot } = preview;
 
-      if (!deletedCompany) {
-        return;
+      if (snapshot.targetIds.length === 0) {
+        return {
+          succeededIds: [],
+          failedIds: [],
+          credentialCleanupFailedIds: []
+        };
       }
 
-      setCompaniesState(
-        currentCompanies.filter((company) => company.id !== id)
-      );
-      setQuestionMemosState(
-        currentQuestionMemos.map((questionMemo) =>
-          questionMemo.companyId === id
-            ? { ...questionMemo, companyId: null }
-            : questionMemo
-        )
-      );
-      setCompanySchedulesState(
-        currentSchedules.filter((schedule) => schedule.companyId !== id)
-      );
+      setCompaniesState(preview.companies);
+      setCompanySchedulesState(preview.schedules);
+      setQuestionMemosState(preview.questionMemos);
       setStorageError(null);
 
-      void (async () => {
-        try {
-          const accessToken = await getAccessToken();
-          await httpCompanyRepository.deleteCompany(id, accessToken);
-          queryClient.setQueryData<Company[]>(companiesQueryKey, (current) =>
-            deleteCompanyFromList(current, id)
-          );
+      let outcomes: PromiseSettledResult<void>[];
 
-          let credentialDeleteFailed = false;
-          try {
-            await deleteCompanyCredential(id);
-          } catch {
-            credentialDeleteFailed = true;
-          }
+      try {
+        const accessToken = await getAccessToken();
+        outcomes = await Promise.allSettled(
+          snapshot.targetIds.map((id) =>
+            httpCompanyRepository.deleteCompany(id, accessToken)
+          )
+        );
+      } catch {
+        outcomes = snapshot.targetIds.map(() => ({
+          status: 'rejected' as const,
+          reason: new Error('Access token could not be loaded.')
+        }));
+      }
 
-          setStorageError(
-            credentialDeleteFailed
-              ? '端末内のパスワード削除に失敗しました。'
-              : null
-          );
-        } catch {
-          setCompaniesState((latestCompanies) => {
-            if (latestCompanies.some((company) => company.id === id)) {
-              return latestCompanies;
-            }
+      const { succeededIds, failedIds } = partitionSettledDeleteIds(
+        snapshot.targetIds,
+        outcomes
+      );
 
-            return sortCompanies([...latestCompanies, deletedCompany]);
-          });
-          setQuestionMemosState(currentQuestionMemos);
-          setCompanySchedulesState(currentSchedules);
-          setStorageError('削除に失敗しました。もう一度お試しください。');
-        }
-      })();
+      if (failedIds.length > 0) {
+        const restored = restoreFailedCompanyDeletes(
+          companiesRef.current,
+          companySchedulesRef.current,
+          questionMemosRef.current,
+          snapshot,
+          failedIds
+        );
+
+        setCompaniesState(restored.companies);
+        setCompanySchedulesState(restored.schedules);
+        setQuestionMemosState(restored.questionMemos);
+      }
+
+      const credentialOutcomes = await Promise.allSettled(
+        succeededIds.map(deleteCompanyCredential)
+      );
+      const { failedIds: credentialCleanupFailedIds } =
+        partitionSettledDeleteIds(succeededIds, credentialOutcomes);
+
+      return {
+        succeededIds,
+        failedIds,
+        credentialCleanupFailedIds
+      };
     },
     [
-      companiesQueryKey,
       getAccessToken,
-      queryClient,
       setCompaniesState,
       setCompanySchedulesState,
       setQuestionMemosState
     ]
+  );
+
+  const deleteCompany = useCallback(
+    async (id: string) => {
+      const result = await deleteCompanies([id]);
+
+      if (result.failedIds.includes(id)) {
+        throw new Error('企業の削除に失敗しました。');
+      }
+
+      return result;
+    },
+    [deleteCompanies]
   );
 
   const importLocalCompanies = useCallback(async () => {
@@ -1230,11 +1285,13 @@ export const useCompanies = ({
     deleteScheduleCategory,
     upsertQuestionMemo,
     deleteQuestionMemo,
+    deleteQuestionMemos,
     createQuestionLabel,
     reorderQuestionLabels,
     updateQuestionLabel,
     deleteQuestionLabel,
     deleteCompany,
+    deleteCompanies,
     importLocalCompanies,
     dismissLocalMigration,
     reloadCompanies,

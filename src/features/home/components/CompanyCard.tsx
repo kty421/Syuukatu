@@ -20,6 +20,7 @@ type CompanyCardProps = {
   theme: AppTheme;
   isPasswordVisible: boolean;
   showPasswordControls: boolean;
+  hideDeleteAction?: boolean;
   statusOptions: SelectionStatus[];
   onPress: () => void;
   onTogglePassword: () => void;
@@ -37,6 +38,7 @@ export const CompanyCard = memo(
     theme,
     isPasswordVisible,
     showPasswordControls,
+    hideDeleteAction,
     statusOptions,
     onPress,
     onTogglePassword,
@@ -163,16 +165,18 @@ export const CompanyCard = memo(
                   size="compact"
                   iconSize={17}
                 />
-                <IconButton
-                  icon="trash-outline"
-                  label={`${company.companyName}を削除`}
-                  onPress={runChildAction(onDelete)}
-                  theme={theme}
-                  tone="danger"
-                  variant="plain"
-                  size="compact"
-                  iconSize={17}
-                />
+                {!hideDeleteAction ? (
+                  <IconButton
+                    icon="trash-outline"
+                    label={`${company.companyName}を削除`}
+                    onPress={runChildAction(onDelete)}
+                    theme={theme}
+                    tone="danger"
+                    variant="plain"
+                    size="compact"
+                    iconSize={17}
+                  />
+                ) : null}
               </>
             )}
           </View>
@@ -294,16 +298,18 @@ export const CompanyCard = memo(
                   size="compact"
                   iconSize={18}
                 />
-                <IconButton
-                  icon="trash-outline"
-                  label={`${company.companyName}を削除`}
-                  onPress={runChildAction(onDelete)}
-                  theme={theme}
-                  tone="danger"
-                  variant="plain"
-                  size="compact"
-                  iconSize={18}
-                />
+                {!hideDeleteAction ? (
+                  <IconButton
+                    icon="trash-outline"
+                    label={`${company.companyName}を削除`}
+                    onPress={runChildAction(onDelete)}
+                    theme={theme}
+                    tone="danger"
+                    variant="plain"
+                    size="compact"
+                    iconSize={18}
+                  />
+                ) : null}
               </View>
             ) : null}
           </>
