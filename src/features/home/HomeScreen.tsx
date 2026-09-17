@@ -47,6 +47,11 @@ import { SearchField } from "../../ui/SearchField";
 import { SectionHeader } from "../../ui/SectionHeader";
 import { ApplicationTypeSegment } from "./components/ApplicationTypeSegment";
 import { BottomNavigation, MainTab } from "./components/BottomNavigation";
+import { BulkSelectableRow } from "./components/BulkSelectableRow";
+import {
+  BulkDeleteFloatingButton,
+  BulkSelectionTopControl,
+} from "./components/BulkSelectionControls";
 import { CalendarView } from "./components/CalendarView";
 import { CompanyAddMethodSheet } from "./components/CompanyAddMethodSheet";
 import { CompanyAddSpeedDial } from "./components/CompanyAddSpeedDial";
@@ -90,6 +95,7 @@ import {
 } from "./utils/questionMemoUtils";
 import { todayDateString } from "./utils/scheduleUtils";
 import { useConfirmAction } from "./utils/confirmAction";
+import { BulkDeleteResult } from "./utils/bulkDeleteUtils";
 
 const transitionValueByType: Record<ApplicationType, number> = {
   internship: 0,
@@ -201,12 +207,16 @@ type CompanyListRowProps = {
   showPasswordControls: boolean;
   isPasswordVisible: (id: string) => boolean;
   statusOptions: SelectionStatus[];
+  selectionActive: boolean;
+  selectionProgress: Animated.Value;
+  selected: boolean;
   onEdit: (company: Company) => void;
   onTogglePassword: (id: string) => void;
   onCopy: (value: string, label: string) => void;
   onOpenUrl: (company: Company) => void;
   onDelete: (company: Company) => void;
   onStatusChange: (company: Company, status: SelectionStatus) => void;
+  onToggleSelection: (id: string) => void;
 };
 
 type CompanyCardListRowProps = Omit<CompanyListRowProps, "item"> & {
@@ -220,12 +230,16 @@ const CompanyCardListRow = ({
   showPasswordControls,
   isPasswordVisible,
   statusOptions,
+  selectionActive,
+  selectionProgress,
+  selected,
   onEdit,
   onTogglePassword,
   onCopy,
   onOpenUrl,
   onDelete,
   onStatusChange,
+  onToggleSelection,
 }: CompanyCardListRowProps) => {
   const { company } = item;
   const handleEdit = useCallback(() => onEdit(company), [company, onEdit]);
@@ -245,25 +259,44 @@ const CompanyCardListRow = ({
     (status: SelectionStatus) => onStatusChange(company, status),
     [company, onStatusChange],
   );
+  const handleToggleSelection = useCallback(
+    () => onToggleSelection(company.id),
+    [company.id, onToggleSelection],
+  );
 
   return (
-    <View
+    <BulkSelectableRow
+      active={selectionActive}
+      label={`${company.companyName}を${selected ? "選択解除" : "選択"}`}
+      progress={selectionProgress}
+      selected={selected}
+      style={containerStyle}
+      theme={theme}
+      onToggle={handleToggleSelection}>
+      <View
       style={[
-        containerStyle,
         styles.companyCardShell,
         item.isFirst && styles.companyCardShellFirst,
         item.isLast && styles.companyCardShellLast,
         item.isFirst && theme.shadows.surface,
         {
-          backgroundColor: theme.colors.surface,
-          borderColor: theme.colors.border,
+          backgroundColor: selected
+            ? theme.colors.primarySubtle
+            : theme.colors.surface,
+          borderColor: selected
+            ? theme.colors.primaryBorder
+            : theme.colors.border,
         },
       ]}>
       {!item.isFirst ? (
         <View
           style={[
             styles.companyCardDivider,
-            { backgroundColor: theme.colors.divider },
+            {
+              backgroundColor: selected
+                ? theme.colors.primaryBorder
+                : theme.colors.divider,
+            },
           ]}
         />
       ) : null}
@@ -271,6 +304,7 @@ const CompanyCardListRow = ({
         company={company}
         isPasswordVisible={isPasswordVisible(company.id)}
         showPasswordControls={showPasswordControls}
+        hideDeleteAction={selectionActive}
         statusOptions={statusOptions}
         theme={theme}
         onPress={handleEdit}
@@ -280,7 +314,8 @@ const CompanyCardListRow = ({
         onDelete={handleDelete}
         onStatusChange={handleStatusChange}
       />
-    </View>
+      </View>
+    </BulkSelectableRow>
   );
 };
 
@@ -292,12 +327,16 @@ const CompanyListRow = memo(
     showPasswordControls,
     isPasswordVisible,
     statusOptions,
+    selectionActive,
+    selectionProgress,
+    selected,
     onEdit,
     onTogglePassword,
     onCopy,
     onOpenUrl,
     onDelete,
     onStatusChange,
+    onToggleSelection,
   }: CompanyListRowProps) => {
     if (item.kind === "section") {
       return (
@@ -315,12 +354,16 @@ const CompanyListRow = memo(
         showPasswordControls={showPasswordControls}
         isPasswordVisible={isPasswordVisible}
         statusOptions={statusOptions}
+        selectionActive={selectionActive}
+        selectionProgress={selectionProgress}
+        selected={selected}
         onEdit={onEdit}
         onTogglePassword={onTogglePassword}
         onCopy={onCopy}
         onOpenUrl={onOpenUrl}
         onDelete={onDelete}
         onStatusChange={onStatusChange}
+        onToggleSelection={onToggleSelection}
       />
     );
   },
@@ -330,12 +373,16 @@ const CompanyListRow = memo(
       previous.containerStyle !== next.containerStyle ||
       previous.showPasswordControls !== next.showPasswordControls ||
       previous.statusOptions !== next.statusOptions ||
+      previous.selectionActive !== next.selectionActive ||
+      previous.selectionProgress !== next.selectionProgress ||
+      previous.selected !== next.selected ||
       previous.onEdit !== next.onEdit ||
       previous.onTogglePassword !== next.onTogglePassword ||
       previous.onCopy !== next.onCopy ||
       previous.onOpenUrl !== next.onOpenUrl ||
       previous.onDelete !== next.onDelete ||
-      previous.onStatusChange !== next.onStatusChange
+      previous.onStatusChange !== next.onStatusChange ||
+      previous.onToggleSelection !== next.onToggleSelection
     ) {
       return false;
     }
@@ -384,11 +431,13 @@ export const HomeScreen = ({
     upsertCompany,
     upsertQuestionMemo,
     deleteQuestionMemo: deleteQuestionMemoById,
+    deleteQuestionMemos,
     createQuestionLabel,
     reorderQuestionLabels,
     updateQuestionLabel,
     deleteQuestionLabel,
     deleteCompany,
+    deleteCompanies,
     importLocalCompanies,
     dismissLocalMigration,
     clearLocalAccountData,
@@ -424,6 +473,12 @@ export const HomeScreen = ({
   const [questionQuery, setQuestionQuery] = useState("");
   const [activeType, setActiveType] = useState<ApplicationType>("internship");
   const [homeView, setHomeView] = useState<MainTab>("companies");
+  const [bulkSelectionView, setBulkSelectionView] = useState<
+    "companies" | "questions" | null
+  >(null);
+  const [selectedBulkIds, setSelectedBulkIds] = useState<Set<string>>(
+    () => new Set(),
+  );
   const [selectedQuestionLabelId, setSelectedQuestionLabelId] = useState<
     string | null
   >(null);
@@ -473,6 +528,7 @@ export const HomeScreen = ({
   } | null>(null);
   const typeTransition = useRef(new Animated.Value(0)).current;
   const edgePullX = useRef(new Animated.Value(0)).current;
+  const bulkSelectionProgress = useRef(new Animated.Value(0)).current;
   const companyListRef = useRef<FlashListRef<CompanyListItem>>(null);
   const questionListRef = useRef<FlashListRef<QuestionListItem>>(null);
   const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -563,6 +619,19 @@ export const HomeScreen = ({
       selectedQuestionLabelId,
     ],
   );
+  const visibleBulkIds = useMemo(() => {
+    if (homeView === "companies") {
+      return activeCompanies.map((company) => company.id);
+    }
+
+    if (homeView === "questions") {
+      return filteredQuestionEntries.map((entry) => entry.questionMemo.id);
+    }
+
+    return [];
+  }, [activeCompanies, filteredQuestionEntries, homeView]);
+  const isBulkSelectionActive =
+    homeView !== "calendar" && bulkSelectionView === homeView;
   const questionCountsByCompany = useMemo(
     () =>
       questionMemos.reduce<Record<string, number>>((counts, questionMemo) => {
@@ -670,7 +739,7 @@ export const HomeScreen = ({
     () => ({
       paddingBottom: bottomPadding,
       paddingHorizontal: metrics.contentPadding,
-      paddingTop: 8,
+      paddingTop: 0,
     }),
     [bottomPadding, metrics.contentPadding],
   );
@@ -689,6 +758,75 @@ export const HomeScreen = ({
     [],
   );
 
+  const resetBulkSelection = useCallback(() => {
+    setBulkSelectionView(null);
+    setSelectedBulkIds(new Set());
+  }, []);
+
+  const toggleBulkSelectionMode = useCallback(() => {
+    if (isBulkSelectionActive) {
+      resetBulkSelection();
+      void runHapticsSafely(() => Haptics.selectionAsync());
+      return;
+    }
+
+    if (homeView === "calendar" || visibleBulkIds.length === 0) {
+      return;
+    }
+
+    Keyboard.dismiss();
+    setSelectedBulkIds(new Set());
+    setBulkSelectionView(homeView);
+    void runHapticsSafely(() => Haptics.selectionAsync());
+  }, [
+    homeView,
+    isBulkSelectionActive,
+    resetBulkSelection,
+    visibleBulkIds.length,
+  ]);
+
+  const toggleBulkSelection = useCallback((id: string) => {
+    setSelectedBulkIds((current) => {
+      const next = new Set(current);
+
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+
+      return next;
+    });
+    void runHapticsSafely(() => Haptics.selectionAsync());
+  }, []);
+
+  useEffect(() => {
+    const animation = Animated.timing(bulkSelectionProgress, {
+      toValue: isBulkSelectionActive ? 1 : 0,
+      duration: theme.motion.standard,
+      useNativeDriver: false,
+    });
+
+    animation.start();
+    return () => animation.stop();
+  }, [bulkSelectionProgress, isBulkSelectionActive, theme.motion.standard]);
+
+  useEffect(() => {
+    if (!isBulkSelectionActive) {
+      return;
+    }
+
+    const visibleIdSet = new Set(visibleBulkIds);
+
+    setSelectedBulkIds((current) => {
+      const next = new Set(
+        [...current].filter((id) => visibleIdSet.has(id)),
+      );
+
+      return next.size === current.size ? current : next;
+    });
+  }, [isBulkSelectionActive, visibleBulkIds]);
+
   const scrollQuestionListToTop = useCallback((animated = true) => {
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
@@ -706,9 +844,18 @@ export const HomeScreen = ({
   }, []);
 
   const clearCompanySearch = useCallback(() => {
+    resetBulkSelection();
     setCompanyQuery("");
     scrollCompanyListToTop(false);
-  }, [scrollCompanyListToTop]);
+  }, [resetBulkSelection, scrollCompanyListToTop]);
+
+  const changeCompanyQuery = useCallback(
+    (value: string) => {
+      resetBulkSelection();
+      setCompanyQuery(value);
+    },
+    [resetBulkSelection],
+  );
 
   const runAfterMenuClose = useCallback((action: () => void) => {
     if (menuActionTimeoutRef.current) {
@@ -724,9 +871,26 @@ export const HomeScreen = ({
   }, []);
 
   const clearQuestionSearch = useCallback(() => {
+    resetBulkSelection();
     setQuestionQuery("");
     scrollQuestionListToTop(false);
-  }, [scrollQuestionListToTop]);
+  }, [resetBulkSelection, scrollQuestionListToTop]);
+
+  const changeQuestionQuery = useCallback(
+    (value: string) => {
+      resetBulkSelection();
+      setQuestionQuery(value);
+    },
+    [resetBulkSelection],
+  );
+
+  const changeQuestionLabelFilter = useCallback(
+    (labelId: string | null) => {
+      resetBulkSelection();
+      setSelectedQuestionLabelId(labelId);
+    },
+    [resetBulkSelection],
+  );
 
   useEffect(
     () => () => {
@@ -865,11 +1029,12 @@ export const HomeScreen = ({
       }
 
       Keyboard.dismiss();
+      resetBulkSelection();
       setActiveType(type);
       animateTypeTransition(type);
       void runHapticsSafely(() => Haptics.selectionAsync());
     },
-    [activeType, animateTypeTransition],
+    [activeType, animateTypeTransition, resetBulkSelection],
   );
 
   const changeHomeView = useCallback(
@@ -879,10 +1044,11 @@ export const HomeScreen = ({
       }
 
       Keyboard.dismiss();
+      resetBulkSelection();
       setHomeView(view);
       void runHapticsSafely(() => Haptics.selectionAsync());
     },
-    [homeView],
+    [homeView, resetBulkSelection],
   );
 
   const swipeResponder = useMemo(
@@ -1168,14 +1334,23 @@ export const HomeScreen = ({
         confirmLabel: "OK",
         onConfirm: async () => {
           try {
-            await deleteCompany(company.id);
+            const result = await deleteCompany(company.id);
             void runHapticsSafely(() =>
               Haptics.notificationAsync(
                 Haptics.NotificationFeedbackType.Warning,
               ),
             );
-            showToast("削除しました");
-          } catch {}
+            showToast(
+              result.credentialCleanupFailedIds.length > 0
+                ? "企業は削除しましたが、端末内パスワードを消去できませんでした"
+                : "削除しました",
+              result.credentialCleanupFailedIds.length > 0
+                ? "warning"
+                : "success",
+            );
+          } catch {
+            showToast("企業の削除に失敗しました", "error");
+          }
         },
       });
     },
@@ -1418,12 +1593,18 @@ export const HomeScreen = ({
       await deleteQuestionLabel(labelId);
 
       if (selectedQuestionLabelId === labelId) {
+        resetBulkSelection();
         setSelectedQuestionLabelId(null);
       }
 
       showToast("ラベルを削除しました");
     },
-    [deleteQuestionLabel, selectedQuestionLabelId, showToast],
+    [
+      deleteQuestionLabel,
+      resetBulkSelection,
+      selectedQuestionLabelId,
+      showToast,
+    ],
   );
 
   const saveQuestionMemo = useCallback(
@@ -1474,6 +1655,7 @@ export const HomeScreen = ({
 
         closeQuestionMemo();
         if (!isExistingQuestionMemo) {
+          resetBulkSelection();
           setHomeView("questions");
           setSelectedQuestionLabelId(null);
           setQuestionSort("updatedAtDesc");
@@ -1497,6 +1679,7 @@ export const HomeScreen = ({
       editingQuestionMemo,
       questionCreateCompanyId,
       questionMemos,
+      resetBulkSelection,
       scrollQuestionListToTop,
       showToast,
       upsertQuestionMemo,
@@ -1529,12 +1712,113 @@ export const HomeScreen = ({
     [confirmDestructiveAction, deleteQuestionMemoById, showToast],
   );
 
+  const finishBulkDelete = useCallback(
+    (result: BulkDeleteResult) => {
+      const succeededCount = result.succeededIds.length;
+      const failedCount = result.failedIds.length;
+      const credentialFailureCount =
+        result.credentialCleanupFailedIds.length;
+
+      if (failedCount === 0) {
+        resetBulkSelection();
+      } else {
+        setSelectedBulkIds(new Set(result.failedIds));
+      }
+
+      if (succeededCount > 0) {
+        void runHapticsSafely(() =>
+          Haptics.notificationAsync(
+            Haptics.NotificationFeedbackType.Warning,
+          ),
+        );
+      }
+
+      if (failedCount > 0) {
+        const deleteMessage =
+          succeededCount > 0
+            ? `${succeededCount}件削除、${failedCount}件失敗しました`
+            : `${failedCount}件の削除に失敗しました`;
+        const credentialMessage =
+          credentialFailureCount > 0
+            ? `。端末内パスワード${credentialFailureCount}件も消去できませんでした`
+            : "";
+
+        showToast(
+          `${deleteMessage}${credentialMessage}`,
+          succeededCount > 0 ? "warning" : "error",
+        );
+        return;
+      }
+
+      if (credentialFailureCount > 0) {
+        showToast(
+          `${succeededCount}件削除しましたが、端末内パスワード${credentialFailureCount}件を消去できませんでした`,
+          "warning",
+        );
+        return;
+      }
+
+      showToast(`${succeededCount}件削除しました`);
+    },
+    [resetBulkSelection, showToast],
+  );
+
+  const deleteSelectedItems = useCallback(() => {
+    if (!bulkSelectionView || selectedBulkIds.size === 0) {
+      return;
+    }
+
+    const selectedIds = [...selectedBulkIds];
+    const selectedCount = selectedIds.length;
+
+    if (bulkSelectionView === "companies") {
+      confirmDestructiveAction({
+        title: `選択した企業${selectedCount}社を削除しますか？`,
+        message: showPasswordControls
+          ? "関連する日程と端末内のID・パスワードが削除され、質問は「企業との対応なし」になります。"
+          : "関連する日程が削除され、質問は「企業との対応なし」になります。",
+        confirmLabel: "削除",
+        onConfirm: async () => {
+          try {
+            finishBulkDelete(await deleteCompanies(selectedIds));
+          } catch {
+            showToast("企業の一括削除に失敗しました", "error");
+          }
+        },
+      });
+      return;
+    }
+
+    confirmDestructiveAction({
+      title: `選択した質問メモ${selectedCount}件を削除しますか？`,
+      message: "削除した質問メモは元に戻せません。",
+      confirmLabel: "削除",
+      onConfirm: async () => {
+        try {
+          finishBulkDelete(await deleteQuestionMemos(selectedIds));
+        } catch {
+          showToast("質問メモの一括削除に失敗しました", "error");
+        }
+      },
+    });
+  }, [
+    bulkSelectionView,
+    confirmDestructiveAction,
+    deleteCompanies,
+    deleteQuestionMemos,
+    finishBulkDelete,
+    selectedBulkIds,
+    showPasswordControls,
+    showToast,
+  ]);
+
   const changeQuestionSort = useCallback(
     (sort: QuestionMemoSort) => {
+      resetBulkSelection();
       setQuestionSort(sort);
       scrollQuestionListToTop(false);
     },
-    [scrollQuestionListToTop],
+    [resetBulkSelection, scrollQuestionListToTop],
   );
 
   const openQuestionFromList = useCallback(
@@ -1619,16 +1903,24 @@ export const HomeScreen = ({
         showPasswordControls={showPasswordControls}
         isPasswordVisible={isCompanyPasswordVisible}
         statusOptions={activeStatusOptions}
+        selectionActive={bulkSelectionView === "companies"}
+        selectionProgress={bulkSelectionProgress}
+        selected={
+          item.kind === "company" && selectedBulkIds.has(item.company.id)
+        }
         onEdit={openEditModal}
         onTogglePassword={togglePassword}
         onCopy={copyToClipboard}
         onOpenUrl={openUrl}
         onDelete={handleDeleteCompany}
         onStatusChange={handleChangeCompanyStatus}
+        onToggleSelection={toggleBulkSelection}
       />
     ),
     [
       activeStatusOptions,
+      bulkSelectionProgress,
+      bulkSelectionView,
       containerStyle,
       copyToClipboard,
       handleChangeCompanyStatus,
@@ -1636,9 +1928,11 @@ export const HomeScreen = ({
       isCompanyPasswordVisible,
       openEditModal,
       openUrl,
+      selectedBulkIds,
       showPasswordControls,
       theme,
       togglePassword,
+      toggleBulkSelection,
     ],
   );
 
@@ -1703,7 +1997,9 @@ export const HomeScreen = ({
               placeholder={searchPlaceholder}
               theme={theme}
               onChangeText={
-                homeView === "questions" ? setQuestionQuery : setCompanyQuery
+                homeView === "questions"
+                  ? changeQuestionQuery
+                  : changeCompanyQuery
               }
               onClear={() => {
                 if (homeView === "questions") {
@@ -1713,6 +2009,22 @@ export const HomeScreen = ({
 
                 clearCompanySearch();
               }}
+            />
+          </View>
+        ) : null}
+
+        {homeView === "companies" ? (
+          <View
+            style={[
+              containerStyle,
+              styles.bulkControlArea,
+              { paddingHorizontal: metrics.contentPadding },
+            ]}>
+            <BulkSelectionTopControl
+              active={isBulkSelectionActive}
+              disabled={!isBulkSelectionActive && activeCompanies.length === 0}
+              theme={theme}
+              onToggle={toggleBulkSelectionMode}
             />
           </View>
         ) : null}
@@ -1816,12 +2128,21 @@ export const HomeScreen = ({
             bottomPadding={bottomPadding}
             containerStyle={containerStyle}
             listRef={questionListRef}
-            onLabelFilterChange={setSelectedQuestionLabelId}
+            selectionActive={bulkSelectionView === "questions"}
+            selectionDisabled={
+              bulkSelectionView !== "questions" &&
+              filteredQuestionEntries.length === 0
+            }
+            selectionProgress={bulkSelectionProgress}
+            selectedQuestionIds={selectedBulkIds}
+            onLabelFilterChange={changeQuestionLabelFilter}
             onSortChange={changeQuestionSort}
             onClearQuery={clearQuestionSearch}
             onOpenQuestion={openQuestionFromList}
             onOpenCompany={openCompanyFromQuestion}
             onDelete={deleteQuestionMemo}
+            onToggleSelectionMode={toggleBulkSelectionMode}
+            onToggleSelection={toggleBulkSelection}
           />
         ) : (
           <CalendarView
@@ -1848,7 +2169,7 @@ export const HomeScreen = ({
         )}
       </Animated.View>
 
-      {homeView === "companies" ? (
+      {homeView === "companies" && !isBulkSelectionActive ? (
         <CompanyAddSpeedDial
           label={`${applicationTypeLabels[activeType]}を追加`}
           canInherit={availableCompanies.length > 0}
@@ -1865,7 +2186,7 @@ export const HomeScreen = ({
             right: metrics.contentPadding,
           }}
         />
-      ) : homeView === "questions" ? (
+      ) : homeView === "questions" && !isBulkSelectionActive ? (
         <FloatingActionButton
           label="質問を追加"
           onPress={() => {
@@ -1875,6 +2196,18 @@ export const HomeScreen = ({
           style={{
             bottom: fabBottom,
             right: metrics.contentPadding,
+          }}
+        />
+      ) : null}
+
+      {isBulkSelectionActive ? (
+        <BulkDeleteFloatingButton
+          selectedCount={selectedBulkIds.size}
+          theme={theme}
+          onPress={deleteSelectedItems}
+          style={{
+            bottom: fabBottom,
+            left: metrics.contentPadding,
           }}
         />
       ) : null}
@@ -2028,16 +2361,19 @@ export const HomeScreen = ({
         }}
         onCreateCompany={() => {
           runAfterMenuClose(() => {
+            resetBulkSelection();
             void openAddMethodSheet(activeType);
           });
         }}
         onCreateQuestion={() => {
           runAfterMenuClose(() => {
+            resetBulkSelection();
             void openQuestionCompanyPicker();
           });
         }}
         onOpenQuestionLabelSettings={() => {
           runAfterMenuClose(() => {
+            resetBulkSelection();
             setQuestionLabelSettingsVisible(true);
           });
         }}
@@ -2084,7 +2420,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   topArea: {
-    paddingBottom: 12,
+    paddingBottom: 4,
     paddingTop: 0,
   },
   titleArea: {
@@ -2111,6 +2447,9 @@ const styles = StyleSheet.create({
   },
   searchArea: {
     paddingTop: 12,
+  },
+  bulkControlArea: {
+    paddingTop: 0,
   },
   companySectionHeader: {
     marginTop: 24,

@@ -19,6 +19,8 @@ type QuestionMemoRowProps = {
   entry: QuestionMemoEntry;
   theme: AppTheme;
   accentColor: string;
+  hideDeleteAction?: boolean;
+  selected?: boolean;
   onPress: () => void;
   onOpenCompany: () => void;
   onDelete: () => void;
@@ -29,6 +31,8 @@ export const QuestionMemoRow = memo(
     entry,
     theme,
     accentColor,
+    hideDeleteAction,
+    selected,
     onPress,
     onOpenCompany,
     onDelete,
@@ -53,8 +57,12 @@ export const QuestionMemoRow = memo(
         style={({ pressed }) => [
           styles.card,
           {
-            backgroundColor: theme.colors.surface,
-            borderColor: theme.colors.border,
+            backgroundColor: selected
+              ? theme.colors.primarySubtle
+              : theme.colors.surface,
+            borderColor: selected
+              ? theme.colors.primaryBorder
+              : theme.colors.border,
             borderRadius: theme.radii.md,
             paddingHorizontal: theme.spacing.md,
             paddingVertical: theme.spacing.sm,
@@ -126,16 +134,18 @@ export const QuestionMemoRow = memo(
                   iconSize={17}
                 />
               ) : null}
-              <IconButton
-                icon="trash-outline"
-                label="質問メモを削除"
-                onPress={runChildAction(onDelete)}
-                theme={theme}
-                tone="danger"
-                variant="plain"
-                size="compact"
-                iconSize={17}
-              />
+              {!hideDeleteAction ? (
+                <IconButton
+                  icon="trash-outline"
+                  label="質問メモを削除"
+                  onPress={runChildAction(onDelete)}
+                  theme={theme}
+                  tone="danger"
+                  variant="plain"
+                  size="compact"
+                  iconSize={17}
+                />
+              ) : null}
             </View>
             {updatedAt ? (
               <Text
