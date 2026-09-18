@@ -304,7 +304,7 @@ export const HomeMenuModal = ({
           <Animated.View
             pointerEvents="none"
             style={[
-              StyleSheet.absoluteFillObject,
+              StyleSheet.absoluteFill,
               styles.backdrop,
               { backgroundColor: theme.colors.overlay },
               backdropStyle,
@@ -654,7 +654,11 @@ const PasswordSegmentButton = ({
 
 const styles = StyleSheet.create({
   root: {
-    ...StyleSheet.absoluteFillObject,
+    bottom: 0,
+    left: 0,
+    position: "absolute",
+    right: 0,
+    top: 0,
     zIndex: 30,
   },
   backdrop: {

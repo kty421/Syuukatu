@@ -679,14 +679,14 @@ export const CompanyEditorModal = ({
         <Animated.View
           pointerEvents="none"
           style={[
-            StyleSheet.absoluteFillObject,
+            StyleSheet.absoluteFill,
             styles.overlayBackdrop,
             { backgroundColor: theme.colors.overlay },
             backdropStyle,
           ]}
         />
         <Pressable
-          style={StyleSheet.absoluteFillObject}
+          style={StyleSheet.absoluteFill}
           onPress={() => requestClose()}
         />
 

@@ -948,7 +948,11 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   pushScreen: {
-    ...StyleSheet.absoluteFillObject,
+    bottom: 0,
+    left: 0,
+    position: "absolute",
+    right: 0,
+    top: 0,
   },
   header: {
     alignItems: "center",
@@ -1074,8 +1078,12 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   sheetLayer: {
-    ...StyleSheet.absoluteFillObject,
+    bottom: 0,
     justifyContent: "flex-end",
+    left: 0,
+    position: "absolute",
+    right: 0,
+    top: 0,
     zIndex: 20,
   },
   paletteSheet: {
@@ -1170,9 +1178,13 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   savingOverlay: {
-    ...StyleSheet.absoluteFillObject,
     alignItems: "center",
+    bottom: 0,
     justifyContent: "center",
+    left: 0,
+    position: "absolute",
+    right: 0,
+    top: 0,
   },
   pressed: {
     opacity: 0.65,

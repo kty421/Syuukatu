@@ -1907,9 +1907,13 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   pickerRoot: {
-    ...StyleSheet.absoluteFillObject,
+    bottom: 0,
     elevation: 20,
     justifyContent: "flex-end",
+    left: 0,
+    position: "absolute",
+    right: 0,
+    top: 0,
     zIndex: 20,
   },
   desktopPickerRoot: {

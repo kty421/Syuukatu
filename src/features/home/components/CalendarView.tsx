@@ -862,8 +862,12 @@ const styles = StyleSheet.create({
     position: "relative",
   },
   weekCellLayer: {
-    ...StyleSheet.absoluteFillObject,
+    bottom: 0,
     flexDirection: "row",
+    left: 0,
+    position: "absolute",
+    right: 0,
+    top: 0,
   },
   dayCell: {
     borderBottomWidth: StyleSheet.hairlineWidth,
