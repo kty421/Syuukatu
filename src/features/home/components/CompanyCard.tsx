@@ -259,17 +259,16 @@ export const CompanyCard = memo(
                             variant="plain"
                             disabled={!company.password}
                           />
-                          <IconButton
-                            icon="copy-outline"
+                          <CopyFeedbackButton
                             label="パスワードをコピー"
-                            onPress={runChildAction(() =>
-                              onCopy(company.password, "パスワード"),
-                            )}
+                            resetKey={company.password}
                             theme={theme}
-                            tone="accent"
-                            size="compact"
-                            variant="plain"
                             disabled={!company.password}
+                            onCopy={() =>
+                              onCopy(company.password, "パスワード", {
+                                showSuccessToast: false,
+                              })
+                            }
                           />
                         </View>
                       </View>
