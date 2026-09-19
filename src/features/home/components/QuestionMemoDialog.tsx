@@ -5,9 +5,9 @@ import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 
 import { AppTheme } from '../../../constants/theme';
 import { AppButton } from '../../../ui/AppButton';
+import { CopyFeedbackButton } from '../../../ui/CopyFeedbackButton';
 import { DismissKeyboardView } from '../../../ui/DismissKeyboardView';
 import { FullScreenModalShell } from '../../../ui/FullScreenModalShell';
-import { IconButton } from '../../../ui/IconButton';
 import { InputField } from '../../../ui/InputField';
 import {
   CompanyQuestionAnswer,
@@ -24,7 +24,7 @@ type QuestionMemoDialogProps<T extends CompanyQuestionAnswer | QuestionMemo> = {
   company?: Company | null;
   saveNoticeKey?: number;
   onClose: () => void;
-  onCopyAnswer?: (answer: string) => void;
+  onCopyAnswer?: (answer: string) => Promise<boolean>;
   onSave: (item: T) => void;
   onCreateLabel: (name: string) => Promise<QuestionLabel>;
 };
@@ -211,17 +211,15 @@ export const QuestionMemoDialog = <
                 style={styles.answerTextInput}
                 trailing={
                   onCopyAnswer ? (
-                    <IconButton
-                      icon="copy-outline"
-                      label="回答内容をコピー"
-                      onPress={() => onCopyAnswer(answer)}
-                      theme={theme}
-                      tone="accent"
-                      variant="plain"
-                      size="compact"
-                      iconSize={17}
-                      disabled={!answer.trim()}
-                    />
+                    <View style={styles.answerCopyAction}>
+                      <CopyFeedbackButton
+                        label="回答内容をコピー"
+                        resetKey={answer}
+                        theme={theme}
+                        disabled={!answer.trim()}
+                        onCopy={() => onCopyAnswer(answer)}
+                      />
+                    </View>
                   ) : null
                 }
                 onChangeText={setAnswer}
@@ -237,78 +235,63 @@ export const QuestionMemoDialog = <
               </Text>
             </View>
 
-            <View>
-              <View style={styles.labelHeader}>
-                <Text
-                  style={[
-                    theme.typography.footnote,
-                    styles.fieldLabel,
-                    { color: theme.colors.textSecondary }
-                  ]}
-                >
-                  ラベル
-                </Text>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="ラベルを追加"
-                  onPress={() => setLabelCreateVisible(true)}
-                  style={({ pressed }) => [
-                    styles.addLabelButton,
-                    {
-                      backgroundColor: theme.colors.surfaceElevated,
-                      borderColor: theme.colors.border,
-                      borderRadius: theme.radii.sm
-                    },
-                    pressed && styles.pressed
-                  ]}
-                >
-                  <Ionicons name="add" size={17} color={theme.colors.primary} />
-                </Pressable>
-              </View>
-              {labels.length > 0 ? (
-                <View style={styles.labelChips}>
-                  {labels.map((label) => {
-                    const selected = selectedLabelIds.includes(label.id);
+            <View style={styles.labelChips}>
+              {labels.map((label) => {
+                const selected = selectedLabelIds.includes(label.id);
 
-                    return (
-                      <Pressable
-                        key={label.id}
-                        accessibilityRole="button"
-                        accessibilityState={{ selected }}
-                        onPress={() => toggleLabel(label.id)}
-                        style={({ pressed }) => [
-                          styles.labelChip,
-                          {
-                            backgroundColor: selected
-                              ? theme.colors.primarySubtle
-                              : theme.colors.surfaceElevated,
-                            borderColor: selected
-                              ? theme.colors.primaryBorder
-                              : theme.colors.border,
-                            borderRadius: theme.radii.pill
-                          },
-                          pressed && styles.pressed
-                        ]}
-                      >
-                        <Text
-                          numberOfLines={1}
-                          style={[
-                            styles.labelChipText,
-                            theme.typography.footnote,
-                            {
-                              color: selected
-                                ? theme.colors.primary
-                                : theme.colors.textSecondary
-                            }
-                          ]}
-                        >
-                          {label.name}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              ) : null}
+                return (
+                  <Pressable
+                    key={label.id}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected }}
+                    onPress={() => toggleLabel(label.id)}
+                    style={({ pressed }) => [
+                      styles.labelChip,
+                      {
+                        backgroundColor: selected
+                          ? theme.colors.primarySubtle
+                          : theme.colors.surfaceElevated,
+                        borderColor: selected
+                          ? theme.colors.primaryBorder
+                          : theme.colors.border,
+                        borderRadius: theme.radii.pill
+                      },
+                      pressed && styles.pressed
+                    ]}
+                  >
+                    <Text
+                      numberOfLines={1}
+                      style={[
+                        styles.labelChipText,
+                        theme.typography.footnote,
+                        {
+                          color: selected
+                            ? theme.colors.primary
+                            : theme.colors.textSecondary
+                        }
+                      ]}
+                    >
+                      {label.name}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="ラベルを追加"
+                onPress={() => setLabelCreateVisible(true)}
+                style={({ pressed }) => [
+                  styles.addLabelButton,
+                  {
+                    backgroundColor: theme.colors.surfaceElevated,
+                    borderColor: theme.colors.border,
+                    borderRadius: theme.radii.sm
+                  },
+                  pressed && styles.pressed
+                ]}
+              >
+                <Ionicons name="add" size={17} color={theme.colors.primary} />
+              </Pressable>
             </View>
 
             <AppButton
@@ -396,25 +379,20 @@ const styles = StyleSheet.create({
   answerTextInput: {
     minHeight: 196
   },
+  answerCopyAction: {
+    alignSelf: 'flex-start',
+    marginTop: 8
+  },
   answerCount: {
     marginTop: 7,
     textAlign: 'right'
   },
-  fieldLabel: {
-  },
-  labelHeader: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 8,
-    justifyContent: 'space-between',
-    marginBottom: 8
-  },
   addLabelButton: {
     alignItems: 'center',
     borderWidth: StyleSheet.hairlineWidth,
-    height: 30,
+    height: 34,
     justifyContent: 'center',
-    width: 32
+    width: 34
   },
   labelChips: {
     flexDirection: 'row',
@@ -423,11 +401,12 @@ const styles = StyleSheet.create({
     marginBottom: 12
   },
   labelChip: {
+    alignItems: 'center',
     borderWidth: StyleSheet.hairlineWidth,
+    height: 34,
+    justifyContent: 'center',
     maxWidth: 160,
-    minHeight: 34,
-    paddingHorizontal: 12,
-    paddingVertical: 8
+    paddingHorizontal: 12
   },
   labelChipText: {
     fontWeight: '700'

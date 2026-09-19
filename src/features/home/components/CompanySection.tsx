@@ -15,7 +15,11 @@ type CompanySectionProps = {
   statusOptions: SelectionStatus[];
   onEdit: (company: Company) => void;
   onTogglePassword: (id: string) => void;
-  onCopy: (value: string, label: string) => void;
+  onCopy: (
+    value: string,
+    label: string,
+    options?: { showSuccessToast?: boolean }
+  ) => Promise<boolean>;
   onOpenUrl: (company: Company) => void;
   onDelete: (company: Company) => void;
   onStatusChange: (company: Company, status: SelectionStatus) => void;

@@ -11,6 +11,7 @@ import {
 } from "react-native";
 
 import { AppTheme } from "../../../constants/theme";
+import { CopyFeedbackButton } from "../../../ui/CopyFeedbackButton";
 import { IconButton } from "../../../ui/IconButton";
 import { Company, SelectionStatus } from "../types";
 import { SelectionStatusPickerSheet } from "./SelectionStatusPickerSheet";
@@ -24,7 +25,11 @@ type CompanyCardProps = {
   statusOptions: SelectionStatus[];
   onPress: () => void;
   onTogglePassword: () => void;
-  onCopy: (value: string, label: string) => void;
+  onCopy: (
+    value: string,
+    label: string,
+    options?: { showSuccessToast?: boolean },
+  ) => Promise<boolean>;
   onOpenUrl: () => void;
   onDelete: () => void;
   onStatusChange: (status: SelectionStatus) => void;
@@ -201,17 +206,16 @@ export const CompanyCard = memo(
                 iconButtons={
                   <View style={styles.credentialActionsSlot}>
                     <View style={styles.singleActionWrap}>
-                      <IconButton
-                        icon="copy-outline"
+                      <CopyFeedbackButton
                         label="ログインIDをコピー"
-                        onPress={runChildAction(() =>
-                          onCopy(company.loginId, "ログインID"),
-                        )}
+                        resetKey={company.loginId}
                         theme={theme}
-                        tone="accent"
-                        size="compact"
-                        variant="plain"
                         disabled={!company.loginId}
+                        onCopy={() =>
+                          onCopy(company.loginId, "ログインID", {
+                            showSuccessToast: false,
+                          })
+                        }
                       />
                     </View>
                   </View>
