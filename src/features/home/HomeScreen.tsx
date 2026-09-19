@@ -2139,7 +2139,6 @@ export const HomeScreen = ({
             onSortChange={changeQuestionSort}
             onClearQuery={clearQuestionSearch}
             onOpenQuestion={openQuestionFromList}
-            onCopy={copyToClipboard}
             onOpenCompany={openCompanyFromQuestion}
             onDelete={deleteQuestionMemo}
             onToggleSelectionMode={toggleBulkSelectionMode}
@@ -2275,6 +2274,7 @@ export const HomeScreen = ({
         company={editingQuestionCompany}
         saveNoticeKey={questionSaveNoticeKey}
         onClose={closeQuestionMemo}
+        onCopyAnswer={(answer) => copyToClipboard(answer, "回答内容")}
         onSave={(item) => {
           void saveQuestionMemo(item);
         }}

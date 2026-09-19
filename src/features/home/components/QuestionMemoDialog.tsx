@@ -7,6 +7,7 @@ import { AppTheme } from '../../../constants/theme';
 import { AppButton } from '../../../ui/AppButton';
 import { DismissKeyboardView } from '../../../ui/DismissKeyboardView';
 import { FullScreenModalShell } from '../../../ui/FullScreenModalShell';
+import { IconButton } from '../../../ui/IconButton';
 import { InputField } from '../../../ui/InputField';
 import {
   CompanyQuestionAnswer,
@@ -23,6 +24,7 @@ type QuestionMemoDialogProps<T extends CompanyQuestionAnswer | QuestionMemo> = {
   company?: Company | null;
   saveNoticeKey?: number;
   onClose: () => void;
+  onCopyAnswer?: (answer: string) => void;
   onSave: (item: T) => void;
   onCreateLabel: (name: string) => Promise<QuestionLabel>;
 };
@@ -36,6 +38,7 @@ export const QuestionMemoDialog = <
   company,
   saveNoticeKey,
   onClose,
+  onCopyAnswer,
   onSave,
   onCreateLabel
 }: QuestionMemoDialogProps<T>) => {
@@ -206,6 +209,21 @@ export const QuestionMemoDialog = <
                 placeholder="話す要点やエピソード"
                 multiline
                 style={styles.answerTextInput}
+                trailing={
+                  onCopyAnswer ? (
+                    <IconButton
+                      icon="copy-outline"
+                      label="回答内容をコピー"
+                      onPress={() => onCopyAnswer(answer)}
+                      theme={theme}
+                      tone="accent"
+                      variant="plain"
+                      size="compact"
+                      iconSize={17}
+                      disabled={!answer.trim()}
+                    />
+                  ) : null
+                }
                 onChangeText={setAnswer}
               />
               <Text
