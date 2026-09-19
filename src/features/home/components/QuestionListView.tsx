@@ -52,6 +52,7 @@ type QuestionListViewProps = {
   onSortChange: (sort: QuestionMemoSort) => void;
   onClearQuery: () => void;
   onOpenQuestion: (entry: QuestionMemoEntry) => void;
+  onCopy: (value: string, label: string) => void;
   onOpenCompany: (entry: QuestionMemoEntry) => void;
   onDelete: (entry: QuestionMemoEntry) => void;
   onToggleSelectionMode: () => void;
@@ -103,6 +104,7 @@ type QuestionMemoListItemProps = {
   selectionProgress: Animated.Value;
   selected: boolean;
   onOpenQuestion: (entry: QuestionMemoEntry) => void;
+  onCopy: (value: string, label: string) => void;
   onOpenCompany: (entry: QuestionMemoEntry) => void;
   onDelete: (entry: QuestionMemoEntry) => void;
   onToggleSelection: (id: string) => void;
@@ -118,6 +120,7 @@ const QuestionMemoListItem = memo(
     selectionProgress,
     selected,
     onOpenQuestion,
+    onCopy,
     onOpenCompany,
     onDelete,
     onToggleSelection
@@ -125,6 +128,10 @@ const QuestionMemoListItem = memo(
     const handlePress = useCallback(
       () => onOpenQuestion(entry),
       [entry, onOpenQuestion]
+    );
+    const handleCopyAnswer = useCallback(
+      () => onCopy(entry.questionMemo.answer, '回答内容'),
+      [entry.questionMemo.answer, onCopy]
     );
     const handleOpenCompany = useCallback(
       () => onOpenCompany(entry),
@@ -155,6 +162,7 @@ const QuestionMemoListItem = memo(
           hideDeleteAction={selectionActive}
           selected={selected}
           onPress={handlePress}
+          onCopyAnswer={handleCopyAnswer}
           onOpenCompany={handleOpenCompany}
           onDelete={handleDelete}
         />
@@ -187,6 +195,7 @@ export const QuestionListView = ({
   onSortChange,
   onClearQuery,
   onOpenQuestion,
+  onCopy,
   onOpenCompany,
   onDelete,
   onToggleSelectionMode,
@@ -438,6 +447,7 @@ export const QuestionListView = ({
           selectionProgress={selectionProgress}
           selected={selectedQuestionIds.has(item.entry.questionMemo.id)}
           onOpenQuestion={onOpenQuestion}
+          onCopy={onCopy}
           onOpenCompany={onOpenCompany}
           onDelete={onDelete}
           onToggleSelection={onToggleSelection}
@@ -447,6 +457,7 @@ export const QuestionListView = ({
     [
       accentColor,
       containerStyle,
+      onCopy,
       onDelete,
       onOpenCompany,
       onOpenQuestion,

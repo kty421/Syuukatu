@@ -2139,6 +2139,7 @@ export const HomeScreen = ({
             onSortChange={changeQuestionSort}
             onClearQuery={clearQuestionSearch}
             onOpenQuestion={openQuestionFromList}
+            onCopy={copyToClipboard}
             onOpenCompany={openCompanyFromQuestion}
             onDelete={deleteQuestionMemo}
             onToggleSelectionMode={toggleBulkSelectionMode}

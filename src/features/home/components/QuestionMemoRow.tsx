@@ -22,6 +22,7 @@ type QuestionMemoRowProps = {
   hideDeleteAction?: boolean;
   selected?: boolean;
   onPress: () => void;
+  onCopyAnswer: () => void;
   onOpenCompany: () => void;
   onDelete: () => void;
 };
@@ -34,6 +35,7 @@ export const QuestionMemoRow = memo(
     hideDeleteAction,
     selected,
     onPress,
+    onCopyAnswer,
     onOpenCompany,
     onDelete,
   }: QuestionMemoRowProps) => {
@@ -121,6 +123,17 @@ export const QuestionMemoRow = memo(
 
           <View style={styles.actions}>
             <View style={styles.actionButtons}>
+              <IconButton
+                icon="copy-outline"
+                label="回答内容をコピー"
+                onPress={runChildAction(onCopyAnswer)}
+                theme={theme}
+                tone="accent"
+                variant="plain"
+                size="compact"
+                iconSize={17}
+                disabled={!questionMemo.answer.trim()}
+              />
               {company ? (
                 <IconButton
                   icon="business-outline"
