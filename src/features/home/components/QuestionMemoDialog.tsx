@@ -209,17 +209,15 @@ export const QuestionMemoDialog = <
                 placeholder="話す要点やエピソード"
                 multiline
                 style={styles.answerTextInput}
-                trailing={
+                labelAction={
                   onCopyAnswer ? (
-                    <View style={styles.answerCopyAction}>
-                      <CopyFeedbackButton
-                        label="回答内容をコピー"
-                        resetKey={answer}
-                        theme={theme}
-                        disabled={!answer.trim()}
-                        onCopy={() => onCopyAnswer(answer)}
-                      />
-                    </View>
+                    <CopyFeedbackButton
+                      label="回答内容をコピー"
+                      resetKey={answer}
+                      theme={theme}
+                      disabled={!answer.trim()}
+                      onCopy={() => onCopyAnswer(answer)}
+                    />
                   ) : null
                 }
                 onChangeText={setAnswer}
@@ -378,10 +376,6 @@ const styles = StyleSheet.create({
   },
   answerTextInput: {
     minHeight: 196
-  },
-  answerCopyAction: {
-    alignSelf: 'flex-start',
-    marginTop: 8
   },
   answerCount: {
     marginTop: 7,

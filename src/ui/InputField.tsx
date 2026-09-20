@@ -42,6 +42,7 @@ type InputFieldProps = TextInputProps & {
   hideLabel?: boolean;
   errorMessage?: string | null;
   helperText?: string | null;
+  labelAction?: ReactNode;
   trailing?: ReactNode;
   fieldKey?: string;
   onContainerLayout?: (fieldKey: string, y: number) => void;
@@ -56,6 +57,7 @@ export const InputField = forwardRef<TextInput, InputFieldProps>(
       hideLabel,
       errorMessage,
       helperText,
+      labelAction,
       trailing,
       fieldKey,
       onContainerLayout,
@@ -87,19 +89,24 @@ export const InputField = forwardRef<TextInput, InputFieldProps>(
     return (
       <View onLayout={handleLayout}>
         {hideLabel ? null : (
-          <Text
-            numberOfLines={2}
-            style={[
-              theme.typography.footnote,
-              styles.label,
-              { color: theme.colors.textSecondary }
-            ]}
-          >
-            {label}
-            {required ? (
-              <Text style={{ color: theme.colors.danger }}> *</Text>
+          <View style={styles.labelRow}>
+            <Text
+              numberOfLines={2}
+              style={[
+                theme.typography.footnote,
+                styles.label,
+                { color: theme.colors.textSecondary }
+              ]}
+            >
+              {label}
+              {required ? (
+                <Text style={{ color: theme.colors.danger }}> *</Text>
+              ) : null}
+            </Text>
+            {labelAction ? (
+              <View style={styles.labelAction}>{labelAction}</View>
             ) : null}
-          </Text>
+          </View>
         )}
         <Pressable
           accessibilityLabel={label}
@@ -130,7 +137,8 @@ export const InputField = forwardRef<TextInput, InputFieldProps>(
               minHeight: multiline ? 112 : theme.component.controlHeight,
               opacity: disabled ? theme.state.disabledOpacity : 1,
               paddingLeft: theme.spacing.md,
-              paddingRight: theme.spacing.sm
+              paddingRight:
+                multiline && !trailing ? 0 : theme.spacing.sm
             }
           ]}
         >
@@ -156,7 +164,9 @@ export const InputField = forwardRef<TextInput, InputFieldProps>(
               theme.typography.body,
               {
                 color: theme.colors.textPrimary,
-                minHeight: multiline ? 112 : theme.component.controlHeight
+                minHeight: multiline ? 112 : theme.component.controlHeight,
+                paddingRight:
+                  multiline && !trailing ? theme.spacing.md : undefined
               },
               style
             ]}
@@ -185,8 +195,18 @@ export const InputField = forwardRef<TextInput, InputFieldProps>(
 );
 
 const styles = StyleSheet.create({
-  label: {
+  labelRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 8,
+    justifyContent: 'space-between',
     marginBottom: 8
+  },
+  label: {
+    flexShrink: 1
+  },
+  labelAction: {
+    flexShrink: 0
   },
   fieldShell: {
     alignItems: 'center',
