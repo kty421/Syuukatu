@@ -213,15 +213,18 @@ export const QuestionMemoDialog = <
               />
               <View style={styles.answerFooter}>
                 {onCopyAnswer ? (
-                  <CopyFeedbackButton
-                    label="回答内容をコピー"
-                    resetKey={answer}
-                    theme={theme}
-                    disabled={!answer.trim()}
-                    size="inline"
-                    tooltip="回答内容をコピーします"
-                    onCopy={() => onCopyAnswer(answer)}
-                  />
+                  <View style={styles.answerCopyAction}>
+                    <CopyFeedbackButton
+                      label="回答内容をコピー"
+                      resetKey={answer}
+                      theme={theme}
+                      disabled={!answer.trim()}
+                      iconColor={theme.colors.textDisabled}
+                      size="inline"
+                      tooltip="メッセージをコピーする"
+                      onCopy={() => onCopyAnswer(answer)}
+                    />
+                  </View>
                 ) : null}
                 <Text
                   style={[
@@ -385,6 +388,9 @@ const styles = StyleSheet.create({
     gap: 4,
     justifyContent: 'flex-end',
     marginTop: 7
+  },
+  answerCopyAction: {
+    transform: [{ translateY: -2 }]
   },
   answerCount: {
     textAlign: 'right'

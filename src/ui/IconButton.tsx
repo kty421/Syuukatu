@@ -20,6 +20,20 @@ const getWebCursor = (disabled?: boolean) =>
       } as unknown as ViewStyle)
     : null;
 
+const webBackgroundTransition =
+  Platform.OS === 'web'
+    ? ({
+        transition: 'background-color 150ms ease-in-out'
+      } as unknown as ViewStyle)
+    : null;
+
+const webTooltipTransition =
+  Platform.OS === 'web'
+    ? ({
+        transition: 'opacity 150ms ease-in-out'
+      } as unknown as ViewStyle)
+    : null;
+
 type IconButtonProps = {
   icon: keyof typeof Ionicons.glyphMap;
   theme: AppTheme;
@@ -31,6 +45,7 @@ type IconButtonProps = {
   accentColor?: string;
   accentSurface?: string;
   disabled?: boolean;
+  foregroundColor?: string;
   iconSize?: number;
   tooltip?: string;
 };
@@ -46,6 +61,7 @@ export const IconButton = ({
   accentColor,
   accentSurface,
   disabled,
+  foregroundColor,
   iconSize,
   tooltip
 }: IconButtonProps) => {
@@ -53,7 +69,9 @@ export const IconButton = ({
   const inline = size === 'inline';
   const plain = variant === 'plain';
   const palette = getPalette(theme, tone, accentColor, accentSurface);
-  const foreground = disabled ? theme.colors.disabledText : palette.foreground;
+  const foreground = disabled
+    ? theme.colors.disabledText
+    : (foregroundColor ?? palette.foreground);
   const [hovered, setHovered] = useState(false);
   const [focused, setFocused] = useState(false);
 
@@ -79,6 +97,7 @@ export const IconButton = ({
         plain ? styles.plain : styles.filled,
         tooltip && Platform.OS === 'web' && styles.tooltipHost,
         getWebCursor(disabled),
+        webBackgroundTransition,
         {
           backgroundColor: plain ? 'transparent' : palette.background,
           borderColor: focused
@@ -117,16 +136,15 @@ export const IconButton = ({
         name={icon}
         size={iconSize ?? (inline ? 14 : compact ? 16 : 20)}
       />
-      {tooltip && Platform.OS === 'web' && (hovered || focused) ? (
+      {tooltip && Platform.OS === 'web' ? (
         <View
+          aria-hidden={!hovered}
           pointerEvents="none"
           style={[
             styles.tooltip,
-            theme.shadows.floating,
+            webTooltipTransition,
             {
-              backgroundColor: theme.colors.surfaceOverlay,
-              borderColor: theme.colors.border,
-              borderRadius: theme.radii.sm
+              opacity: hovered ? 1 : 0
             }
           ]}
         >
@@ -135,7 +153,7 @@ export const IconButton = ({
             style={[
               theme.typography.caption,
               styles.tooltipText,
-              { color: theme.colors.textPrimary }
+              { color: '#FFFFFF' }
             ]}
           >
             {tooltip}
@@ -195,13 +213,15 @@ const styles = StyleSheet.create({
     zIndex: 20
   },
   tooltip: {
-    borderWidth: StyleSheet.hairlineWidth,
-    bottom: '100%',
-    marginBottom: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
+    backgroundColor: '#18181B',
+    borderRadius: 6,
+    left: '50%',
+    marginLeft: -80,
+    marginTop: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
     position: 'absolute',
-    right: 0,
+    top: '100%',
     width: 160,
     zIndex: 20
   },
