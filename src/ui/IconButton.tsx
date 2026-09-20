@@ -5,6 +5,8 @@ import {
   Platform,
   Pressable,
   StyleSheet,
+  Text,
+  View,
   ViewStyle
 } from 'react-native';
 
@@ -24,12 +26,13 @@ type IconButtonProps = {
   onPress: ((event: GestureResponderEvent) => void) | (() => void);
   label: string;
   tone?: 'neutral' | 'accent' | 'danger';
-  size?: 'default' | 'compact';
+  size?: 'default' | 'compact' | 'inline';
   variant?: 'filled' | 'plain';
   accentColor?: string;
   accentSurface?: string;
   disabled?: boolean;
   iconSize?: number;
+  tooltip?: string;
 };
 
 export const IconButton = ({
@@ -43,9 +46,11 @@ export const IconButton = ({
   accentColor,
   accentSurface,
   disabled,
-  iconSize
+  iconSize,
+  tooltip
 }: IconButtonProps) => {
   const compact = size === 'compact';
+  const inline = size === 'inline';
   const plain = variant === 'plain';
   const palette = getPalette(theme, tone, accentColor, accentSurface);
   const foreground = disabled ? theme.colors.disabledText : palette.foreground;
@@ -58,7 +63,7 @@ export const IconButton = ({
       accessibilityRole="button"
       accessibilityState={{ disabled }}
       disabled={disabled}
-      hitSlop={compact ? 6 : 8}
+      hitSlop={inline ? 5 : compact ? 6 : 8}
       onBlur={() => setFocused(false)}
       onFocus={() => setFocused(true)}
       onHoverIn={() => setHovered(true)}
@@ -72,6 +77,7 @@ export const IconButton = ({
       style={({ pressed }) => [
         styles.base,
         plain ? styles.plain : styles.filled,
+        tooltip && Platform.OS === 'web' && styles.tooltipHost,
         getWebCursor(disabled),
         {
           backgroundColor: plain ? 'transparent' : palette.background,
@@ -81,13 +87,17 @@ export const IconButton = ({
               ? 'transparent'
               : palette.border,
           borderRadius: plain ? theme.radii.sm : theme.radii.md,
-          height: compact
-            ? theme.component.iconButtonCompactSize
-            : theme.component.iconButtonSize,
+          height: inline
+            ? 18
+            : compact
+              ? theme.component.iconButtonCompactSize
+              : theme.component.iconButtonSize,
           opacity: disabled ? theme.state.disabledOpacity : 1,
-          width: compact
-            ? theme.component.iconButtonCompactSize
-            : theme.component.iconButtonSize
+          width: inline
+            ? 18
+            : compact
+              ? theme.component.iconButtonCompactSize
+              : theme.component.iconButtonSize
         },
         hovered && !disabled && {
           backgroundColor: plain
@@ -105,8 +115,33 @@ export const IconButton = ({
       <Ionicons
         color={foreground}
         name={icon}
-        size={iconSize ?? (compact ? 16 : 20)}
+        size={iconSize ?? (inline ? 14 : compact ? 16 : 20)}
       />
+      {tooltip && Platform.OS === 'web' && (hovered || focused) ? (
+        <View
+          pointerEvents="none"
+          style={[
+            styles.tooltip,
+            theme.shadows.floating,
+            {
+              backgroundColor: theme.colors.surfaceOverlay,
+              borderColor: theme.colors.border,
+              borderRadius: theme.radii.sm
+            }
+          ]}
+        >
+          <Text
+            numberOfLines={1}
+            style={[
+              theme.typography.caption,
+              styles.tooltipText,
+              { color: theme.colors.textPrimary }
+            ]}
+          >
+            {tooltip}
+          </Text>
+        </View>
+      ) : null}
     </Pressable>
   );
 };
@@ -154,5 +189,23 @@ const styles = StyleSheet.create({
   },
   plain: {
     borderWidth: 0
+  },
+  tooltipHost: {
+    overflow: 'visible',
+    zIndex: 20
+  },
+  tooltip: {
+    borderWidth: StyleSheet.hairlineWidth,
+    bottom: '100%',
+    marginBottom: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    position: 'absolute',
+    right: 0,
+    width: 160,
+    zIndex: 20
+  },
+  tooltipText: {
+    textAlign: 'center'
   }
 });

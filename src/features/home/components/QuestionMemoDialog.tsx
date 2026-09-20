@@ -209,28 +209,30 @@ export const QuestionMemoDialog = <
                 placeholder="話す要点やエピソード"
                 multiline
                 style={styles.answerTextInput}
-                labelAction={
-                  onCopyAnswer ? (
-                    <CopyFeedbackButton
-                      label="回答内容をコピー"
-                      resetKey={answer}
-                      theme={theme}
-                      disabled={!answer.trim()}
-                      onCopy={() => onCopyAnswer(answer)}
-                    />
-                  ) : null
-                }
                 onChangeText={setAnswer}
               />
-              <Text
-                style={[
-                  theme.typography.caption,
-                  styles.answerCount,
-                  { color: theme.colors.textDisabled }
-                ]}
-              >
-                {answer.length}文字
-              </Text>
+              <View style={styles.answerFooter}>
+                {onCopyAnswer ? (
+                  <CopyFeedbackButton
+                    label="回答内容をコピー"
+                    resetKey={answer}
+                    theme={theme}
+                    disabled={!answer.trim()}
+                    size="inline"
+                    tooltip="回答内容をコピーします"
+                    onCopy={() => onCopyAnswer(answer)}
+                  />
+                ) : null}
+                <Text
+                  style={[
+                    theme.typography.caption,
+                    styles.answerCount,
+                    { color: theme.colors.textDisabled }
+                  ]}
+                >
+                  {answer.length}文字
+                </Text>
+              </View>
             </View>
 
             <View style={styles.labelChips}>
@@ -377,8 +379,14 @@ const styles = StyleSheet.create({
   answerTextInput: {
     minHeight: 196
   },
+  answerFooter: {
+    alignItems: 'flex-start',
+    flexDirection: 'row',
+    gap: 4,
+    justifyContent: 'flex-end',
+    marginTop: 7
+  },
   answerCount: {
-    marginTop: 7,
     textAlign: 'right'
   },
   addLabelButton: {

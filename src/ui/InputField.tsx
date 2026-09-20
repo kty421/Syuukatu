@@ -42,7 +42,6 @@ type InputFieldProps = TextInputProps & {
   hideLabel?: boolean;
   errorMessage?: string | null;
   helperText?: string | null;
-  labelAction?: ReactNode;
   trailing?: ReactNode;
   fieldKey?: string;
   onContainerLayout?: (fieldKey: string, y: number) => void;
@@ -57,7 +56,6 @@ export const InputField = forwardRef<TextInput, InputFieldProps>(
       hideLabel,
       errorMessage,
       helperText,
-      labelAction,
       trailing,
       fieldKey,
       onContainerLayout,
@@ -89,24 +87,19 @@ export const InputField = forwardRef<TextInput, InputFieldProps>(
     return (
       <View onLayout={handleLayout}>
         {hideLabel ? null : (
-          <View style={styles.labelRow}>
-            <Text
-              numberOfLines={2}
-              style={[
-                theme.typography.footnote,
-                styles.label,
-                { color: theme.colors.textSecondary }
-              ]}
-            >
-              {label}
-              {required ? (
-                <Text style={{ color: theme.colors.danger }}> *</Text>
-              ) : null}
-            </Text>
-            {labelAction ? (
-              <View style={styles.labelAction}>{labelAction}</View>
+          <Text
+            numberOfLines={2}
+            style={[
+              theme.typography.footnote,
+              styles.label,
+              { color: theme.colors.textSecondary }
+            ]}
+          >
+            {label}
+            {required ? (
+              <Text style={{ color: theme.colors.danger }}> *</Text>
             ) : null}
-          </View>
+          </Text>
         )}
         <Pressable
           accessibilityLabel={label}
@@ -195,18 +188,8 @@ export const InputField = forwardRef<TextInput, InputFieldProps>(
 );
 
 const styles = StyleSheet.create({
-  labelRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 8,
-    justifyContent: 'space-between',
-    marginBottom: 8
-  },
   label: {
-    flexShrink: 1
-  },
-  labelAction: {
-    flexShrink: 0
+    marginBottom: 8
   },
   fieldShell: {
     alignItems: 'center',

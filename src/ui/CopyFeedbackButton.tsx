@@ -11,6 +11,8 @@ type CopyFeedbackButtonProps = {
   resetKey: string;
   theme: AppTheme;
   disabled?: boolean;
+  size?: 'compact' | 'inline';
+  tooltip?: string;
   onCopy: () => Promise<boolean>;
 };
 
@@ -19,6 +21,8 @@ export const CopyFeedbackButton = ({
   resetKey,
   theme,
   disabled,
+  size = 'compact',
+  tooltip,
   onCopy
 }: CopyFeedbackButtonProps) => {
   const [copied, setCopied] = useState(false);
@@ -107,9 +111,10 @@ export const CopyFeedbackButton = ({
       theme={theme}
       tone="neutral"
       variant="plain"
-      size="compact"
-      iconSize={17}
+      size={size}
+      iconSize={size === 'inline' ? 14 : 17}
       disabled={disabled}
+      tooltip={tooltip}
     />
   );
 };
