@@ -1,21 +1,21 @@
-import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
+import { Ionicons } from "@expo/vector-icons";
+import { useEffect, useRef, useState } from "react";
+import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 
-import { AppTheme } from '../../../constants/theme';
-import { AppButton } from '../../../ui/AppButton';
-import { CopyFeedbackButton } from '../../../ui/CopyFeedbackButton';
-import { DismissKeyboardView } from '../../../ui/DismissKeyboardView';
-import { FullScreenModalShell } from '../../../ui/FullScreenModalShell';
-import { InputField } from '../../../ui/InputField';
+import { AppTheme } from "../../../constants/theme";
+import { AppButton } from "../../../ui/AppButton";
+import { CopyFeedbackButton } from "../../../ui/CopyFeedbackButton";
+import { DismissKeyboardView } from "../../../ui/DismissKeyboardView";
+import { FullScreenModalShell } from "../../../ui/FullScreenModalShell";
+import { InputField } from "../../../ui/InputField";
 import {
   CompanyQuestionAnswer,
   Company,
   QuestionLabel,
-  QuestionMemo
-} from '../types';
-import { QuestionLabelCreateDialog } from './QuestionLabelCreateDialog';
+  QuestionMemo,
+} from "../types";
+import { QuestionLabelCreateDialog } from "./QuestionLabelCreateDialog";
 
 type QuestionMemoDialogProps<T extends CompanyQuestionAnswer | QuestionMemo> = {
   item: T | null;
@@ -30,7 +30,7 @@ type QuestionMemoDialogProps<T extends CompanyQuestionAnswer | QuestionMemo> = {
 };
 
 export const QuestionMemoDialog = <
-  T extends CompanyQuestionAnswer | QuestionMemo
+  T extends CompanyQuestionAnswer | QuestionMemo,
 >({
   item,
   labels,
@@ -40,10 +40,10 @@ export const QuestionMemoDialog = <
   onClose,
   onCopyAnswer,
   onSave,
-  onCreateLabel
+  onCreateLabel,
 }: QuestionMemoDialogProps<T>) => {
-  const [question, setQuestion] = useState('');
-  const [answer, setAnswer] = useState('');
+  const [question, setQuestion] = useState("");
+  const [answer, setAnswer] = useState("");
   const [selectedLabelIds, setSelectedLabelIds] = useState<string[]>([]);
   const [titleError, setTitleError] = useState<string | null>(null);
   const [labelCreateVisible, setLabelCreateVisible] = useState(false);
@@ -83,7 +83,7 @@ export const QuestionMemoDialog = <
     setSelectedLabelIds((current) =>
       current.includes(labelId)
         ? current.filter((id) => id !== labelId)
-        : [...current, labelId]
+        : [...current, labelId],
     );
   };
 
@@ -91,7 +91,7 @@ export const QuestionMemoDialog = <
     const trimmedQuestion = question.trim();
 
     if (!trimmedQuestion) {
-      setTitleError('題目を入力してください');
+      setTitleError("題目を入力してください");
       requestAnimationFrame(() => {
         questionInputRef.current?.focus();
       });
@@ -103,7 +103,7 @@ export const QuestionMemoDialog = <
       ...item,
       question: trimmedQuestion,
       answer,
-      labelIds: selectedLabelIds
+      labelIds: selectedLabelIds,
     });
   };
 
@@ -113,8 +113,7 @@ export const QuestionMemoDialog = <
       title="質問メモ"
       theme={theme}
       onClose={onClose}
-      closeIcon="close"
-    >
+      closeIcon="close">
       <View style={styles.dialogRoot}>
         {saveNoticeVisible ? (
           <View
@@ -125,10 +124,9 @@ export const QuestionMemoDialog = <
               {
                 backgroundColor: theme.colors.surfaceOverlay,
                 borderColor: theme.colors.primaryBorder,
-                borderRadius: theme.radii.md
-              }
-            ]}
-          >
+                borderRadius: theme.radii.md,
+              },
+            ]}>
             <Ionicons
               name="checkmark-circle"
               size={17}
@@ -138,9 +136,8 @@ export const QuestionMemoDialog = <
               style={[
                 theme.typography.footnote,
                 styles.saveNoticeText,
-                { color: theme.colors.textPrimary }
-              ]}
-            >
+                { color: theme.colors.textPrimary },
+              ]}>
               保存中です。続けて入力できます。
             </Text>
           </View>
@@ -150,8 +147,7 @@ export const QuestionMemoDialog = <
           contentContainerStyle={styles.body}
           keyboardDismissMode="interactive"
           keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
+          showsVerticalScrollIndicator={false}>
           <DismissKeyboardView style={styles.form}>
             {company ? (
               <View
@@ -160,10 +156,9 @@ export const QuestionMemoDialog = <
                   {
                     backgroundColor: theme.colors.surfaceElevated,
                     borderColor: theme.colors.border,
-                    borderRadius: theme.radii.md
-                  }
-                ]}
-              >
+                    borderRadius: theme.radii.md,
+                  },
+                ]}>
                 <View style={styles.companyIcon}>
                   <Ionicons
                     name="business-outline"
@@ -177,9 +172,8 @@ export const QuestionMemoDialog = <
                     style={[
                       styles.companyName,
                       theme.typography.bodyStrong,
-                      { color: theme.colors.textPrimary }
-                    ]}
-                  >
+                      { color: theme.colors.textPrimary },
+                    ]}>
                     {company.companyName}
                   </Text>
                 </View>
@@ -230,9 +224,8 @@ export const QuestionMemoDialog = <
                   style={[
                     theme.typography.caption,
                     styles.answerCount,
-                    { color: theme.colors.textDisabled }
-                  ]}
-                >
+                    { color: theme.colors.textDisabled },
+                  ]}>
                   {answer.length}文字
                 </Text>
               </View>
@@ -257,11 +250,10 @@ export const QuestionMemoDialog = <
                         borderColor: selected
                           ? theme.colors.primaryBorder
                           : theme.colors.border,
-                        borderRadius: theme.radii.pill
+                        borderRadius: theme.radii.pill,
                       },
-                      pressed && styles.pressed
-                    ]}
-                  >
+                      pressed && styles.pressed,
+                    ]}>
                     <Text
                       numberOfLines={1}
                       style={[
@@ -270,10 +262,9 @@ export const QuestionMemoDialog = <
                         {
                           color: selected
                             ? theme.colors.primary
-                            : theme.colors.textSecondary
-                        }
-                      ]}
-                    >
+                            : theme.colors.textSecondary,
+                        },
+                      ]}>
                       {label.name}
                     </Text>
                   </Pressable>
@@ -288,11 +279,10 @@ export const QuestionMemoDialog = <
                   {
                     backgroundColor: theme.colors.surfaceElevated,
                     borderColor: theme.colors.border,
-                    borderRadius: theme.radii.sm
+                    borderRadius: theme.radii.sm,
                   },
-                  pressed && styles.pressed
-                ]}
-              >
+                  pressed && styles.pressed,
+                ]}>
                 <Ionicons name="add" size={17} color={theme.colors.primary} />
               </Pressable>
             </View>
@@ -316,7 +306,7 @@ export const QuestionMemoDialog = <
             setSelectedLabelIds((current) =>
               current.includes(createdLabel.id)
                 ? current
-                : [...current, createdLabel.id]
+                : [...current, createdLabel.id],
             );
             return createdLabel;
           }}
@@ -328,98 +318,98 @@ export const QuestionMemoDialog = <
 
 const styles = StyleSheet.create({
   dialogRoot: {
-    flex: 1
+    flex: 1,
   },
   body: {
-    alignSelf: 'center',
+    alignSelf: "center",
     maxWidth: 760,
     paddingBottom: 22,
     paddingHorizontal: 16,
     paddingTop: 14,
-    width: '100%'
+    width: "100%",
   },
   form: {
-    gap: 14
+    gap: 14,
   },
   companyContext: {
-    alignItems: 'center',
+    alignItems: "center",
     borderWidth: StyleSheet.hairlineWidth,
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 12,
     minHeight: 64,
     paddingHorizontal: 14,
-    paddingVertical: 12
+    paddingVertical: 12,
   },
   companyIcon: {
-    alignItems: 'center',
+    alignItems: "center",
     height: 28,
-    justifyContent: 'center',
-    width: 28
+    justifyContent: "center",
+    width: 28,
   },
   companyCopy: {
     flex: 1,
-    minWidth: 0
+    minWidth: 0,
   },
-  companyName: {
-  },
+  companyName: {},
   saveNotice: {
-    alignItems: 'center',
-    alignSelf: 'center',
+    alignItems: "center",
+    alignSelf: "center",
     borderWidth: StyleSheet.hairlineWidth,
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 8,
-    maxWidth: '90%',
+    maxWidth: "90%",
     paddingHorizontal: 13,
     paddingVertical: 10,
-    position: 'absolute',
+    position: "absolute",
     top: 10,
-    zIndex: 10
+    zIndex: 10,
   },
   saveNoticeText: {
     flexShrink: 1,
-    fontWeight: '800'
+    fontWeight: "800",
   },
   answerTextInput: {
-    minHeight: 196
+    minHeight: 196,
   },
   answerFooter: {
-    alignItems: 'flex-start',
-    flexDirection: 'row',
+    alignItems: "flex-start",
+    flexDirection: "row",
     gap: 4,
-    justifyContent: 'flex-end',
-    marginTop: 7
+    justifyContent: "flex-end",
+    marginTop: 7,
   },
   answerCopyAction: {
-    transform: [{ translateY: -2 }]
+    transform: [{ translateY: -2 }],
   },
   answerCount: {
-    textAlign: 'right'
+    textAlign: "right",
   },
   addLabelButton: {
-    alignItems: 'center',
+    alignItems: "center",
     borderWidth: StyleSheet.hairlineWidth,
     height: 34,
-    justifyContent: 'center',
-    width: 34
+    justifyContent: "center",
+    width: 34,
   },
   labelChips: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: 8,
-    marginBottom: 12
+    marginBottom: 12,
+    marginTop: 20,
   },
   labelChip: {
-    alignItems: 'center',
+    alignItems: "center",
     borderWidth: StyleSheet.hairlineWidth,
     height: 34,
-    justifyContent: 'center',
+    justifyContent: "center",
     maxWidth: 160,
-    paddingHorizontal: 12
+    paddingHorizontal: 12,
   },
   labelChipText: {
-    fontWeight: '700'
+    fontWeight: "700",
   },
   pressed: {
-    opacity: 0.72
-  }
+    opacity: 0.72,
+  },
 });
