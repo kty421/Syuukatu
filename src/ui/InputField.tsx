@@ -130,7 +130,8 @@ export const InputField = forwardRef<TextInput, InputFieldProps>(
               minHeight: multiline ? 112 : theme.component.controlHeight,
               opacity: disabled ? theme.state.disabledOpacity : 1,
               paddingLeft: theme.spacing.md,
-              paddingRight: theme.spacing.sm
+              paddingRight:
+                multiline && !trailing ? 0 : theme.spacing.sm
             }
           ]}
         >
@@ -156,7 +157,9 @@ export const InputField = forwardRef<TextInput, InputFieldProps>(
               theme.typography.body,
               {
                 color: theme.colors.textPrimary,
-                minHeight: multiline ? 112 : theme.component.controlHeight
+                minHeight: multiline ? 112 : theme.component.controlHeight,
+                paddingRight:
+                  multiline && !trailing ? theme.spacing.md : undefined
               },
               style
             ]}

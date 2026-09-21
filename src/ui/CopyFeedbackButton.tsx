@@ -4,13 +4,16 @@ import { GestureResponderEvent } from 'react-native';
 import { AppTheme } from '../constants/theme';
 import { IconButton } from './IconButton';
 
-const COPIED_FEEDBACK_DURATION_MS = 1500;
+const COPIED_FEEDBACK_DURATION_MS = 2500;
 
 type CopyFeedbackButtonProps = {
   label: string;
   resetKey: string;
   theme: AppTheme;
   disabled?: boolean;
+  iconColor?: string;
+  size?: 'compact' | 'inline';
+  tooltip?: string;
   onCopy: () => Promise<boolean>;
 };
 
@@ -19,9 +22,13 @@ export const CopyFeedbackButton = ({
   resetKey,
   theme,
   disabled,
+  iconColor,
+  size = 'compact',
+  tooltip,
   onCopy
 }: CopyFeedbackButtonProps) => {
   const [copied, setCopied] = useState(false);
+  const [copying, setCopying] = useState(false);
   const copiedTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const operationIdRef = useRef(0);
   const copyingRef = useRef(false);
@@ -50,6 +57,7 @@ export const CopyFeedbackButton = ({
     operationIdRef.current += 1;
     copyingRef.current = false;
     clearCopiedTimeout();
+    setCopying(false);
     setCopied(false);
   }, [clearCopiedTimeout, resetKey]);
 
@@ -64,6 +72,7 @@ export const CopyFeedbackButton = ({
       clearCopiedTimeout();
       setCopied(false);
       copyingRef.current = true;
+      setCopying(true);
       const operationId = operationIdRef.current + 1;
       operationIdRef.current = operationId;
 
@@ -76,6 +85,7 @@ export const CopyFeedbackButton = ({
       } finally {
         if (operationIdRef.current === operationId) {
           copyingRef.current = false;
+          setCopying(false);
         }
       }
 
@@ -107,9 +117,11 @@ export const CopyFeedbackButton = ({
       theme={theme}
       tone="neutral"
       variant="plain"
-      size="compact"
-      iconSize={17}
+      size={size}
+      iconSize={size === 'inline' ? 14 : 17}
       disabled={disabled}
+      foregroundColor={iconColor}
+      tooltip={!copied && !copying ? tooltip : undefined}
     />
   );
 };

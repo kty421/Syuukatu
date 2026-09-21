@@ -209,30 +209,33 @@ export const QuestionMemoDialog = <
                 placeholder="話す要点やエピソード"
                 multiline
                 style={styles.answerTextInput}
-                trailing={
-                  onCopyAnswer ? (
-                    <View style={styles.answerCopyAction}>
-                      <CopyFeedbackButton
-                        label="回答内容をコピー"
-                        resetKey={answer}
-                        theme={theme}
-                        disabled={!answer.trim()}
-                        onCopy={() => onCopyAnswer(answer)}
-                      />
-                    </View>
-                  ) : null
-                }
                 onChangeText={setAnswer}
               />
-              <Text
-                style={[
-                  theme.typography.caption,
-                  styles.answerCount,
-                  { color: theme.colors.textDisabled }
-                ]}
-              >
-                {answer.length}文字
-              </Text>
+              <View style={styles.answerFooter}>
+                {onCopyAnswer ? (
+                  <View style={styles.answerCopyAction}>
+                    <CopyFeedbackButton
+                      label="回答内容をコピー"
+                      resetKey={answer}
+                      theme={theme}
+                      disabled={!answer.trim()}
+                      iconColor={theme.colors.textDisabled}
+                      size="inline"
+                      tooltip="回答内容をコピーする"
+                      onCopy={() => onCopyAnswer(answer)}
+                    />
+                  </View>
+                ) : null}
+                <Text
+                  style={[
+                    theme.typography.caption,
+                    styles.answerCount,
+                    { color: theme.colors.textDisabled }
+                  ]}
+                >
+                  {answer.length}文字
+                </Text>
+              </View>
             </View>
 
             <View style={styles.labelChips}>
@@ -379,12 +382,17 @@ const styles = StyleSheet.create({
   answerTextInput: {
     minHeight: 196
   },
+  answerFooter: {
+    alignItems: 'flex-start',
+    flexDirection: 'row',
+    gap: 4,
+    justifyContent: 'flex-end',
+    marginTop: 7
+  },
   answerCopyAction: {
-    alignSelf: 'flex-start',
-    marginTop: 8
+    transform: [{ translateY: -2 }]
   },
   answerCount: {
-    marginTop: 7,
     textAlign: 'right'
   },
   addLabelButton: {
