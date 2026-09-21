@@ -213,7 +213,7 @@ const styles = StyleSheet.create({
     zIndex: 20
   },
   tooltip: {
-    backgroundColor: '#18181B',
+    backgroundColor: 'rgba(0, 11, 43, 0.55)',
     borderRadius: 6,
     left: '50%',
     marginLeft: -80,

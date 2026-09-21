@@ -221,7 +221,7 @@ export const QuestionMemoDialog = <
                       disabled={!answer.trim()}
                       iconColor={theme.colors.textDisabled}
                       size="inline"
-                      tooltip="メッセージをコピーする"
+                      tooltip="回答内容をコピーする"
                       onCopy={() => onCopyAnswer(answer)}
                     />
                   </View>
