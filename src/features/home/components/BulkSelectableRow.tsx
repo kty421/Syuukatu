@@ -60,6 +60,7 @@ export const BulkSelectableRow = ({
           accessibilityLabel={label}
           accessibilityRole="checkbox"
           accessibilityState={{ checked: selected }}
+          aria-checked={selected}
           hitSlop={2}
           onPress={onToggle}
           style={({ pressed }) => [

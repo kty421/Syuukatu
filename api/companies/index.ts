@@ -13,6 +13,7 @@ import {
   upsertCompanyScheduleBodySchema
 } from '../_lib/schedule';
 import { getAuthenticatedSupabase } from '../_lib/auth';
+import { bulkCompanyStatusBodySchema, updateCompanyStatuses } from '../_lib/bulkUpdates';
 import {
   handleApiError,
   handleCorsPreflight,
@@ -34,8 +35,14 @@ export default async function handler(
       return;
     }
 
-    requireMethod(req.method, ['GET', 'POST', 'PUT', 'DELETE']);
+    requireMethod(req.method, ['GET', 'POST', 'PUT', 'PATCH', 'DELETE']);
     const { supabase, user } = await getAuthenticatedSupabase(req, res);
+
+    if (req.method === 'PATCH') {
+      const body = bulkCompanyStatusBodySchema.parse(parseRequestBody(req.body));
+      sendJson(res, 200, await updateCompanyStatuses(supabase, user.id, body));
+      return;
+    }
 
     if (req.method === 'GET') {
       const { data, error } = await supabase

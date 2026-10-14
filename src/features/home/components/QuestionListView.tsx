@@ -1,6 +1,6 @@
 import { FlashList, type FlashListRef } from '@shopify/flash-list';
 import { LinearGradient } from 'expo-linear-gradient';
-import { memo, useCallback, useMemo, useRef, useState, type Ref } from 'react';
+import { memo, useCallback, useMemo, useRef, useState, type Ref, type ReactNode } from 'react';
 import {
   Animated,
   LayoutChangeEvent,
@@ -48,6 +48,7 @@ type QuestionListViewProps = {
   selectionDisabled: boolean;
   selectionProgress: Animated.Value;
   selectedQuestionIds: ReadonlySet<string>;
+  bulkActions?: ReactNode;
   onLabelFilterChange: (labelId: string | null) => void;
   onSortChange: (sort: QuestionMemoSort) => void;
   onClearQuery: () => void;
@@ -183,6 +184,7 @@ export const QuestionListView = ({
   selectionDisabled,
   selectionProgress,
   selectedQuestionIds,
+  bulkActions,
   onLabelFilterChange,
   onSortChange,
   onClearQuery,
@@ -474,6 +476,7 @@ export const QuestionListView = ({
             theme={theme}
             onToggle={onToggleSelectionMode}
           />
+          {selectionActive ? bulkActions : null}
         </View>
       </View>
       <FlashList

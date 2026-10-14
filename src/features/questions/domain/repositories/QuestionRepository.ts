@@ -1,6 +1,13 @@
 import { QuestionLabel, QuestionMemo } from '../entities/question';
+import { BulkUpdateResult, LabelOperation } from '../../../../shared/types/bulkUpdate';
 
 export type QuestionRepository = {
+  updateMemoLabels: (
+    questionMemoIds: string[],
+    labelIds: string[],
+    operation: LabelOperation,
+    accessToken: string | null
+  ) => Promise<BulkUpdateResult<QuestionMemo>>;
   createLabel: (
     label: QuestionLabel,
     accessToken: string | null

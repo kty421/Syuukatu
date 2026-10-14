@@ -1,4 +1,5 @@
 import { getAuthenticatedSupabase } from '../_lib/auth';
+import { bulkQuestionLabelsBodySchema, updateQuestionLabels } from '../_lib/bulkUpdates';
 import { fromCompanyRow } from '../_lib/company';
 import {
   fromQuestionLabelRow,
@@ -39,8 +40,14 @@ export default async function handler(
       return;
     }
 
-    requireMethod(req.method, ['GET', 'POST', 'PUT', 'DELETE']);
+    requireMethod(req.method, ['GET', 'POST', 'PUT', 'PATCH', 'DELETE']);
     const { supabase, user } = await getAuthenticatedSupabase(req, res);
+
+    if (req.method === 'PATCH') {
+      const body = bulkQuestionLabelsBodySchema.parse(parseRequestBody(req.body));
+      sendJson(res, 200, await updateQuestionLabels(supabase, user.id, body));
+      return;
+    }
 
     if (req.method === 'GET') {
       const includeCompanies =

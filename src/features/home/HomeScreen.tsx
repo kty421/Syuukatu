@@ -49,9 +49,11 @@ import { ApplicationTypeSegment } from "./components/ApplicationTypeSegment";
 import { BottomNavigation, MainTab } from "./components/BottomNavigation";
 import { BulkSelectableRow } from "./components/BulkSelectableRow";
 import {
-  BulkDeleteFloatingButton,
+  BulkSelectionActions,
   BulkSelectionTopControl,
 } from "./components/BulkSelectionControls";
+import { BulkUpdateDialog } from "./components/BulkUpdateDialog";
+import { BulkUpdateResult, LabelOperation } from "../../shared/types/bulkUpdate";
 import { CalendarView } from "./components/CalendarView";
 import { CompanyAddMethodSheet } from "./components/CompanyAddMethodSheet";
 import { CompanyAddSpeedDial } from "./components/CompanyAddSpeedDial";
@@ -433,6 +435,8 @@ export const HomeScreen = ({
     localMigrationAvailable,
     isMigratingLocalData,
     upsertCompany,
+    updateCompanyStatuses,
+    updateQuestionMemoLabels,
     upsertQuestionMemo,
     deleteQuestionMemo: deleteQuestionMemoById,
     deleteQuestionMemos,
@@ -483,6 +487,13 @@ export const HomeScreen = ({
   const [selectedBulkIds, setSelectedBulkIds] = useState<Set<string>>(
     () => new Set(),
   );
+  const [bulkEdit, setBulkEdit] = useState<
+    | { mode: "status"; ids: string[] }
+    | { mode: "labels"; ids: string[]; operation: LabelOperation }
+    | null
+  >(null);
+  const [isBulkSaving, setIsBulkSaving] = useState(false);
+  const bulkSavingRef = useRef(false);
   const [selectedQuestionLabelId, setSelectedQuestionLabelId] = useState<
     string | null
   >(null);
@@ -765,9 +776,11 @@ export const HomeScreen = ({
   const resetBulkSelection = useCallback(() => {
     setBulkSelectionView(null);
     setSelectedBulkIds(new Set());
+    setBulkEdit(null);
   }, []);
 
   const toggleBulkSelectionMode = useCallback(() => {
+    if (bulkSavingRef.current) return;
     if (isBulkSelectionActive) {
       resetBulkSelection();
       void runHapticsSafely(() => Haptics.selectionAsync());
@@ -790,6 +803,7 @@ export const HomeScreen = ({
   ]);
 
   const toggleBulkSelection = useCallback((id: string) => {
+    if (bulkSavingRef.current) return;
     setSelectedBulkIds((current) => {
       const next = new Set(current);
 
@@ -816,7 +830,7 @@ export const HomeScreen = ({
   }, [bulkSelectionProgress, isBulkSelectionActive, theme.motion.standard]);
 
   useEffect(() => {
-    if (!isBulkSelectionActive) {
+    if (!isBulkSelectionActive || isBulkSaving) {
       return;
     }
 
@@ -829,7 +843,7 @@ export const HomeScreen = ({
 
       return next.size === current.size ? current : next;
     });
-  }, [isBulkSelectionActive, visibleBulkIds]);
+  }, [isBulkSelectionActive, isBulkSaving, visibleBulkIds]);
 
   const scrollQuestionListToTop = useCallback((animated = true) => {
     requestAnimationFrame(() => {
@@ -848,6 +862,7 @@ export const HomeScreen = ({
   }, []);
 
   const clearCompanySearch = useCallback(() => {
+    if (bulkSavingRef.current) return;
     resetBulkSelection();
     setCompanyQuery("");
     scrollCompanyListToTop(false);
@@ -855,6 +870,7 @@ export const HomeScreen = ({
 
   const changeCompanyQuery = useCallback(
     (value: string) => {
+      if (bulkSavingRef.current) return;
       resetBulkSelection();
       setCompanyQuery(value);
     },
@@ -875,6 +891,7 @@ export const HomeScreen = ({
   }, []);
 
   const clearQuestionSearch = useCallback(() => {
+    if (bulkSavingRef.current) return;
     resetBulkSelection();
     setQuestionQuery("");
     scrollQuestionListToTop(false);
@@ -882,6 +899,7 @@ export const HomeScreen = ({
 
   const changeQuestionQuery = useCallback(
     (value: string) => {
+      if (bulkSavingRef.current) return;
       resetBulkSelection();
       setQuestionQuery(value);
     },
@@ -890,6 +908,7 @@ export const HomeScreen = ({
 
   const changeQuestionLabelFilter = useCallback(
     (labelId: string | null) => {
+      if (bulkSavingRef.current) return;
       resetBulkSelection();
       setSelectedQuestionLabelId(labelId);
     },
@@ -1027,6 +1046,7 @@ export const HomeScreen = ({
 
   const changeApplicationType = useCallback(
     (type: ApplicationType) => {
+      if (bulkSavingRef.current) return;
       if (type === activeType) {
         animateTypeTransition(type);
         return;
@@ -1043,6 +1063,7 @@ export const HomeScreen = ({
 
   const changeHomeView = useCallback(
     (view: MainTab) => {
+      if (bulkSavingRef.current) return;
       if (view === homeView) {
         return;
       }
@@ -1776,7 +1797,7 @@ export const HomeScreen = ({
   );
 
   const deleteSelectedItems = useCallback(() => {
-    if (!bulkSelectionView || selectedBulkIds.size === 0) {
+    if (bulkSavingRef.current || !bulkSelectionView || selectedBulkIds.size === 0) {
       return;
     }
 
@@ -1791,10 +1812,16 @@ export const HomeScreen = ({
           : "関連する日程が削除され、質問は「企業との対応なし」になります。",
         confirmLabel: "削除",
         onConfirm: async () => {
+          if (bulkSavingRef.current) return;
+          bulkSavingRef.current = true;
+          setIsBulkSaving(true);
           try {
             finishBulkDelete(await deleteCompanies(selectedIds));
           } catch {
             showToast("企業の一括削除に失敗しました", "error");
+          } finally {
+            bulkSavingRef.current = false;
+            setIsBulkSaving(false);
           }
         },
       });
@@ -1806,10 +1833,16 @@ export const HomeScreen = ({
       message: "削除した質問メモは元に戻せません。",
       confirmLabel: "削除",
       onConfirm: async () => {
+        if (bulkSavingRef.current) return;
+        bulkSavingRef.current = true;
+        setIsBulkSaving(true);
         try {
           finishBulkDelete(await deleteQuestionMemos(selectedIds));
         } catch {
           showToast("質問メモの一括削除に失敗しました", "error");
+        } finally {
+          bulkSavingRef.current = false;
+          setIsBulkSaving(false);
         }
       },
     });
@@ -1824,8 +1857,46 @@ export const HomeScreen = ({
     showToast,
   ]);
 
+  const openBulkStatus = useCallback(() => {
+    if (bulkSavingRef.current || selectedBulkIds.size === 0) return;
+    setBulkEdit({ mode: "status", ids: [...selectedBulkIds] });
+  }, [selectedBulkIds]);
+
+  const openBulkLabels = useCallback((operation: LabelOperation) => {
+    if (bulkSavingRef.current || selectedBulkIds.size === 0) return;
+    setBulkEdit({ mode: "labels", ids: [...selectedBulkIds], operation });
+  }, [selectedBulkIds]);
+
+  const applyBulkUpdate = useCallback(async (
+    save: () => Promise<BulkUpdateResult<unknown>>,
+  ) => {
+    if (bulkSavingRef.current) return;
+    bulkSavingRef.current = true;
+    setIsBulkSaving(true);
+    try {
+      const result = await save();
+      const updatedCount = result.updatedIds.length;
+      const failedCount = result.failedIds.length;
+      if (failedCount > 0) {
+        setSelectedBulkIds(new Set(result.failedIds));
+        showToast(updatedCount > 0
+          ? `${updatedCount}件変更、${failedCount}件失敗しました`
+          : `${failedCount}件の変更に失敗しました`, updatedCount > 0 ? "warning" : "error");
+      } else {
+        showToast(updatedCount > 0 ? `${updatedCount}件変更しました` : "変更が必要な項目はありません");
+      }
+    } catch {
+      showToast("一括変更を完了できませんでした。保存状態を確認して再試行してください", "error");
+    } finally {
+      setBulkEdit(null);
+      bulkSavingRef.current = false;
+      setIsBulkSaving(false);
+    }
+  }, [showToast]);
+
   const changeQuestionSort = useCallback(
     (sort: QuestionMemoSort) => {
+      if (bulkSavingRef.current) return;
       resetBulkSelection();
       setQuestionSort(sort);
       scrollQuestionListToTop(false);
@@ -2034,10 +2105,22 @@ export const HomeScreen = ({
             ]}>
             <BulkSelectionTopControl
               active={isBulkSelectionActive}
-              disabled={!isBulkSelectionActive && activeCompanies.length === 0}
+              disabled={isBulkSaving || (!isBulkSelectionActive && activeCompanies.length === 0)}
               theme={theme}
               onToggle={toggleBulkSelectionMode}
             />
+            {isBulkSelectionActive ? (
+              <BulkSelectionActions
+                selectedCount={selectedBulkIds.size}
+                unit="社"
+                busy={isBulkSaving}
+                theme={theme}
+                actions={[
+                  { label: "削除", icon: "trash-outline", destructive: true, onPress: deleteSelectedItems },
+                  { label: "選考状況を変更", icon: "swap-horizontal-outline", onPress: openBulkStatus },
+                ]}
+              />
+            ) : null}
           </View>
         ) : null}
 
@@ -2142,11 +2225,23 @@ export const HomeScreen = ({
             listRef={questionListRef}
             selectionActive={bulkSelectionView === "questions"}
             selectionDisabled={
-              bulkSelectionView !== "questions" &&
-              filteredQuestionEntries.length === 0
+              isBulkSaving || (bulkSelectionView !== "questions" &&
+              filteredQuestionEntries.length === 0)
             }
             selectionProgress={bulkSelectionProgress}
             selectedQuestionIds={selectedBulkIds}
+            bulkActions={
+              <BulkSelectionActions
+                selectedCount={selectedBulkIds.size}
+                busy={isBulkSaving}
+                theme={theme}
+                actions={[
+                  { label: "削除", icon: "trash-outline", destructive: true, onPress: deleteSelectedItems },
+                  { label: "ラベルを追加", icon: "add-outline", disabled: questionLabels.length === 0, onPress: () => openBulkLabels("add") },
+                  { label: "ラベルを外す", icon: "remove-outline", disabled: questionLabels.length === 0, onPress: () => openBulkLabels("remove") },
+                ]}
+              />
+            }
             onLabelFilterChange={changeQuestionLabelFilter}
             onSortChange={changeQuestionSort}
             onClearQuery={clearQuestionSearch}
@@ -2212,18 +2307,6 @@ export const HomeScreen = ({
         />
       ) : null}
 
-      {isBulkSelectionActive ? (
-        <BulkDeleteFloatingButton
-          selectedCount={selectedBulkIds.size}
-          theme={theme}
-          onPress={deleteSelectedItems}
-          style={{
-            bottom: fabBottom,
-            left: metrics.contentPadding,
-          }}
-        />
-      ) : null}
-
       <BottomNavigation
         value={homeView}
         theme={theme}
@@ -2237,6 +2320,28 @@ export const HomeScreen = ({
           width: bottomNavigationWidth,
         }}
       />
+
+      {bulkEdit?.mode === "status" ? (
+        <BulkUpdateDialog
+          mode="status"
+          companies={companies.filter((company) => bulkEdit.ids.includes(company.id))}
+          theme={theme}
+          busy={isBulkSaving}
+          onClose={() => { if (!bulkSavingRef.current) setBulkEdit(null); }}
+          onApply={(status) => { void applyBulkUpdate(() => updateCompanyStatuses(bulkEdit.ids, status)); }}
+        />
+      ) : bulkEdit?.mode === "labels" ? (
+        <BulkUpdateDialog
+          mode="labels"
+          memos={questionMemos.filter((memo) => bulkEdit.ids.includes(memo.id))}
+          labels={questionLabels}
+          operation={bulkEdit.operation}
+          theme={theme}
+          busy={isBulkSaving}
+          onClose={() => { if (!bulkSavingRef.current) setBulkEdit(null); }}
+          onApply={(labelIds) => { void applyBulkUpdate(() => updateQuestionMemoLabels(bulkEdit.ids, labelIds, bulkEdit.operation)); }}
+        />
+      ) : null}
 
       <CompanyAddMethodSheet
         visible={addMethodVisible}
