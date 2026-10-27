@@ -5,26 +5,28 @@ import { AppTheme } from "../../../constants/theme";
 
 type SelectionCircleProps = {
   selected: boolean;
+  indeterminate?: boolean;
+  disabled?: boolean;
   theme: AppTheme;
 };
 
-export const SelectionCircle = ({ selected, theme }: SelectionCircleProps) => (
+export const SelectionCircle = ({ selected, indeterminate = false, disabled = false, theme }: SelectionCircleProps) => (
   <View
     style={[
       styles.circle,
       {
-        backgroundColor: selected
+        backgroundColor: disabled ? theme.colors.disabledBackground : selected || indeterminate
           ? theme.colors.primary
           : theme.colors.surface,
-        borderColor: selected
+        borderColor: disabled ? theme.colors.disabledText : selected || indeterminate
           ? theme.colors.primary
           : theme.colors.outlineStrong,
       },
     ]}>
-    {selected ? (
+    {selected || indeterminate ? (
       <Ionicons
-        color={theme.colors.textOnPrimary}
-        name="checkmark"
+        color={disabled ? theme.colors.disabledText : theme.colors.textOnPrimary}
+        name={indeterminate ? "remove" : "checkmark"}
         size={16}
       />
     ) : null}

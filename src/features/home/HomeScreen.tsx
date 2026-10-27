@@ -98,6 +98,7 @@ import {
 import { todayDateString } from "./utils/scheduleUtils";
 import { useConfirmAction } from "./utils/confirmAction";
 import { BulkDeleteResult } from "./utils/bulkDeleteUtils";
+import { getBulkSelectionState, toggleAllBulkSelection } from "./utils/bulkUpdateUtils";
 
 const transitionValueByType: Record<ApplicationType, number> = {
   internship: 0,
@@ -647,6 +648,7 @@ export const HomeScreen = ({
   }, [activeCompanies, filteredQuestionEntries, homeView]);
   const isBulkSelectionActive =
     homeView !== "calendar" && bulkSelectionView === homeView;
+  const bulkSelectionState = getBulkSelectionState(selectedBulkIds, visibleBulkIds);
   const questionCountsByCompany = useMemo(
     () =>
       questionMemos.reduce<Record<string, number>>((counts, questionMemo) => {
@@ -818,6 +820,12 @@ export const HomeScreen = ({
     void runHapticsSafely(() => Haptics.selectionAsync());
   }, []);
 
+  const toggleAllBulkItems = useCallback(() => {
+    if (bulkSavingRef.current || !isBulkSelectionActive) return;
+    setSelectedBulkIds((current) => toggleAllBulkSelection(current, visibleBulkIds));
+    void runHapticsSafely(() => Haptics.selectionAsync());
+  }, [isBulkSelectionActive, visibleBulkIds]);
+
   useEffect(() => {
     const animation = Animated.timing(bulkSelectionProgress, {
       toValue: isBulkSelectionActive ? 1 : 0,
@@ -908,11 +916,12 @@ export const HomeScreen = ({
 
   const changeQuestionLabelFilter = useCallback(
     (labelId: string | null) => {
-      if (bulkSavingRef.current) return;
+      if (bulkSavingRef.current || selectedQuestionLabelId === labelId) return;
       resetBulkSelection();
       setSelectedQuestionLabelId(labelId);
+      scrollQuestionListToTop(false);
     },
-    [resetBulkSelection],
+    [resetBulkSelection, scrollQuestionListToTop, selectedQuestionLabelId],
   );
 
   useEffect(
@@ -2112,11 +2121,14 @@ export const HomeScreen = ({
             {isBulkSelectionActive ? (
               <BulkSelectionActions
                 selectedCount={selectedBulkIds.size}
+                targetCount={visibleBulkIds.length}
+                selectionState={bulkSelectionState}
+                onToggleAll={toggleAllBulkItems}
                 unit="社"
                 busy={isBulkSaving}
                 theme={theme}
                 actions={[
-                  { label: "削除", icon: "trash-outline", destructive: true, onPress: deleteSelectedItems },
+                  { label: "削除", icon: "trash-outline", iconOnly: true, onPress: deleteSelectedItems },
                   { label: "選考状況を変更", icon: "swap-horizontal-outline", onPress: openBulkStatus },
                 ]}
               />
@@ -2233,10 +2245,13 @@ export const HomeScreen = ({
             bulkActions={
               <BulkSelectionActions
                 selectedCount={selectedBulkIds.size}
+                targetCount={visibleBulkIds.length}
+                selectionState={bulkSelectionState}
+                onToggleAll={toggleAllBulkItems}
                 busy={isBulkSaving}
                 theme={theme}
                 actions={[
-                  { label: "削除", icon: "trash-outline", destructive: true, onPress: deleteSelectedItems },
+                  { label: "削除", icon: "trash-outline", iconOnly: true, onPress: deleteSelectedItems },
                   { label: "ラベルを追加", icon: "add-outline", disabled: questionLabels.length === 0, onPress: () => openBulkLabels("add") },
                   { label: "ラベルを外す", icon: "remove-outline", disabled: questionLabels.length === 0, onPress: () => openBulkLabels("remove") },
                 ]}
@@ -2324,6 +2339,7 @@ export const HomeScreen = ({
       {bulkEdit?.mode === "status" ? (
         <BulkUpdateDialog
           mode="status"
+          type={activeType}
           companies={companies.filter((company) => bulkEdit.ids.includes(company.id))}
           theme={theme}
           busy={isBulkSaving}

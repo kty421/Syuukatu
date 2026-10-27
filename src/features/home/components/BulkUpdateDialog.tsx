@@ -6,8 +6,9 @@ import { AppTheme } from '../../../constants/theme';
 import { applyLabelOperation, LabelOperation } from '../../../shared/types/bulkUpdate';
 import { AppButton } from '../../../ui/AppButton';
 import { FullScreenModalShell } from '../../../ui/FullScreenModalShell';
-import { Company, QuestionLabel, QuestionMemo, SelectionStatus } from '../types';
+import { ApplicationType, Company, QuestionLabel, QuestionMemo, SelectionStatus } from '../types';
 import { getStatusList } from '../utils/companyUtils';
+import { getBulkLabelAvailability } from '../utils/bulkUpdateUtils';
 import { SelectionCircle } from './SelectionCircle';
 
 type BulkUpdateDialogProps = {
@@ -16,6 +17,7 @@ type BulkUpdateDialogProps = {
   onClose: () => void;
 } & ({
   mode: 'status';
+  type: ApplicationType;
   companies: Company[];
   onApply: (status: SelectionStatus) => void;
 } | {
@@ -36,16 +38,22 @@ export const BulkUpdateDialog = (props: BulkUpdateDialogProps) => {
   const title = isStatus ? '選考状況を変更'
     : props.operation === 'add' ? 'ラベルを追加' : 'ラベルを外す';
   const totalCount = isStatus ? props.companies.length : props.memos.length;
+  const labelOptions = props.mode === 'labels' ? props.labels.map((label) => ({
+    label, ...getBulkLabelAvailability(props.memos, label.id, props.operation),
+  })) : [];
+  const availableIds = new Set(labelOptions.filter((option) => !option.disabled).map((option) => option.label.id));
+  const activeLabelIds = labelIds.filter((id) => availableIds.has(id));
   const changedCount = isStatus
-    ? status ? props.companies.filter((company) => company.status !== status).length : 0
+    ? status && getStatusList(props.type).includes(status)
+      ? props.companies.filter((company) => company.status !== status).length : 0
     : props.memos.filter((memo) => {
-      const next = applyLabelOperation(memo.labelIds, labelIds, props.operation);
+      const next = applyLabelOperation(memo.labelIds, activeLabelIds, props.operation);
       return next.length !== memo.labelIds.length || next.some((id) => !memo.labelIds.includes(id));
     }).length;
-  const hasChoice = isStatus ? status !== null : labelIds.length > 0;
+  const hasChoice = isStatus ? status !== null : activeLabelIds.length > 0;
   const close = () => { if (!busy) props.onClose(); };
   const toggleLabel = (id: string) => {
-    if (busy) return;
+    if (busy || !availableIds.has(id)) return;
     setLabelIds((current) => current.includes(id) ? current.filter((value) => value !== id) : [...current, id]);
   };
 
@@ -56,7 +64,7 @@ export const BulkUpdateDialog = (props: BulkUpdateDialogProps) => {
           {isStatus ? `企業${totalCount}社` : `質問${totalCount}件`}を選択中
         </Text>
         <ScrollView contentContainerStyle={styles.options}>
-          {isStatus ? getStatusList().map((option) => (
+          {isStatus ? getStatusList(props.type).map((option) => (
             <Pressable
               key={option}
               accessibilityRole="radio"
@@ -76,27 +84,31 @@ export const BulkUpdateDialog = (props: BulkUpdateDialogProps) => {
             <Text style={[theme.typography.body, { color: theme.colors.textSecondary }]}>
               ラベルがありません。ラベル設定で作成してください。
             </Text>
-          ) : props.labels.map((label) => {
-            const count = props.memos.filter((memo) => memo.labelIds.includes(label.id)).length;
-            const selected = labelIds.includes(label.id);
+          ) : labelOptions.map(({ label, count, disabled: unavailable, reason }) => {
+            const selected = activeLabelIds.includes(label.id);
+            const disabled = busy || unavailable;
             return (
               <Pressable
                 key={label.id}
-                accessibilityLabel={`${label.name}、${totalCount}件中${count}件に付与`}
+                accessibilityLabel={`${label.name}、${totalCount}件中${count}件に付与${reason ? `、${reason}` : ''}`}
                 accessibilityRole="checkbox"
-                accessibilityState={{ checked: selected, disabled: busy }}
+                accessibilityState={{ checked: selected, disabled }}
                 aria-checked={selected}
-                aria-disabled={busy}
-                disabled={busy}
+                aria-disabled={disabled}
+                disabled={disabled}
                 onPress={() => toggleLabel(label.id)}
                 style={({ pressed }) => [styles.option, {
-                  backgroundColor: selected ? theme.colors.primarySubtle : theme.colors.surface,
+                  backgroundColor: unavailable ? theme.colors.disabledBackground
+                    : selected ? theme.colors.primarySubtle : theme.colors.surface,
                   borderColor: selected ? theme.colors.primaryBorder : theme.colors.border,
-                }, pressed && styles.pressed]}>
-                <SelectionCircle selected={selected} theme={theme} />
+                  opacity: unavailable ? theme.state.disabledOpacity : 1,
+                }, pressed && !disabled && styles.pressed]}>
+                <SelectionCircle selected={selected} disabled={unavailable} theme={theme} />
                 <View style={styles.optionText}>
-                  <Text style={[theme.typography.bodyStrong, { color: theme.colors.textPrimary }]}>{label.name}</Text>
-                  <Text style={[theme.typography.caption, { color: theme.colors.textSecondary }]}>{totalCount}件中{count}件に付与</Text>
+                  <Text style={[theme.typography.bodyStrong, { color: unavailable ? theme.colors.disabledText : theme.colors.textPrimary }]}>{label.name}</Text>
+                  <Text style={[theme.typography.caption, { color: unavailable ? theme.colors.disabledText : theme.colors.textSecondary }]}>
+                    {totalCount}件中{count}件に付与{reason ? ` · ${reason}` : ''}
+                  </Text>
                 </View>
               </Pressable>
             );
@@ -113,7 +125,7 @@ export const BulkUpdateDialog = (props: BulkUpdateDialogProps) => {
               if (props.mode === 'status') {
                 if (status) props.onApply(status);
               } else {
-                props.onApply(labelIds);
+                props.onApply(activeLabelIds);
               }
             }} />
           <AppButton label="キャンセル" theme={theme} variant="ghost" disabled={busy} onPress={close} />

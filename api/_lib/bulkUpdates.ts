@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 
 import { selectionStatuses } from '../../src/features/home/types';
+import { isCompanyStatusAllowed } from '../../src/shared/companyStatusPolicy';
 import { BulkUpdateResult } from '../../src/shared/types/bulkUpdate';
 import { fromCompanyRow } from './company';
 import { HttpError } from './http';
@@ -63,7 +64,8 @@ export const updateCompanyStatuses = async (
   const { data, error } = await supabase.from('companies').select('*')
     .eq('user_id', userId).in('id', body.companyIds);
   if (error) throw new HttpError(400, '企業情報を確認できませんでした。');
-  const companies = (data ?? []).map(fromCompanyRow);
+  const companies = (data ?? []).map(fromCompanyRow)
+    .filter((company) => isCompanyStatusAllowed({ type: company.type, status: body.status }));
   return updateSelectedItems(body.companyIds, companies,
     (company) => company.status === body.status,
     async (company) => {

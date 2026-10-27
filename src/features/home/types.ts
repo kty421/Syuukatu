@@ -116,6 +116,7 @@ export const selectionStatuses = [
   "参加確定",
   "落選",
   "辞退",
+  "完了",
 ] as const;
 
 export type SelectionStatus = (typeof selectionStatuses)[number];

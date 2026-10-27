@@ -8,6 +8,7 @@ import {
   updateQuestionLabels
 } from './bulkUpdates';
 import { applyCorsHeaders } from './http';
+import { upsertCompanyBodySchema } from './company';
 import type { VercelResponse } from './vercel';
 
 type Row = Record<string, unknown>;
@@ -113,6 +114,34 @@ class Query implements PromiseLike<QueryResult> {
 }
 
 describe('bulk update APIs', () => {
+  it('accepts a completed internship save and rejects completed full-time saves', () => {
+    const draft = {
+      id: 'company', type: 'internship', status: '完了', companyName: '企業',
+      createdAt: '2026-10-01', updatedAt: '2026-10-01',
+    };
+    expect(upsertCompanyBodySchema.safeParse({ company: draft }).success).toBe(true);
+    const invalid = upsertCompanyBodySchema.safeParse({ company: { ...draft, type: 'fullTime' } });
+    expect(invalid.success).toBe(false);
+    if (!invalid.success) expect(invalid.error.issues[0].path).toEqual(['company', 'status']);
+    expect(upsertCompanyBodySchema.safeParse({ company: { ...draft, type: 'fullTime', status: '応募済み' } }).success).toBe(true);
+  });
+
+  it('updates completed internships while reporting full-time targets as failures without writing them', async () => {
+    const db = new Database();
+    db.tables.companies[1].type = 'fullTime';
+    const body = bulkCompanyStatusBodySchema.parse({ companyIds: ['c1', 'c2'], status: '完了' });
+    const result = await updateCompanyStatuses(db.client, 'owner', body);
+    expect(result.updatedIds).toEqual(['c1']);
+    expect(result.failedIds).toEqual(['c2']);
+    expect(db.tables.companies[0].status).toBe('完了');
+    expect(db.tables.companies[1].status).toBe('ES通過');
+    expect(db.writes).toHaveLength(1);
+    const repeated = await updateCompanyStatuses(db.client, 'owner', body);
+    expect(repeated.unchangedIds).toEqual(['c1']);
+    expect(repeated.failedIds).toEqual(['c2']);
+    expect(db.writes).toHaveLength(1);
+  });
+
   it('validates statuses and operations, rejects empty inputs and deduplicates IDs', () => {
     expect(bulkCompanyStatusBodySchema.parse({ companyIds: [' c1 ', 'c1'], status: 'ES通過' }).companyIds).toEqual(['c1']);
     expect(bulkCompanyStatusBodySchema.safeParse({ companyIds: ['c1'], status: 'unknown' }).success).toBe(false);
