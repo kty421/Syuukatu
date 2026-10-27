@@ -1,28 +1,65 @@
 import { describe, expect, it } from 'vitest';
 import { applyLabelOperation } from '../../../shared/types/bulkUpdate';
-import { getBulkLabelAvailability, getBulkSelectionState, replaceSelectedRecords, toggleAllBulkSelection } from './bulkUpdateUtils';
+import { createBulkSelectionState, getBulkLabelAvailability, replaceSelectedRecords, toggleAllBulkSelection } from './bulkUpdateUtils';
 
 describe('select all bulk targets', () => {
   it('selects every filtered target, including targets outside the viewport, and clears them on the next press', () => {
     const targets = Array.from({ length: 100 }, (_, index) => `company-${index}`);
-    const selected = new Set(['company-1']);
-    expect(getBulkSelectionState(selected, targets)).toBe('partial');
+    const selected = { ...createBulkSelectionState(), selectedIds: new Set(['company-1']) };
     const all = toggleAllBulkSelection(selected, targets);
-    expect(all.size).toBe(100);
-    expect(all.has('company-99')).toBe(true);
-    expect(getBulkSelectionState(all, targets)).toBe('all');
-    expect(toggleAllBulkSelection(all, targets).size).toBe(0);
-    expect(selected.size).toBe(1);
+    expect(all.selectedIds.size).toBe(100);
+    expect(all.selectedIds.has('company-99')).toBe(true);
+    expect(all.allChecked).toBe(true);
+    const cleared = toggleAllBulkSelection(all, targets);
+    expect(cleared.selectedIds.size).toBe(0);
+    expect(cleared.allChecked).toBe(false);
+    expect(selected.selectedIds.size).toBe(1);
+    expect(selected.allChecked).toBe(false);
+  });
+
+  it('clears every target after selecting all and individually deselecting one', () => {
+    const targets = ['a', 'b', 'c'];
+    const all = toggleAllBulkSelection(createBulkSelectionState(), targets);
+    const individualEdit = { ...all, selectedIds: new Set(['a', 'c']) };
+    const cleared = toggleAllBulkSelection(individualEdit, targets);
+    expect(cleared.selectedIds.size).toBe(0);
+    expect(cleared.allChecked).toBe(false);
+  });
+
+  it('retains the next clear action even when all items are manually deselected', () => {
+    const all = toggleAllBulkSelection(createBulkSelectionState(), ['a', 'b']);
+    const individualEdit = { ...all, selectedIds: new Set<string>() };
+    const cleared = toggleAllBulkSelection(individualEdit, ['a', 'b']);
+    expect(cleared.selectedIds.size).toBe(0);
+    expect(cleared.allChecked).toBe(false);
+    expect([...toggleAllBulkSelection(cleared, ['a', 'b']).selectedIds]).toEqual(['a', 'b']);
+  });
+
+  it('keeps the next clear action when only failed items remain selected', () => {
+    const all = toggleAllBulkSelection(createBulkSelectionState(), ['a', 'b']);
+    const failedOnly = { ...all, selectedIds: new Set(['b']) };
+    const cleared = toggleAllBulkSelection(failedOnly, ['a', 'b']);
+    expect(cleared.selectedIds.size).toBe(0);
+    expect(cleared.allChecked).toBe(false);
+  });
+
+  it('alternates atomically across rapid presses and resets both values together', () => {
+    const initial = createBulkSelectionState();
+    const final = [1, 2, 3, 4].reduce((state) => toggleAllBulkSelection(state, ['a', 'b']), initial);
+    expect(final).toEqual(initial);
+    const reset = createBulkSelectionState();
+    expect(reset.allChecked).toBe(false);
+    expect(reset.selectedIds.size).toBe(0);
+    expect(reset.selectedIds).not.toBe(initial.selectedIds);
   });
 
   it('limits selection changes to the current filtered targets and handles zero targets', () => {
-    const selected = new Set(['outside-filter']);
-    expect(getBulkSelectionState(selected, ['match'])).toBe('none');
+    const selected = { ...createBulkSelectionState(), selectedIds: new Set(['outside-filter']) };
     const all = toggleAllBulkSelection(selected, ['match']);
-    expect([...all]).toEqual(['outside-filter', 'match']);
-    expect([...toggleAllBulkSelection(all, ['match'])]).toEqual(['outside-filter']);
-    expect(getBulkSelectionState(selected, [])).toBe('none');
-    expect([...toggleAllBulkSelection(selected, [])]).toEqual(['outside-filter']);
+    expect([...all.selectedIds]).toEqual(['outside-filter', 'match']);
+    expect([...toggleAllBulkSelection(all, ['match']).selectedIds]).toEqual(['outside-filter']);
+    expect(toggleAllBulkSelection(selected, [])).toBe(selected);
+    expect(toggleAllBulkSelection(all, [])).toBe(all);
   });
 });
 

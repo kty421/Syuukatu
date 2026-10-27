@@ -11,7 +11,6 @@ import {
 import { AppTheme } from "../../../constants/theme";
 import { AppButton } from "../../../ui/AppButton";
 import { IconButton } from "../../../ui/IconButton";
-import { BulkSelectionState } from "../utils/bulkUpdateUtils";
 import { SelectionCircle } from "./SelectionCircle";
 
 const webCursor =
@@ -62,7 +61,7 @@ export const BulkSelectionTopControl = ({
 type BulkSelectionActionsProps = {
   selectedCount: number;
   targetCount: number;
-  selectionState: BulkSelectionState;
+  allChecked: boolean;
   onToggleAll: () => void;
   unit?: string;
   busy: boolean;
@@ -79,7 +78,7 @@ type BulkSelectionActionsProps = {
 export const BulkSelectionActions = ({
   selectedCount,
   targetCount,
-  selectionState,
+  allChecked,
   onToggleAll,
   unit = "件",
   busy,
@@ -95,17 +94,17 @@ export const BulkSelectionActions = ({
       </Text>
       <Pressable
         accessibilityRole="checkbox"
-        accessibilityLabel={selectionState === "all" ? "全て解除" : "全て選択"}
-        accessibilityState={{ checked: selectionState === "partial" ? "mixed" : selectionState === "all", disabled: busy || targetCount === 0 }}
-        aria-checked={selectionState === "partial" ? "mixed" : selectionState === "all"}
+        accessibilityLabel="すべて選択"
+        accessibilityState={{ checked: allChecked, disabled: busy || targetCount === 0 }}
+        aria-checked={allChecked}
         aria-disabled={busy || targetCount === 0}
         disabled={busy || targetCount === 0}
         onPress={onToggleAll}
         style={({ pressed }) => [styles.selectAll, webCursor,
           (busy || targetCount === 0) && { opacity: theme.state.disabledOpacity }, pressed && styles.pressed]}>
-        <SelectionCircle selected={selectionState === "all"} indeterminate={selectionState === "partial"} theme={theme} />
+        <SelectionCircle selected={allChecked} theme={theme} />
         <Text style={[theme.typography.footnote, { color: theme.colors.primary }]}>
-          {selectionState === "all" ? "全て解除" : "全て選択"}
+          すべて選択
         </Text>
       </Pressable>
     </View>
@@ -114,7 +113,6 @@ export const BulkSelectionActions = ({
         action.iconOnly ? <IconButton
           key={action.label}
           label={action.label}
-          tooltip={action.label}
           icon={action.icon}
           theme={theme}
           tone="accent"

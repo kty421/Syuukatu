@@ -98,7 +98,7 @@ import {
 import { todayDateString } from "./utils/scheduleUtils";
 import { useConfirmAction } from "./utils/confirmAction";
 import { BulkDeleteResult } from "./utils/bulkDeleteUtils";
-import { getBulkSelectionState, toggleAllBulkSelection } from "./utils/bulkUpdateUtils";
+import { createBulkSelectionState, toggleAllBulkSelection } from "./utils/bulkUpdateUtils";
 
 const transitionValueByType: Record<ApplicationType, number> = {
   internship: 0,
@@ -485,9 +485,8 @@ export const HomeScreen = ({
   const [bulkSelectionView, setBulkSelectionView] = useState<
     "companies" | "questions" | null
   >(null);
-  const [selectedBulkIds, setSelectedBulkIds] = useState<Set<string>>(
-    () => new Set(),
-  );
+  const [bulkSelection, setBulkSelection] = useState(createBulkSelectionState);
+  const { selectedIds: selectedBulkIds, allChecked: allBulkChecked } = bulkSelection;
   const [bulkEdit, setBulkEdit] = useState<
     | { mode: "status"; ids: string[] }
     | { mode: "labels"; ids: string[]; operation: LabelOperation }
@@ -648,7 +647,6 @@ export const HomeScreen = ({
   }, [activeCompanies, filteredQuestionEntries, homeView]);
   const isBulkSelectionActive =
     homeView !== "calendar" && bulkSelectionView === homeView;
-  const bulkSelectionState = getBulkSelectionState(selectedBulkIds, visibleBulkIds);
   const questionCountsByCompany = useMemo(
     () =>
       questionMemos.reduce<Record<string, number>>((counts, questionMemo) => {
@@ -777,7 +775,7 @@ export const HomeScreen = ({
 
   const resetBulkSelection = useCallback(() => {
     setBulkSelectionView(null);
-    setSelectedBulkIds(new Set());
+    setBulkSelection(createBulkSelectionState());
     setBulkEdit(null);
   }, []);
 
@@ -794,7 +792,7 @@ export const HomeScreen = ({
     }
 
     Keyboard.dismiss();
-    setSelectedBulkIds(new Set());
+    setBulkSelection(createBulkSelectionState());
     setBulkSelectionView(homeView);
     void runHapticsSafely(() => Haptics.selectionAsync());
   }, [
@@ -806,8 +804,8 @@ export const HomeScreen = ({
 
   const toggleBulkSelection = useCallback((id: string) => {
     if (bulkSavingRef.current) return;
-    setSelectedBulkIds((current) => {
-      const next = new Set(current);
+    setBulkSelection((current) => {
+      const next = new Set(current.selectedIds);
 
       if (next.has(id)) {
         next.delete(id);
@@ -815,14 +813,14 @@ export const HomeScreen = ({
         next.add(id);
       }
 
-      return next;
+      return { ...current, selectedIds: next };
     });
     void runHapticsSafely(() => Haptics.selectionAsync());
   }, []);
 
   const toggleAllBulkItems = useCallback(() => {
     if (bulkSavingRef.current || !isBulkSelectionActive) return;
-    setSelectedBulkIds((current) => toggleAllBulkSelection(current, visibleBulkIds));
+    setBulkSelection((current) => toggleAllBulkSelection(current, visibleBulkIds));
     void runHapticsSafely(() => Haptics.selectionAsync());
   }, [isBulkSelectionActive, visibleBulkIds]);
 
@@ -844,12 +842,12 @@ export const HomeScreen = ({
 
     const visibleIdSet = new Set(visibleBulkIds);
 
-    setSelectedBulkIds((current) => {
+    setBulkSelection((current) => {
       const next = new Set(
-        [...current].filter((id) => visibleIdSet.has(id)),
+        [...current.selectedIds].filter((id) => visibleIdSet.has(id)),
       );
 
-      return next.size === current.size ? current : next;
+      return next.size === current.selectedIds.size ? current : { ...current, selectedIds: next };
     });
   }, [isBulkSelectionActive, isBulkSaving, visibleBulkIds]);
 
@@ -1764,7 +1762,7 @@ export const HomeScreen = ({
       if (failedCount === 0) {
         resetBulkSelection();
       } else {
-        setSelectedBulkIds(new Set(result.failedIds));
+        setBulkSelection((current) => ({ ...current, selectedIds: new Set(result.failedIds) }));
       }
 
       if (succeededCount > 0) {
@@ -1887,7 +1885,7 @@ export const HomeScreen = ({
       const updatedCount = result.updatedIds.length;
       const failedCount = result.failedIds.length;
       if (failedCount > 0) {
-        setSelectedBulkIds(new Set(result.failedIds));
+        setBulkSelection((current) => ({ ...current, selectedIds: new Set(result.failedIds) }));
         showToast(updatedCount > 0
           ? `${updatedCount}件変更、${failedCount}件失敗しました`
           : `${failedCount}件の変更に失敗しました`, updatedCount > 0 ? "warning" : "error");
@@ -2122,7 +2120,7 @@ export const HomeScreen = ({
               <BulkSelectionActions
                 selectedCount={selectedBulkIds.size}
                 targetCount={visibleBulkIds.length}
-                selectionState={bulkSelectionState}
+                allChecked={allBulkChecked}
                 onToggleAll={toggleAllBulkItems}
                 unit="社"
                 busy={isBulkSaving}
@@ -2246,7 +2244,7 @@ export const HomeScreen = ({
               <BulkSelectionActions
                 selectedCount={selectedBulkIds.size}
                 targetCount={visibleBulkIds.length}
-                selectionState={bulkSelectionState}
+                allChecked={allBulkChecked}
                 onToggleAll={toggleAllBulkItems}
                 busy={isBulkSaving}
                 theme={theme}

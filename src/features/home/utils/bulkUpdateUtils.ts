@@ -1,26 +1,27 @@
 import { LabelOperation } from '../../../shared/types/bulkUpdate';
 
-export type BulkSelectionState = 'none' | 'partial' | 'all';
-
-export const getBulkSelectionState = (
-  selectedIds: ReadonlySet<string>,
-  targetIds: readonly string[]
-): BulkSelectionState => {
-  const count = targetIds.filter((id) => selectedIds.has(id)).length;
-  return count === 0 ? 'none' : count === targetIds.length ? 'all' : 'partial';
+export type BulkSelectionState = {
+  selectedIds: Set<string>;
+  allChecked: boolean;
 };
 
+export const createBulkSelectionState = (): BulkSelectionState => ({
+  selectedIds: new Set(),
+  allChecked: false,
+});
+
 export const toggleAllBulkSelection = (
-  selectedIds: ReadonlySet<string>,
+  state: BulkSelectionState,
   targetIds: readonly string[]
-): Set<string> => {
-  const next = new Set(selectedIds);
-  const clear = getBulkSelectionState(selectedIds, targetIds) === 'all';
+): BulkSelectionState => {
+  if (targetIds.length === 0) return state;
+  const next = new Set(state.selectedIds);
+  // Individual edits do not change which operation the next press performs.
   for (const id of targetIds) {
-    if (clear) next.delete(id);
+    if (state.allChecked) next.delete(id);
     else next.add(id);
   }
-  return next;
+  return { selectedIds: next, allChecked: !state.allChecked };
 };
 
 export const getBulkLabelAvailability = (
