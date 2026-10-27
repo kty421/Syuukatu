@@ -1,3 +1,4 @@
+import { isCompanyStatusAllowed } from '../../../shared/companyStatusPolicy';
 import {
   ApplicationType,
   Company,
@@ -51,9 +52,8 @@ const getCompanySearchText = (company: Company) =>
 export const buildCompanySearchIndex = (companies: Company[]) =>
   new Map(companies.map((company) => [company.id, getCompanySearchText(company)]));
 
-export const getStatusList = (_type?: ApplicationType): SelectionStatus[] => [
-  ...selectionStatuses,
-];
+export const getStatusList = (type: ApplicationType): SelectionStatus[] =>
+  selectionStatuses.filter((status) => isCompanyStatusAllowed({ type, status }));
 
 export const normalizeSelectionStatus = (status: string): SelectionStatus => {
   if ((selectionStatuses as readonly string[]).includes(status)) {

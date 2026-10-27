@@ -1,15 +1,16 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useState } from "react";
 import {
   Platform,
   Pressable,
-  StyleProp,
   StyleSheet,
   Text,
+  View,
   ViewStyle,
 } from "react-native";
 
 import { AppTheme } from "../../../constants/theme";
+import { AppButton } from "../../../ui/AppButton";
+import { IconButton } from "../../../ui/IconButton";
 import { SelectionCircle } from "./SelectionCircle";
 
 const webCursor =
@@ -32,8 +33,10 @@ export const BulkSelectionTopControl = ({
 }: BulkSelectionTopControlProps) => (
   <Pressable
     accessibilityLabel={active ? "まとめて操作を終了" : "まとめて操作"}
-    accessibilityRole="button"
-    accessibilityState={{ disabled, selected: active }}
+    accessibilityRole="checkbox"
+    accessibilityState={{ disabled, checked: active }}
+    aria-checked={active}
+    aria-disabled={disabled}
     disabled={disabled}
     onPress={onToggle}
     style={({ pressed }) => [
@@ -55,61 +58,80 @@ export const BulkSelectionTopControl = ({
   </Pressable>
 );
 
-type BulkDeleteFloatingButtonProps = {
+type BulkSelectionActionsProps = {
   selectedCount: number;
-  style?: StyleProp<ViewStyle>;
+  targetCount: number;
+  allChecked: boolean;
+  onToggleAll: () => void;
+  unit?: string;
+  busy: boolean;
   theme: AppTheme;
-  onPress: () => void;
+  actions: Array<{
+    label: string;
+    icon: keyof typeof Ionicons.glyphMap;
+    iconOnly?: boolean;
+    disabled?: boolean;
+    onPress: () => void;
+  }>;
 };
 
-export const BulkDeleteFloatingButton = ({
+export const BulkSelectionActions = ({
   selectedCount,
-  style,
+  targetCount,
+  allChecked,
+  onToggleAll,
+  unit = "件",
+  busy,
   theme,
-  onPress,
-}: BulkDeleteFloatingButtonProps) => {
-  const [hovered, setHovered] = useState(false);
-  const [focused, setFocused] = useState(false);
-  const disabled = selectedCount === 0;
-
-  return (
-    <Pressable
-      accessibilityLabel={`選択した${selectedCount}件を削除`}
-      accessibilityRole="button"
-      accessibilityState={{ disabled }}
-      android_ripple={
-        Platform.OS === "android"
-          ? { color: theme.colors.primarySubtle, borderless: true }
-          : undefined
-      }
-      disabled={disabled}
-      onBlur={() => setFocused(false)}
-      onFocus={() => setFocused(true)}
-      onHoverIn={() => setHovered(true)}
-      onHoverOut={() => setHovered(false)}
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.deleteButton,
-        theme.shadows.floating,
-        webCursor,
-        {
-          backgroundColor:
-            hovered && !pressed
-              ? theme.colors.primarySubtle
-              : theme.colors.surface,
-          borderColor: focused
-            ? theme.colors.focusRing
-            : theme.colors.primaryBorder,
-        },
-        pressed && { backgroundColor: theme.colors.surfacePressed },
-        pressed && styles.pressedScale,
-        disabled && { opacity: theme.state.disabledOpacity },
-        style,
+  actions,
+}: BulkSelectionActionsProps) => (
+  <View style={styles.actions}>
+    <View style={styles.selectionSummary}>
+      <Text accessibilityLiveRegion="polite" style={[
+        theme.typography.caption, { color: theme.colors.textSecondary },
       ]}>
-      <Ionicons color={theme.colors.primary} name="trash-outline" size={27} />
-    </Pressable>
-  );
-};
+        {selectedCount}{unit}選択中
+      </Text>
+      <Pressable
+        accessibilityRole="checkbox"
+        accessibilityLabel="すべて選択"
+        accessibilityState={{ checked: allChecked, disabled: busy || targetCount === 0 }}
+        aria-checked={allChecked}
+        aria-disabled={busy || targetCount === 0}
+        disabled={busy || targetCount === 0}
+        onPress={onToggleAll}
+        style={({ pressed }) => [styles.selectAll, webCursor,
+          (busy || targetCount === 0) && { opacity: theme.state.disabledOpacity }, pressed && styles.pressed]}>
+        <SelectionCircle selected={allChecked} theme={theme} />
+        <Text style={[theme.typography.footnote, { color: theme.colors.primary }]}>
+          すべて選択
+        </Text>
+      </Pressable>
+    </View>
+    <View style={styles.actionButtons}>
+      {actions.map((action) => (
+        action.iconOnly ? <IconButton
+          key={action.label}
+          label={action.label}
+          icon={action.icon}
+          theme={theme}
+          tone="accent"
+          disabled={busy || selectedCount === 0 || action.disabled}
+          onPress={action.onPress}
+        /> : <AppButton
+          key={action.label}
+          label={action.label}
+          icon={action.icon}
+          theme={theme}
+          size="compact"
+          variant="secondary"
+          disabled={busy || selectedCount === 0 || action.disabled}
+          onPress={action.onPress}
+        />
+      ))}
+    </View>
+  </View>
+);
 
 const styles = StyleSheet.create({
   topControl: {
@@ -119,20 +141,29 @@ const styles = StyleSheet.create({
     gap: 8,
     minHeight: 44,
   },
-  deleteButton: {
+  actions: {
+    gap: 8,
+    paddingBottom: 12,
+  },
+  actionButtons: {
     alignItems: "center",
-    borderRadius: 999,
-    borderWidth: StyleSheet.hairlineWidth,
-    height: 58,
-    justifyContent: "center",
-    position: "absolute",
-    width: 58,
-    zIndex: 12,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  selectionSummary: {
+    alignItems: "center",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 16,
+  },
+  selectAll: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 8,
+    minHeight: 44,
   },
   pressed: {
     opacity: 0.72,
-  },
-  pressedScale: {
-    transform: [{ scale: 0.96 }],
   },
 });

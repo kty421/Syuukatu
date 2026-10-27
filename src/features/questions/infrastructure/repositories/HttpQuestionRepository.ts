@@ -1,4 +1,5 @@
 import { apiRequest } from '../../../../shared/api/apiClient';
+import { BulkUpdateResult } from '../../../../shared/types/bulkUpdate';
 import { QuestionMemo } from '../../domain/entities/question';
 import { QuestionRepository } from '../../domain/repositories/QuestionRepository';
 import {
@@ -27,6 +28,14 @@ type QuestionLabelsResponse = {
 };
 
 export const httpQuestionRepository: QuestionRepository = {
+  updateMemoLabels: async (questionMemoIds, labelIds, operation, accessToken) => {
+    const result = await apiRequest<BulkUpdateResult<QuestionMemoDto>>('/api/questions', {
+      accessToken,
+      body: { questionMemoIds, labelIds, operation },
+      method: 'PATCH'
+    });
+    return { ...result, items: result.items.map(toQuestionMemoDomain) };
+  },
   createLabel: async (label, accessToken) => {
     const response = await apiRequest<QuestionLabelResponse>(
       '/api/question-labels',

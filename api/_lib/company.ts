@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { COMPLETED_STATUS_ERROR, isCompanyStatusAllowed } from '../../src/shared/companyStatusPolicy';
 
 export const companySchema = z.object({
   id: z.string().min(1),
@@ -27,7 +28,7 @@ export const companySchema = z.object({
   archived: z.boolean().optional().default(false),
   createdAt: z.string().min(1),
   updatedAt: z.string().min(1)
-});
+}).refine(isCompanyStatusAllowed, { path: ['status'], message: COMPLETED_STATUS_ERROR });
 
 export const upsertCompanyBodySchema = z.object({
   company: companySchema

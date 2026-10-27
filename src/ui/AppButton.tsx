@@ -50,8 +50,11 @@ export const AppButton = ({
 
   return (
     <Pressable
+      accessibilityLabel={label}
       accessibilityRole="button"
       accessibilityState={{ disabled: inactive, busy: loading }}
+      aria-disabled={inactive}
+      aria-busy={loading}
       disabled={inactive}
       onBlur={() => setFocused(false)}
       onFocus={() => setFocused(true)}

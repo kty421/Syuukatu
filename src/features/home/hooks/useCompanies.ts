@@ -31,6 +31,9 @@ import {
   ScheduleCategoryDraft
 } from '../types';
 import { sortSchedules } from '../utils/scheduleUtils';
+import { BulkUpdateResult, LabelOperation } from '../../../shared/types/bulkUpdate';
+import { replaceSelectedRecords } from '../utils/bulkUpdateUtils';
+import { SelectionStatus } from '../types';
 import {
   BulkDeleteResult,
   createCompanyBulkDeletePreview,
@@ -757,6 +760,70 @@ export const useCompanies = ({
     [getAccessToken, resolveQuestionLabelIds, setQuestionMemosState]
   );
 
+  const updateCompanyStatuses = useCallback(
+    async (ids: Iterable<string>, status: SelectionStatus): Promise<BulkUpdateResult<Company>> => {
+      const targetIds = [...new Set(ids)];
+      if (targetIds.length === 0) return { items: [], updatedIds: [], unchangedIds: [], failedIds: [] };
+      setStorageError(null);
+      const mergeCompanies = (incoming: Company[], replacedIds: string[]) => {
+        setCompaniesState((current) => {
+          const passwords = new Map(current.map((company) => [company.id, company.password]));
+          return sortCompanies(replaceSelectedRecords(current, incoming.map((company) => ({
+            ...company,
+            password: passwords.get(company.id) ?? company.password
+          })), replacedIds));
+        });
+      };
+      const refresh = async () => {
+        const incoming = await httpCompanyRepository.listCompanies(await getAccessToken());
+        mergeCompanies(incoming as Company[], targetIds);
+      };
+      try {
+        const result = await httpCompanyRepository.updateStatuses(targetIds, status, await getAccessToken());
+        mergeCompanies(result.items as Company[], result.items.map((company) => company.id));
+        if (result.failedIds.length > 0) {
+          try { await refresh(); } catch { setStorageError('最新の選考状況を確認できませんでした。再読み込みしてください。'); }
+        }
+        return result as BulkUpdateResult<Company>;
+      } catch (error) {
+        try { await refresh(); } catch { setStorageError('最新の選考状況を確認できませんでした。再読み込みしてください。'); }
+        throw error;
+      }
+    },
+    [getAccessToken, setCompaniesState]
+  );
+
+  const updateQuestionMemoLabels = useCallback(
+    async (ids: Iterable<string>, labelIds: string[], operation: LabelOperation): Promise<BulkUpdateResult<QuestionMemo>> => {
+      const targetIds = [...new Set(ids)];
+      if (targetIds.length === 0 || labelIds.length === 0) return { items: [], updatedIds: [], unchangedIds: targetIds, failedIds: [] };
+      setStorageError(null);
+      const mergeMemos = (incoming: QuestionMemo[], replacedIds: string[]) => {
+        setQuestionMemosState((current) => sortQuestionMemosByUpdate(
+          replaceSelectedRecords(current, incoming, replacedIds)
+        ));
+      };
+      const refresh = async () => {
+        const incoming = await httpQuestionRepository.listQuestionData(await getAccessToken());
+        mergeMemos(incoming.questionMemos, targetIds);
+        setQuestionLabelsState(sortQuestionLabels(incoming.questionLabels));
+      };
+      try {
+        const resolvedLabelIds = await resolveQuestionLabelIds(labelIds);
+        const result = await httpQuestionRepository.updateMemoLabels(targetIds, resolvedLabelIds, operation, await getAccessToken());
+        mergeMemos(result.items, result.items.map((memo) => memo.id));
+        if (result.failedIds.length > 0) {
+          try { await refresh(); } catch { setStorageError('最新のラベルを確認できませんでした。再読み込みしてください。'); }
+        }
+        return result;
+      } catch (error) {
+        try { await refresh(); } catch { setStorageError('最新のラベルを確認できませんでした。再読み込みしてください。'); }
+        throw error;
+      }
+    },
+    [getAccessToken, resolveQuestionLabelIds, setQuestionLabelsState, setQuestionMemosState]
+  );
+
   const deleteQuestionMemos = useCallback(
     async (ids: Iterable<string>): Promise<BulkDeleteResult> => {
       const preview = createQuestionMemoBulkDeletePreview(
@@ -1279,6 +1346,8 @@ export const useCompanies = ({
     localMigrationAvailable,
     isMigratingLocalData,
     upsertCompany,
+    updateCompanyStatuses,
+    updateQuestionMemoLabels,
     upsertCompanySchedule,
     deleteCompanySchedule,
     upsertScheduleCategory,

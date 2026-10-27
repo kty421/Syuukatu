@@ -1,15 +1,11 @@
 import { FlashList, type FlashListRef } from '@shopify/flash-list';
-import { LinearGradient } from 'expo-linear-gradient';
-import { memo, useCallback, useMemo, useRef, useState, type Ref } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { memo, useCallback, useMemo, useState, type Ref, type ReactNode } from 'react';
 import {
   Animated,
-  LayoutChangeEvent,
   ActivityIndicator,
   Keyboard,
-  NativeScrollEvent,
-  NativeSyntheticEvent,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -17,7 +13,7 @@ import {
 } from 'react-native';
 
 import { AppTheme } from '../../../constants/theme';
-import { FilterChip } from '../../../ui/FilterChip';
+import { IconButton } from '../../../ui/IconButton';
 import { QuestionLabel } from '../types';
 import {
   QuestionMemoEntry,
@@ -25,6 +21,7 @@ import {
 } from '../utils/questionMemoUtils';
 import { QuestionMemoRow } from './QuestionMemoRow';
 import { QuestionSortMenu } from './QuestionSortMenu';
+import { QuestionLabelFilterModal } from './QuestionLabelFilterModal';
 import { BulkSelectableRow } from './BulkSelectableRow';
 import { BulkSelectionTopControl } from './BulkSelectionControls';
 
@@ -48,6 +45,7 @@ type QuestionListViewProps = {
   selectionDisabled: boolean;
   selectionProgress: Animated.Value;
   selectedQuestionIds: ReadonlySet<string>;
+  bulkActions?: ReactNode;
   onLabelFilterChange: (labelId: string | null) => void;
   onSortChange: (sort: QuestionMemoSort) => void;
   onClearQuery: () => void;
@@ -67,7 +65,6 @@ export type QuestionListItem =
 
 const QUESTION_LIST_OVERRIDE_PROPS = { initialDrawBatchSize: 10 } as const;
 const DISABLED_MAINTAIN_VISIBLE_CONTENT_POSITION = { disabled: true } as const;
-const FILTER_EDGE_FADE_WIDTH = 24;
 const getQuestionListItemType = (item: QuestionListItem) => item.kind;
 const keyQuestionListItem = (item: QuestionListItem) => item.id;
 
@@ -79,20 +76,6 @@ const buildQuestionListItems = (
     id: `question:${entry.questionMemo.id}`,
     entry
   }));
-
-const withColorAlpha = (color: string, alpha: number) => {
-  const hex = color.trim().match(/^#([0-9a-f]{6})$/i)?.[1];
-
-  if (!hex) {
-    return alpha === 0 ? 'transparent' : color;
-  }
-
-  const red = parseInt(hex.slice(0, 2), 16);
-  const green = parseInt(hex.slice(2, 4), 16);
-  const blue = parseInt(hex.slice(4, 6), 16);
-
-  return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
-};
 
 type QuestionMemoListItemProps = {
   entry: QuestionMemoEntry;
@@ -183,6 +166,7 @@ export const QuestionListView = ({
   selectionDisabled,
   selectionProgress,
   selectedQuestionIds,
+  bulkActions,
   onLabelFilterChange,
   onSortChange,
   onClearQuery,
@@ -192,163 +176,43 @@ export const QuestionListView = ({
   onToggleSelectionMode,
   onToggleSelection
 }: QuestionListViewProps) => {
-  const scrollMetricsRef = useRef({
-    contentWidth: 0,
-    scrollX: 0,
-    viewportWidth: 0
-  });
-  const fadeVisibilityRef = useRef({
-    left: false,
-    right: false
-  });
-  const [fadeVisibility, setFadeVisibility] = useState({
-    left: false,
-    right: false
-  });
+  const [labelFilterVisible, setLabelFilterVisible] = useState(false);
+  const selectedLabel = labels.find((label) => label.id === selectedLabelId);
   const listItems = useMemo(() => buildQuestionListItems(entries), [entries]);
-  const softBackground = useMemo(
-    () => withColorAlpha(theme.colors.background, 0.45),
-    [theme.colors.background]
-  );
-  const transparentBackground = useMemo(
-    () => withColorAlpha(theme.colors.background, 0),
-    [theme.colors.background]
-  );
-  const leftFadeColors = useMemo(
-    () => [theme.colors.background, softBackground, transparentBackground] as const,
-    [softBackground, theme.colors.background, transparentBackground]
-  );
-  const rightFadeColors = useMemo(
-    () => [transparentBackground, softBackground, theme.colors.background] as const,
-    [softBackground, theme.colors.background, transparentBackground]
-  );
   const contentContainerStyle = useMemo(
-    () => ({
-      paddingBottom: bottomPadding,
-      paddingHorizontal: contentPadding,
-      paddingTop: 0
-    }),
+    () => ({ paddingBottom: bottomPadding, paddingHorizontal: contentPadding, paddingTop: 0 }),
     [bottomPadding, contentPadding]
   );
-
-  const updateFadeVisibility = useCallback(() => {
-    const { contentWidth, scrollX, viewportWidth } = scrollMetricsRef.current;
-    const maxScrollX = Math.max(contentWidth - viewportWidth, 0);
-    const nextVisibility = {
-      left: scrollX > 1,
-      right: maxScrollX > 1 && scrollX < maxScrollX - 1
-    };
-    const currentVisibility = fadeVisibilityRef.current;
-
-    if (
-      currentVisibility.left === nextVisibility.left &&
-      currentVisibility.right === nextVisibility.right
-    ) {
-      return;
-    }
-
-    fadeVisibilityRef.current = nextVisibility;
-    setFadeVisibility(nextVisibility);
-  }, []);
-
-  const handleFilterScrollLayout = useCallback(
-    (event: LayoutChangeEvent) => {
-      scrollMetricsRef.current.viewportWidth = event.nativeEvent.layout.width;
-      updateFadeVisibility();
-    },
-    [updateFadeVisibility]
-  );
-
-  const handleFilterContentSizeChange = useCallback(
-    (contentWidth: number) => {
-      scrollMetricsRef.current.contentWidth = contentWidth;
-      updateFadeVisibility();
-    },
-    [updateFadeVisibility]
-  );
-
-  const handleFilterScroll = useCallback(
-    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      scrollMetricsRef.current.scrollX = event.nativeEvent.contentOffset.x;
-      updateFadeVisibility();
-    },
-    [updateFadeVisibility]
-  );
+  const selectLabelFilter = (id: string | null) => {
+    Keyboard.dismiss();
+    if (id !== selectedLabelId) onLabelFilterChange(id);
+    setLabelFilterVisible(false);
+  };
 
   const renderControls = () => (
     <View style={[styles.controlShell, { paddingHorizontal: contentPadding }]}>
       <View style={[containerStyle, styles.filterBar]}>
-        <View style={styles.fixedStartChip}>
-          <FilterChip
-            label={`すべて ${totalCount}`}
-            theme={theme}
-            selected={!selectedLabelId}
-            tint={accentColor}
-            surface={accentSurface}
-            border={accentBorder}
-            onPress={() => onLabelFilterChange(null)}
-          />
-        </View>
-        <View style={styles.leftFadeSlot}>
-          <LinearGradient
-            pointerEvents="none"
-            colors={leftFadeColors}
-            locations={[0, 0.18, 1]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={[
-              styles.edgeFade,
-              !fadeVisibility.left && styles.hiddenFade
-            ]}
-          />
-        </View>
-        <View style={styles.filterScrollWrap}>
-          <ScrollView
-            horizontal
-            keyboardShouldPersistTaps="handled"
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.filterChips}
-            onContentSizeChange={handleFilterContentSizeChange}
-            onLayout={handleFilterScrollLayout}
-            onScroll={handleFilterScroll}
-            scrollEventThrottle={16}
-            style={styles.filterScroll}
-          >
-            {labels.map((label) => (
-              <FilterChip
-                key={label.id}
-                label={label.name}
-                theme={theme}
-                selected={selectedLabelId === label.id}
-                tint={accentColor}
-                surface={accentSurface}
-                border={accentBorder}
-                onPress={() => onLabelFilterChange(label.id)}
-              />
-            ))}
-          </ScrollView>
-        </View>
-        <View style={styles.rightFadeSlot}>
-          <LinearGradient
-            pointerEvents="none"
-            colors={rightFadeColors}
-            locations={[0, 0.82, 1]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={[
-              styles.edgeFade,
-              !fadeVisibility.right && styles.hiddenFade
-            ]}
-          />
-        </View>
-        <View style={styles.fixedEndChip}>
-          <QuestionSortMenu
-            value={sort}
-            theme={theme}
-            accentColor={accentColor}
-            onChange={onSortChange}
-          />
-        </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`ラベルで絞り込み：${selectedLabel?.name ?? 'すべて'}`}
+          accessibilityState={{ expanded: labelFilterVisible }}
+          aria-expanded={labelFilterVisible}
+          onPress={() => { Keyboard.dismiss(); setLabelFilterVisible(true); }}
+          style={({ pressed }) => [styles.labelFilterButton, {
+            backgroundColor: selectedLabelId ? accentSurface : theme.colors.surface,
+            borderColor: selectedLabelId ? accentBorder : theme.colors.border,
+          }, pressed && styles.pressed]}>
+          <Text numberOfLines={1} style={[theme.typography.label, styles.filterText, {
+            color: selectedLabelId ? accentColor : theme.colors.textPrimary,
+          }]}>ラベル：{selectedLabel?.name ?? 'すべて'}</Text>
+          <Ionicons name="chevron-down" size={16} color={accentColor} />
+        </Pressable>
+        {selectedLabelId ? (
+          <IconButton icon="close" label="ラベルの絞り込みを解除" tooltip="ラベルの絞り込みを解除"
+            theme={theme} tone="accent" variant="plain" onPress={() => selectLabelFilter(null)} />
+        ) : null}
+        <Text style={[theme.typography.caption, { color: theme.colors.textSecondary }]}>全{totalCount}件</Text>
+        <QuestionSortMenu value={sort} theme={theme} accentColor={accentColor} onChange={onSortChange} />
       </View>
     </View>
   );
@@ -461,6 +325,10 @@ export const QuestionListView = ({
   return (
     <View style={styles.root}>
       {renderControls()}
+      {labelFilterVisible ? (
+        <QuestionLabelFilterModal labels={labels} selectedLabelId={selectedLabelId} totalCount={totalCount}
+          theme={theme} onSelect={selectLabelFilter} onClose={() => { Keyboard.dismiss(); setLabelFilterVisible(false); }} />
+      ) : null}
       <View
         style={[
           styles.bulkControlShell,
@@ -474,6 +342,7 @@ export const QuestionListView = ({
             theme={theme}
             onToggle={onToggleSelectionMode}
           />
+          {selectionActive ? bulkActions : null}
         </View>
       </View>
       <FlashList
@@ -506,57 +375,23 @@ const styles = StyleSheet.create({
     paddingTop: 4
   },
   filterBar: {
-    alignItems: 'flex-start',
-    flexDirection: 'row',
-    paddingBottom: 0
-  },
-  bulkControlShell: {
-    paddingBottom: 0
-  },
-  fixedStartChip: {
-    zIndex: 3
-  },
-  fixedEndChip: {
-    zIndex: 3
-  },
-  filterScroll: {
-    flex: 1,
-    minWidth: 0
-  },
-  filterScrollWrap: {
-    flex: 1,
-    marginHorizontal: -FILTER_EDGE_FADE_WIDTH,
-    minWidth: 0,
-    position: 'relative'
-  },
-  filterChips: {
     alignItems: 'center',
     flexDirection: 'row',
     gap: 8,
-    paddingHorizontal: 4
   },
-  edgeFade: {
-    bottom: 0,
-    position: 'absolute',
-    top: 0,
-    width: FILTER_EDGE_FADE_WIDTH,
-    zIndex: 2
+  labelFilterButton: {
+    alignItems: 'center',
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    flex: 1,
+    flexDirection: 'row',
+    gap: 8,
+    minHeight: 44,
+    minWidth: 0,
+    paddingHorizontal: 12,
   },
-  leftFadeSlot: {
-    height: 34,
-    position: 'relative',
-    width: FILTER_EDGE_FADE_WIDTH,
-    zIndex: 2
-  },
-  rightFadeSlot: {
-    height: 34,
-    position: 'relative',
-    width: FILTER_EDGE_FADE_WIDTH,
-    zIndex: 2
-  },
-  hiddenFade: {
-    opacity: 0
-  },
+  filterText: { flex: 1, minWidth: 0 },
+  bulkControlShell: { paddingBottom: 0 },
   emptyState: {
     alignItems: 'center',
     gap: 10,

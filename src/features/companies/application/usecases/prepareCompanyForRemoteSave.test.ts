@@ -27,6 +27,7 @@ describe('prepareCompanyForRemoteSave', () => {
   it('can be used with a repository mock without exposing password', async () => {
     let savedPayload: ReturnType<typeof prepareCompanyForRemoteSave> | null = null;
     const repository: CompanyRepository = {
+      updateStatuses: async () => ({ items: [], updatedIds: [], unchangedIds: [], failedIds: [] }),
       deleteCompany: async () => {},
       listCompanies: async () => [],
       upsertCompany: async (nextCompany) => {
