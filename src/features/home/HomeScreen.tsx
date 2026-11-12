@@ -88,6 +88,10 @@ import {
   groupCompaniesByStatus,
 } from "./utils/companyUtils";
 import {
+  buildCompanyListItems,
+  type CompanyListItem,
+} from "./utils/companyListUtils";
+import {
   filterQuestionMemos,
   flattenQuestionMemos,
   QuestionMemoEntry,
@@ -118,46 +122,10 @@ const toTimestamp = (value?: string) => {
 };
 
 const AnimatedSafeAreaView = Animated.createAnimatedComponent(SafeAreaView);
-type CompanyStatusGroup = ReturnType<typeof groupCompaniesByStatus>[number];
-type CompanyListItem =
-  | {
-      kind: "section";
-      id: string;
-      status: SelectionStatus;
-      count: number;
-    }
-  | {
-      kind: "company";
-      id: string;
-      status: SelectionStatus;
-      company: Company;
-      isFirst: boolean;
-      isLast: boolean;
-    };
 const PASSWORD_DEFAULT_VISIBLE_KEY = "syuukatu:password-default-visible";
 const COMPANY_LIST_OVERRIDE_PROPS = { initialDrawBatchSize: 8 } as const;
 const DISABLED_MAINTAIN_VISIBLE_CONTENT_POSITION = { disabled: true } as const;
 const MENU_MODAL_OPEN_DELAY_MS = Platform.OS === "web" ? 50 : 80;
-
-const buildCompanyListItems = (
-  groups: CompanyStatusGroup[],
-): CompanyListItem[] =>
-  groups.flatMap((group) => [
-    {
-      kind: "section",
-      id: `section:${group.status}`,
-      status: group.status,
-      count: group.companies.length,
-    },
-    ...group.companies.map((company, index) => ({
-      kind: "company" as const,
-      id: company.id,
-      status: group.status,
-      company,
-      isFirst: index === 0,
-      isLast: index === group.companies.length - 1,
-    })),
-  ]);
 
 const getCompanyListItemType = (item: CompanyListItem) => item.kind;
 const keyCompanyListItem = (item: CompanyListItem) => item.id;
@@ -312,6 +280,7 @@ const CompanyCardListRow = ({
         isPasswordVisible={isPasswordVisible(company.id)}
         showPasswordControls={showPasswordControls}
         hideDeleteAction={selectionActive}
+        selected={selected}
         statusOptions={statusOptions}
         theme={theme}
         onPress={handleEdit}
@@ -348,6 +317,15 @@ const CompanyListRow = memo(
     if (item.kind === "section") {
       return (
         <View style={[containerStyle, styles.companySectionHeader]}>
+          {item.hasStatusBoundary ? (
+            <View
+              accessible={false}
+              style={[
+                styles.companyStatusBoundary,
+                { backgroundColor: theme.colors.border },
+              ]}
+            />
+          ) : null}
           <SectionHeader title={item.status} count={item.count} theme={theme} />
         </View>
       );
@@ -401,7 +379,8 @@ const CompanyListRow = memo(
     if (previous.item.kind === "section" && next.item.kind === "section") {
       return (
         previous.item.status === next.item.status &&
-        previous.item.count === next.item.count
+        previous.item.count === next.item.count &&
+        previous.item.hasStatusBoundary === next.item.hasStatusBoundary
       );
     }
 
@@ -2587,6 +2566,10 @@ const styles = StyleSheet.create({
   },
   companySectionHeader: {
     marginTop: 24,
+  },
+  companyStatusBoundary: {
+    height: StyleSheet.hairlineWidth,
+    marginBottom: 24,
   },
   companyCardShell: {
     borderLeftWidth: StyleSheet.hairlineWidth,

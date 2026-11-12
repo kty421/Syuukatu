@@ -72,7 +72,7 @@ const parseCredential = (id: string, raw: string): CompanyCredential => {
 const normalizeCompany = (company: Company): Company =>
   ({
     ...company,
-    status: normalizeSelectionStatus(String(company.status))
+    status: normalizeSelectionStatus(String(company.status), company.type)
   });
 
 const readLegacyCredential = async (id: string) => {

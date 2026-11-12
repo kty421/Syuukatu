@@ -1,7 +1,7 @@
 import {
   fromCompanyRow,
   toCompanyRow,
-  upsertCompanyBodySchema
+  parseCompanyUpsertBody
 } from '../_lib/company';
 import {
   fromCompanyScheduleRow,
@@ -229,7 +229,7 @@ export default async function handler(
       return;
     }
 
-    const body = upsertCompanyBodySchema.parse(rawBody);
+    const body = parseCompanyUpsertBody(rawBody);
     const { data, error } = await supabase
       .from('companies')
       .upsert(toCompanyRow(body.company, user.id), { onConflict: 'id' })

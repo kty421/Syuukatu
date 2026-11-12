@@ -7,8 +7,9 @@ import {
   updateCompanyStatuses,
   updateQuestionLabels
 } from './bulkUpdates';
-import { applyCorsHeaders } from './http';
-import { upsertCompanyBodySchema } from './company';
+import { applyCorsHeaders, handleApiError } from './http';
+import { fromCompanyRow, parseCompanyUpsertBody, toCompanyRow, upsertCompanyBodySchema } from './company';
+import { COMPLETED_STATUS_ERROR, OFFER_STATUS_ERROR } from '../../src/shared/companyStatusPolicy';
 import type { VercelResponse } from './vercel';
 
 type Row = Record<string, unknown>;
@@ -122,8 +123,62 @@ describe('bulk update APIs', () => {
     expect(upsertCompanyBodySchema.safeParse({ company: draft }).success).toBe(true);
     const invalid = upsertCompanyBodySchema.safeParse({ company: { ...draft, type: 'fullTime' } });
     expect(invalid.success).toBe(false);
-    if (!invalid.success) expect(invalid.error.issues[0].path).toEqual(['company', 'status']);
+    if (!invalid.success) expect(invalid.error.issues[0]).toMatchObject({
+      path: ['company', 'status'], message: COMPLETED_STATUS_ERROR,
+    });
     expect(upsertCompanyBodySchema.safeParse({ company: { ...draft, type: 'fullTime', status: '応募済み' } }).success).toBe(true);
+  });
+
+  it('preserves full-time offers through save and load and rejects internship offers with a specific message', () => {
+    const draft = {
+      id: 'company', type: 'fullTime', status: '内定', companyName: '企業',
+      createdAt: '2026-10-01', updatedAt: '2026-10-01',
+    };
+    const parsed = upsertCompanyBodySchema.parse({ company: draft });
+    const restored = fromCompanyRow(toCompanyRow(parsed.company, 'owner'));
+    expect(restored).toMatchObject({ type: 'fullTime', status: '内定' });
+    const invalid = upsertCompanyBodySchema.safeParse({ company: { ...draft, type: 'internship' } });
+    expect(invalid.success).toBe(false);
+    if (!invalid.success) expect(invalid.error.issues[0]).toMatchObject({
+      path: ['company', 'status'], message: OFFER_STATUS_ERROR,
+    });
+  });
+
+  it('bulk-updates full-time offers while preserving internship records and reporting them as failures', async () => {
+    const db = new Database();
+    db.tables.companies[1].type = 'fullTime';
+    const before = structuredClone(db.tables.companies[0]);
+    const body = bulkCompanyStatusBodySchema.parse({ companyIds: ['c1', 'c2', 'foreign'], status: '内定' });
+    const result = await updateCompanyStatuses(db.client, 'owner', body);
+    expect(result.updatedIds).toEqual(['c2']);
+    expect(result.failedIds).toEqual(['c1', 'foreign']);
+    expect(result.items).toMatchObject([{ id: 'c2', type: 'fullTime', status: '内定' }]);
+    expect(db.tables.companies[0]).toEqual(before);
+    expect(db.tables.companies[1].status).toBe('内定');
+    expect(db.writes).toHaveLength(1);
+    const repeated = await updateCompanyStatuses(db.client, 'owner', body);
+    expect(repeated.updatedIds).toEqual([]);
+    expect(repeated.unchangedIds).toEqual(['c2']);
+    expect(repeated.failedIds).toEqual(['c1', 'foreign']);
+    expect(db.writes).toHaveLength(1);
+  });
+
+  it.each([
+    ['internship', '内定', OFFER_STATUS_ERROR],
+    ['fullTime', '完了', COMPLETED_STATUS_ERROR],
+  ])('returns the status-specific API error for %s / %s', (type, status, message) => {
+    const response = { status: vi.fn().mockReturnThis(), json: vi.fn() };
+    try {
+      parseCompanyUpsertBody({ company: {
+        id: 'company', type, status, companyName: '企業',
+        createdAt: '2026-10-01', updatedAt: '2026-10-01',
+      } });
+      throw new Error('Expected invalid status to fail');
+    } catch (error) {
+      handleApiError(response as unknown as VercelResponse, error);
+    }
+    expect(response.status).toHaveBeenCalledWith(422);
+    expect(response.json).toHaveBeenCalledWith({ error: { code: '422', message, details: undefined } });
   });
 
   it('updates completed internships while reporting full-time targets as failures without writing them', async () => {

@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { memo, useState, type ReactNode } from "react";
 import {
   GestureResponderEvent,
@@ -14,6 +15,7 @@ import { AppTheme } from "../../../constants/theme";
 import { CopyFeedbackButton } from "../../../ui/CopyFeedbackButton";
 import { IconButton } from "../../../ui/IconButton";
 import { Company, SelectionStatus } from "../types";
+import { normalizeSelectionStatus } from "../utils/companyUtils";
 import { SelectionStatusPickerSheet } from "./SelectionStatusPickerSheet";
 
 type CompanyCardProps = {
@@ -22,6 +24,7 @@ type CompanyCardProps = {
   isPasswordVisible: boolean;
   showPasswordControls: boolean;
   hideDeleteAction?: boolean;
+  selected?: boolean;
   statusOptions: SelectionStatus[];
   onPress: () => void;
   onTogglePassword: () => void;
@@ -44,6 +47,7 @@ export const CompanyCard = memo(
     isPasswordVisible,
     showPasswordControls,
     hideDeleteAction,
+    selected = false,
     statusOptions,
     onPress,
     onTogglePassword,
@@ -57,6 +61,8 @@ export const CompanyCard = memo(
     const [detailsExpanded, setDetailsExpanded] = useState(false);
     const isCompact = width < 768;
     const showDetails = !isCompact || detailsExpanded;
+    const status = normalizeSelectionStatus(company.status, company.type);
+    const isCelebrated = status === "参加確定" || status === "内定";
 
     const runChildAction =
       (handler: () => void) => (event: GestureResponderEvent) => {
@@ -99,11 +105,51 @@ export const CompanyCard = memo(
             paddingHorizontal: theme.spacing.md,
             paddingVertical: theme.spacing.xs,
           },
-          pressed && { backgroundColor: theme.colors.surfaceSubtle },
+          pressed && {
+            backgroundColor: theme.colors.surfaceSubtle,
+            opacity: isCelebrated ? theme.state.pressedOpacity : 1,
+          },
         ]}>
+        {isCelebrated ? (
+          <View
+            accessible={false}
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+            pointerEvents="none"
+            style={StyleSheet.absoluteFill}>
+            {!selected ? (
+              <LinearGradient
+                colors={[theme.colors.primarySubtle, theme.colors.surface]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0.6 }}
+                style={StyleSheet.absoluteFill}
+              />
+            ) : null}
+            <View
+              style={[
+                styles.celebrationAccent,
+                { backgroundColor: theme.colors.primary },
+              ]}
+            />
+          </View>
+        ) : null}
         <View style={styles.headerRow}>
           <View style={styles.titleBlock}>
             <View style={styles.nameRow}>
+              {isCelebrated ? (
+                <View
+                  accessible={false}
+                  accessibilityElementsHidden
+                  importantForAccessibility="no-hide-descendants"
+                  pointerEvents="none"
+                  style={styles.celebrationIcon}>
+                  <Ionicons
+                    color={theme.colors.primary}
+                    name="sparkles-outline"
+                    size={14}
+                  />
+                </View>
+              ) : null}
               <Text
                 style={[
                   theme.typography.bodyStrong,
@@ -116,13 +162,15 @@ export const CompanyCard = memo(
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={`${company.companyName}の選考状況を変更`}
-                accessibilityHint={`現在の選考状況は${company.status}です`}
+                accessibilityHint={`現在の選考状況は${status}です`}
                 onPress={openStatusPicker}
                 style={({ pressed }) => [
                   styles.statusChip,
                   {
                     backgroundColor: theme.colors.surface,
-                    borderColor: theme.colors.border,
+                    borderColor: isCelebrated
+                      ? theme.colors.primaryBorder
+                      : theme.colors.border,
                   },
                   pressed && styles.statusChipPressed,
                 ]}>
@@ -130,12 +178,18 @@ export const CompanyCard = memo(
                   numberOfLines={1}
                   style={[
                     styles.statusText,
-                    { color: theme.colors.textPrimary },
+                    {
+                      color: isCelebrated
+                        ? theme.colors.primary
+                        : theme.colors.textPrimary,
+                    },
                   ]}>
-                  {company.status}
+                  {status}
                 </Text>
                 <Ionicons
-                  color={theme.colors.textMuted}
+                  color={
+                    isCelebrated ? theme.colors.primary : theme.colors.textMuted
+                  }
                   name="chevron-down"
                   size={15}
                 />
@@ -320,7 +374,7 @@ export const CompanyCard = memo(
 
         <SelectionStatusPickerSheet
           visible={statusPickerVisible}
-          value={company.status}
+          value={status}
           options={statusOptions}
           theme={theme}
           deferSelect
@@ -372,6 +426,19 @@ const CredentialRow = ({
 
 const styles = StyleSheet.create({
   card: {
+    position: "relative",
+  },
+  celebrationAccent: {
+    borderRadius: 999,
+    bottom: 8,
+    left: 4,
+    opacity: 0.5,
+    position: "absolute",
+    top: 8,
+    width: 2,
+  },
+  celebrationIcon: {
+    marginRight: 6,
   },
   headerRow: {
     alignItems: "flex-start",
