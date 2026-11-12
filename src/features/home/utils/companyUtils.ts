@@ -20,7 +20,6 @@ const legacyStatusMap: Record<string, SelectionStatus> = {
   最終面接: "４次面接待ち",
   面接: "１次面接待ち",
   内々定: "参加確定",
-  内定: "参加確定",
   参加済み: "参加確定",
   お見送り: "落選",
   不参加: "辞退",
@@ -42,7 +41,7 @@ const getCompanySearchText = (company: Company) =>
     company.industry,
     company.role,
     company.status,
-    normalizeSelectionStatus(company.status),
+    normalizeSelectionStatus(company.status, company.type),
     ...company.tags,
   ]
     .filter(Boolean)
@@ -55,7 +54,14 @@ export const buildCompanySearchIndex = (companies: Company[]) =>
 export const getStatusList = (type: ApplicationType): SelectionStatus[] =>
   selectionStatuses.filter((status) => isCompanyStatusAllowed({ type, status }));
 
-export const normalizeSelectionStatus = (status: string): SelectionStatus => {
+export const normalizeSelectionStatus = (
+  status: string,
+  type: ApplicationType,
+): SelectionStatus => {
+  if (status === "内定" && type === "internship") {
+    return "参加確定";
+  }
+
   if ((selectionStatuses as readonly string[]).includes(status)) {
     return status as SelectionStatus;
   }
@@ -106,7 +112,7 @@ export const groupCompaniesByStatus = (
 
   for (const company of companies) {
     companiesByStatus
-      .get(normalizeSelectionStatus(company.status))
+      .get(normalizeSelectionStatus(company.status, company.type))
       ?.push(company);
   }
 

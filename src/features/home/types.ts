@@ -114,6 +114,7 @@ export const selectionStatuses = [
   "４次面接待ち",
   "４次面接通過",
   "参加確定",
+  "内定",
   "落選",
   "辞退",
   "完了",

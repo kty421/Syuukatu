@@ -474,7 +474,7 @@ export const CompanyEditorModal = ({
       const nextForm = company
         ? {
             ...company,
-            status: normalizeSelectionStatus(company.status),
+            status: normalizeSelectionStatus(company.status, company.type),
             questionAnswers: questionMemos,
           }
         : copySourceCompany

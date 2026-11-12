@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import { COMPLETED_STATUS_ERROR, isCompanyStatusAllowed } from '../../src/shared/companyStatusPolicy';
+import { getCompanyStatusError } from '../../src/shared/companyStatusPolicy';
+import { HttpError } from './http';
 
 export const companySchema = z.object({
   id: z.string().min(1),
@@ -28,11 +29,28 @@ export const companySchema = z.object({
   archived: z.boolean().optional().default(false),
   createdAt: z.string().min(1),
   updatedAt: z.string().min(1)
-}).refine(isCompanyStatusAllowed, { path: ['status'], message: COMPLETED_STATUS_ERROR });
+}).superRefine((company, context) => {
+  const message = getCompanyStatusError(company);
+  if (message) {
+    context.addIssue({ code: 'custom', path: ['status'], message });
+  }
+});
 
 export const upsertCompanyBodySchema = z.object({
   company: companySchema
 });
+
+export const parseCompanyUpsertBody = (body: unknown) => {
+  const result = upsertCompanyBodySchema.safeParse(body);
+  if (result.success) return result.data;
+
+  const statusIssue = result.error.issues.find((issue) =>
+    issue.code === 'custom' && issue.path.length === 2 &&
+    issue.path[0] === 'company' && issue.path[1] === 'status'
+  );
+  if (statusIssue) throw new HttpError(422, statusIssue.message);
+  throw result.error;
+};
 
 type CompanyPayload = z.infer<typeof companySchema>;
 
