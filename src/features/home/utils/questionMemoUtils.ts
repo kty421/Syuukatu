@@ -61,13 +61,17 @@ export const flattenQuestionMemos = (
 export const filterQuestionMemos = (
   entries: QuestionMemoEntry[],
   query: string,
-  labelId: string | null
+  selectedLabelIds: string[]
 ) => {
   const normalizedQuery = query.trim().toLowerCase();
 
   return entries
     .filter(
-      (entry) => !labelId || entry.questionMemo.labelIds.includes(labelId)
+      (entry) =>
+        selectedLabelIds.length === 0 ||
+        selectedLabelIds.some((labelId) =>
+          entry.questionMemo.labelIds.includes(labelId)
+        )
     )
     .filter((entry) => {
       if (!normalizedQuery) {

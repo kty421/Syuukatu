@@ -473,9 +473,9 @@ export const HomeScreen = ({
   >(null);
   const [isBulkSaving, setIsBulkSaving] = useState(false);
   const bulkSavingRef = useRef(false);
-  const [selectedQuestionLabelId, setSelectedQuestionLabelId] = useState<
-    string | null
-  >(null);
+  const [selectedQuestionLabelIds, setSelectedQuestionLabelIds] = useState<
+    string[]
+  >([]);
   const [questionSort, setQuestionSort] =
     useState<QuestionMemoSort>("updatedAtDesc");
   const [editorVisible, setEditorVisible] = useState(false);
@@ -602,7 +602,7 @@ export const HomeScreen = ({
         filterQuestionMemos(
           questionEntries,
           deferredQuestionQuery,
-          selectedQuestionLabelId,
+          selectedQuestionLabelIds,
         ),
         questionSort,
       ),
@@ -610,7 +610,7 @@ export const HomeScreen = ({
       deferredQuestionQuery,
       questionEntries,
       questionSort,
-      selectedQuestionLabelId,
+      selectedQuestionLabelIds,
     ],
   );
   const visibleBulkIds = useMemo(() => {
@@ -893,12 +893,20 @@ export const HomeScreen = ({
 
   const changeQuestionLabelFilter = useCallback(
     (labelId: string | null) => {
-      if (bulkSavingRef.current || selectedQuestionLabelId === labelId) return;
+      if (
+        bulkSavingRef.current ||
+        (labelId === null && selectedQuestionLabelIds.length === 0)
+      ) return;
       resetBulkSelection();
-      setSelectedQuestionLabelId(labelId);
+      setSelectedQuestionLabelIds((current) => {
+        if (labelId === null) return [];
+        return current.includes(labelId)
+          ? current.filter((id) => id !== labelId)
+          : [...current, labelId];
+      });
       scrollQuestionListToTop(false);
     },
-    [resetBulkSelection, scrollQuestionListToTop, selectedQuestionLabelId],
+    [resetBulkSelection, scrollQuestionListToTop, selectedQuestionLabelIds],
   );
 
   useEffect(
@@ -1611,9 +1619,11 @@ export const HomeScreen = ({
     async (labelId: string) => {
       await deleteQuestionLabel(labelId);
 
-      if (selectedQuestionLabelId === labelId) {
+      if (selectedQuestionLabelIds.includes(labelId)) {
         resetBulkSelection();
-        setSelectedQuestionLabelId(null);
+        setSelectedQuestionLabelIds((current) =>
+          current.filter((id) => id !== labelId),
+        );
       }
 
       showToast("ラベルを削除しました");
@@ -1621,7 +1631,7 @@ export const HomeScreen = ({
     [
       deleteQuestionLabel,
       resetBulkSelection,
-      selectedQuestionLabelId,
+      selectedQuestionLabelIds,
       showToast,
     ],
   );
@@ -1676,7 +1686,7 @@ export const HomeScreen = ({
         if (!isExistingQuestionMemo) {
           resetBulkSelection();
           setHomeView("questions");
-          setSelectedQuestionLabelId(null);
+          setSelectedQuestionLabelIds([]);
           setQuestionSort("updatedAtDesc");
           setQuestionQuery("");
           scrollQuestionListToTop();
@@ -2200,7 +2210,7 @@ export const HomeScreen = ({
             entries={filteredQuestionEntries}
             labels={questionLabels}
             totalCount={questionEntries.length}
-            selectedLabelId={selectedQuestionLabelId}
+            selectedLabelIds={selectedQuestionLabelIds}
             sort={questionSort}
             query={questionQuery}
             isLoading={isLoading}

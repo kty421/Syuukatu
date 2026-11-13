@@ -32,7 +32,7 @@ type QuestionListViewProps = {
   entries: QuestionMemoEntry[];
   labels: QuestionLabel[];
   totalCount: number;
-  selectedLabelId: string | null;
+  selectedLabelIds: string[];
   sort: QuestionMemoSort;
   query: string;
   isLoading: boolean;
@@ -168,7 +168,7 @@ export const QuestionListView = ({
   entries,
   labels,
   totalCount,
-  selectedLabelId,
+  selectedLabelIds,
   sort,
   query,
   isLoading,
@@ -284,7 +284,7 @@ export const QuestionListView = ({
           <FilterChip
             label={`すべて ${totalCount}`}
             theme={theme}
-            selected={!selectedLabelId}
+            selected={selectedLabelIds.length === 0}
             tint={accentColor}
             surface={accentSurface}
             border={accentBorder}
@@ -321,7 +321,7 @@ export const QuestionListView = ({
                 key={label.id}
                 label={label.name}
                 theme={theme}
-                selected={selectedLabelId === label.id}
+                selected={selectedLabelIds.includes(label.id)}
                 tint={accentColor}
                 surface={accentSurface}
                 border={accentBorder}
@@ -399,7 +399,7 @@ export const QuestionListView = ({
               検索をクリア
             </Text>
           </Pressable>
-        ) : selectedLabelId ? (
+        ) : selectedLabelIds.length > 0 ? (
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="質問フィルタをリセット"
@@ -423,7 +423,7 @@ export const QuestionListView = ({
     onClearQuery,
     onLabelFilterChange,
     query,
-    selectedLabelId,
+    selectedLabelIds,
     theme,
     totalCount
   ]);
